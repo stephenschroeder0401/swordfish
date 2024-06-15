@@ -1,0 +1,8 @@
+
+
+BEGIN;
+
+ALTER TABLE jobs ADD COLUMN entity VARCHAR(255);
+
+
+COMMIT;

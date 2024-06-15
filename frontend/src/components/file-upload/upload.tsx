@@ -1,0 +1,74 @@
+// components/CSVUpload.js
+import React from 'react';
+import Papa from 'papaparse';
+import { Input } from '@chakra-ui/react';
+
+interface CSVUploadProps {
+  onDataProcessed: (data: any) => void;
+  disabled?: boolean;
+}
+
+const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false }) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files[0];
+    parseCSV(file);
+  };
+
+  const parseCSV = (file: File) => {
+    Papa.parse(file, {
+      complete: (result) => {
+        console.log('Parsed: ', result);
+        const transformedData = transformData(result.data);
+        onDataProcessed(transformedData); // Use the callback to pass data to parent
+      },
+      header: true,
+    });
+  };
+
+  const transformData = (csvData: any[]) => {
+    console.log("Transforming data");
+    return csvData.map((row) => {
+      const [property, category] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+
+      // Parse the clock-in and clock-out times
+      const clockedInAt = new Date(row['Clocked In At']);
+      const clockedOutAt = new Date(row['Clocked Out At']);
+
+      const formattedDate = clockedInAt.getFullYear() + '-' +
+        ('0' + (clockedInAt.getMonth() + 1)).slice(-2) + '-' +
+        ('0' + clockedInAt.getDate()).slice(-2);
+
+      // Calculate the duration in hours
+      const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
+      const mileage = row['Mileage'] ? Number(row['Mileage']) : 0;
+
+      return {
+        employee: row['Employee Name'].trim(), // Trim whitespace
+        date: formattedDate.trim(), // Trim is not necessarily needed here since this is constructed, but included for consistency
+        property: property.trim(), // Already trimmed above
+        category: category?.trim(), // Already trimmed above
+        clockedInAt: clockedInAt.toISOString(), // Convert to ISO string
+        clockedOutAt: clockedOutAt.toISOString(), // Convert to ISO string
+        hours: duration.toFixed(2), // This results in a string, no whitespace to trim
+        rate: 0, // Implement this function based on your logic
+        total: 0,
+        mileage: mileage,
+        notes: row['Notes'] // Assuming 'total' maps to 'Mileage', adjust as needed
+        // Add any additional transformations here
+      };
+    });
+  };
+
+  return (
+    <Input
+      width={'25%'}
+      my='5'
+      type="file"
+      accept=".csv"
+      onChange={handleFileChange}
+      disabled={disabled}
+    />
+  );
+};
+
+export default CSVUpload;

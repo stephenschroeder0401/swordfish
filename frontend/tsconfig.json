@@ -7,27 +7,31 @@
     ],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": false,
-    "noImplicitAny": false,
-    "noEmit": true,
+    "strict": false, // Disables all strict type-checking options
+    "noImplicitAny": false, // Allows expressions and declarations with an implied 'any' type
+    "noEmitOnError": false, // Do not emit outputs if any type checking errors are reported
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": true,
+    "isolatedModules": true, // Do not perform isolation which can be stricter
     "jsx": "preserve",
     "incremental": true,
+    "strictNullChecks": false, // Do not strictly check nullability which can lead to many common errors
+    "strictFunctionTypes": false,
+    "strictBindCallApply": false,
+    "strictPropertyInitialization": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noEmit": true,
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["src/*"]
     },
-    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",

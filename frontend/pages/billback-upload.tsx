@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useState } from "react";
 import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";

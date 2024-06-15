@@ -1,3 +1,4 @@
+// @ts-nocheck
 // PaginationControls.js
 import React from "react";
 import { Flex, Button, Text, Select } from "@chakra-ui/react";

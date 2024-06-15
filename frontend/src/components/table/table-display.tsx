@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";

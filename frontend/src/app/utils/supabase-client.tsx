@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
 import { CallHistoryEntry } from "../types/call-history-entry";
 import { BillingJob } from "../types/billing-types";

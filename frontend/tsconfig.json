@@ -5,6 +5,10 @@
       "dom.iterable",
       "esnext"
     ],
+    "baseUrl": ".", // Base directory to resolve non-relative module names
+    "paths": {
+      "@/*": ["src/*"] // Adjust according to your project structure
+    },
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false, // Disables all strict type-checking options
@@ -29,9 +33,6 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["src/*"]
-    },
   },
   "include": [
     "next-env.d.ts",

@@ -2,7 +2,7 @@
 
 BEGIN;
 
-ALTER TABLE jobs ADD COLUMN entity VARCHAR(255);
+select 1;
 
 
 COMMIT;

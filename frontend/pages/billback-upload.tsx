@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer, Card, FormControl, FormLabel, SimpleGrid } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
@@ -306,60 +306,80 @@ const BillBack = () => {
       <Heading as="h1" size="xl" mb={6}>
         Billback Upload
       </Heading>
-      <CSVUpload disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
-      <Flex direction="column" my={10} width="100%">
-        <Spacer />
-        <Flex direction="column" align="flex-end" width="100%">
-          <Select
-            size="md"
-            width="20%"
-            mx={10}
-            placeholder="Select Billing Period"
-            onChange={handleBillingPeriodChange}
-            value={billingPeriod?.id}
-            mb={4}
-          >
-            {billingPeriods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.enddate}
-              </option>
-            ))}
-          </Select>
+      <Card size="md" type="outline" style={{
+  padding: '16px',
+  minWidth: '300px', // Ensures Card does not shrink below 300px
+  margin: '16px',
+  width: '20vw', // Keeps Card responsive but no smaller than 300px
+}}>
+  {/* Billing Period Selection */}
+  <FormControl>
+    <FormLabel htmlFor="billing-period-select" mb={1}>Billing Period:</FormLabel>
+    <Flex alignItems="center">
+    <Select
+  id="billing-period-select"
+  size="md"
+  width='200px'
+  style={{
+    display: 'inline-block', // Ensures the select behaves correctly in flow
+    boxSizing: 'border-box' // Ensures padding and borders are included in the width
+  }}
+  placeholder="Select Billing Period"
+  onChange={handleBillingPeriodChange}
+  value={billingPeriod?.id}
+>
+        {billingPeriods.map((period) => (
+          <option key={period.id} value={period.id}>
+            {period.enddate}
+          </option>
+        ))}
+      </Select>
+    </Flex>
+  </FormControl>
 
-          <Button
-            onClick={handleSubmit}
-            size="md"
-            width="20%"
-            mx={10}
-            colorScheme="blue"
-            isLoading={isLoading}
-            isDisabled={!isValid}
-          >
-            Invoice Jobs
-          </Button>
-        </Flex>
-      </Flex>
-      <Box display="flex" alignItems="center" width="100%" mb={5}>
-        <Button mb={5} onClick={addRow} mt="4" colorScheme="blue">
+  {/* CSV Upload */}
+  <FormControl mt={4}>
+    <FormLabel fontWeight mb={1}>Timero Upload:</FormLabel>
+    <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
+  </FormControl>
+</Card>
+
+      <SimpleGrid mt={10} columns={2}>
+      <Flex direction="row" alignItems="flex-start" justifyContent="flex-start" height="100%">
+        <Button onClick={addRow} colorScheme="blue" size="md" mt={2} ml={4}>
           Add Row
-        </Button>
+          </Button>
+      </Flex>
+      <Flex direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
         <Button
           onClick={handleSaveProgress}
-          mx={10}
           size="md"
-          width="20%"
           colorScheme="gray"
-          ml="auto"
           isDisabled={!billingPeriod}
+          mr={4}
         >
           Save Progress
         </Button>
-      </Box>
+        <Button
+          onClick={handleSubmit}
+          size="md"
+          colorScheme="blue"
+          isLoading={isLoading}
+          isDisabled={!isValid}
+          mt={2}
+          mr={4}
+        >
+          Invoice Jobs
+        </Button>
+      </Flex>
+      </SimpleGrid>
+
       <Box
-        overflowX="auto"
+        overflowX="scroll"
         border="1px"
         borderColor="gray.200"
         borderRadius="lg"
+        mt={2}
       >
         <BillbackDisplay
           tableConfig={tableConfig}
@@ -380,4 +400,6 @@ const BillBack = () => {
 };
 
 export default BillBack;
+
+
 

@@ -1,7 +1,9 @@
 // components/CSVUpload.js
-import React from 'react';
 import Papa from 'papaparse';
-import { Input } from '@chakra-ui/react';
+import React, { useState, useRef } from 'react';
+import { Button, Input, useToast, Icon, Flex, Text } from '@chakra-ui/react';
+import { FaUpload } from 'react-icons/fa';
+
 
 interface CSVUploadProps {
   onDataProcessed: (data: any) => void;
@@ -9,9 +11,17 @@ interface CSVUploadProps {
 }
 
 const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const toast = useToast();
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files[0];
-    parseCSV(file);
+    const file = event.target.files ? event.target.files[0] : null;
+    if (file) {
+      setSelectedFile(file); // Set the selected file
+      parseCSV(file);
+    }
+
   };
 
   const parseCSV = (file: File) => {
@@ -20,6 +30,15 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false
         console.log('Parsed: ', result);
         const transformedData = transformData(result.data);
         onDataProcessed(transformedData); // Use the callback to pass data to parent
+        toast({
+          title: "File Uploaded",
+          description: `File ${file.name} uploaded`,
+          status: "success",
+          duration: 2000,
+          isClosable: true,
+          position: "bottom-right"
+        });
+
       },
       header: true,
     });
@@ -60,14 +79,27 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false
   };
 
   return (
+    <Flex direction="column" width="14vw" alignItems="flex-start">
+    <Button
+      leftIcon={<Icon as={FaUpload} />}
+      colorScheme="blue"
+      size='md'
+      onClick={() => fileInputRef.current?.click()}
+      isDisabled={disabled}
+    >
+      {selectedFile ? 'File Selected' : 'Upload CSV'}
+    </Button>
+    {selectedFile && <Text color="gray" mt={2} fontSize="sm">{selectedFile.name}</Text>}
     <Input
-      width={'25%'}
-      my='5'
+      ref={fileInputRef}
       type="file"
       accept=".csv"
       onChange={handleFileChange}
+      style={{ display: 'none' }}
       disabled={disabled}
     />
+  </Flex>
+
   );
 };
 

@@ -206,7 +206,21 @@ const AdminPanel = () => {
                           value={newRow[column] || ''}
                           onChange={(e) => handleNewRowInputChange(e, column)}
                         />
-                      ) : (
+                        ) : 
+                        selectedTable === 'employee' && (column === 'rate') ? (
+                          <>$
+                          <Input
+                            ml={2}
+                            width='10vw'
+                            type="number"
+                            step="0.01"
+                            placeholder='0.00'
+                            value={newRow[column] || ''}
+                            onChange={(e) => handleNewRowInputChange(e, column)}
+                          />
+                          </>
+                        ) :
+                        (  
                         <Input
                           placeholder={`Enter ${column}`}
                           value={newRow[column] || ''}
@@ -243,7 +257,21 @@ const AdminPanel = () => {
                             value={row[column] || ''}
                             onChange={(e) => handleInputChange(e, rowIndex, column)}
                           />
-                        ) : (
+                          ) :
+                          selectedTable === 'employee' && (column === 'rate') ? (
+                            <>$
+                            <Input
+                              ml={2}
+                              width='10vw'
+                              type="number"
+                              step="0.01"
+                              value={row[column] || ''}
+                              onChange={(e) => handleInputChange(e, rowIndex, column)}
+                            />
+                            </>
+                          ): 
+                          (
+  
                           <Input value={row[column] || ''} onChange={(e) => handleInputChange(e, rowIndex, column)} required />
                         )}
                       </Td>

@@ -43,7 +43,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
 }) => {
 
   return (
-    <Box overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
+    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
       <Table variant="simple" size="sm">
         <Thead position="sticky" top="0" bg="white" zIndex="sticky">
           <Tr>
@@ -118,7 +118,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                     ) : (
                       <Input
                         backgroundColor='white'
-                        width={column === 'job_date' ? '7.5vw': '3.5vw'}
+                        width={column === 'job_date' ? '7.5vw': '5.5vw'}
                         type={column === 'hours' || column === 'rate' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                         value={item[column]}
                         onChange={(e) => handleEdit && handleEdit(e, index, column, tableType)}

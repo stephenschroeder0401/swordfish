@@ -139,13 +139,6 @@ const BillBack = () => {
 
     const uniqueEmployees = Array.from(new Set(newData.map(item => item.employee)));
 
-    const matchingEmployees = employees.filter(employee => uniqueEmployees.some(uniqueEmployee => uniqueEmployee === employee.name))
-      .map(employee => ({
-        employeeId: employee.id,
-        employee: employee.name,
-        rate: 0
-      }));
-
   };
   const handleDelete = (e, index) => {
     const newData = [...billbackData].filter((_, i) => i !== index);
@@ -303,15 +296,15 @@ const BillBack = () => {
 
   return (
     <Container maxW='5000px' py={5}>
-      <Heading as="h1" size="xl" mb={6}>
+      <Heading  mb={6}>
         Billback Upload
       </Heading>
       <Card size="md" type="outline" style={{
-  padding: '16px',
-  minWidth: '300px', // Ensures Card does not shrink below 300px
-  margin: '16px',
-  width: '20vw', // Keeps Card responsive but no smaller than 300px
-}}>
+      padding: '16px',
+      minWidth: '300px', // Ensures Card does not shrink below 300px
+      margin: '16px',
+      width: '20vw', // Keeps Card responsive but no smaller than 300px
+    }}>
   {/* Billing Period Selection */}
   <FormControl>
     <FormLabel htmlFor="billing-period-select" mb={1}>Billing Period:</FormLabel>

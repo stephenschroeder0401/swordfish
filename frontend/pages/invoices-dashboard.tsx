@@ -217,7 +217,7 @@ const InvoicesDashboard = () => {
   
 
   return (
-    <Container maxW="container.xl" py={5}>
+    <Container maxW='5000px' py={5}>
       <Heading as="h1" size="xl" mb={6}>
         Invoice Line Items
       </Heading>

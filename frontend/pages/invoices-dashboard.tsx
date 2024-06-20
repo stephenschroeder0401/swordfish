@@ -10,26 +10,21 @@ import {
   Button,
   Select,
 } from "@chakra-ui/react";
-import { Edge } from "../src/app/types/call-history-respose";
-import PaginationControls from "../src/components/table/pagination";
+
 import TableDisplay from "@/components/table/table-display";
-import { CALL_HISTORY_QUERY } from "@/app/types/queries";
+import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
+
 import { TableConfigItem } from "../src/app/types/table-config";
 import { AppfolioLineItem } from "@/app/types/billing-types";
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchJobsAsBillingJob, fetchAllBillingPeriods} from "@/app/utils/supabase-client";
-import { set } from "@vocode/vocode-api/core/schemas";
 
 const InvoicesDashboard = () => {
   const [data, setData] = useState<AppfolioLineItem[]>([]);
-  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [billbackName, setBillbackName] = useState("");  
   const [payeeName, setPayeeName] = useState("");  
   const [billDate, setBillDate] = useState("");
-  const [billingPeriod, setBillingPeriod] = useState(null);
-  const [billingPeriods, setBillingPeriods] = useState([]);
+  const { billingPeriod } = useBillingPeriod(); 
 
-  const [billbackCategories, setBillingAccounts] = useState([]);
-  const [billingProperties, setBillingProperties] = useState([]); 
 
   const updateDataWithState = () => {
     const newData = data.map(item => ({
@@ -54,11 +49,9 @@ const InvoicesDashboard = () => {
       try {
         const accounts = await fetchAllBillingAccounts();
         const billingProperties = await fetchAllBillingProperties();
-        const billingPeriods = await fetchAllBillingPeriods();
 
         setBillingAccounts(accounts as never[]);
         setBillingProperties(billingProperties as never[]);
-        setBillingPeriods(billingPeriods as never[]);
 
 
       } catch (error) {
@@ -81,11 +74,6 @@ const InvoicesDashboard = () => {
   ]
   const handleSort = (column: string) => {}
 
-  const handleBillingPeriodChange = (event) => {
-    setBillingPeriod(event.target.value);
-    fetchData(event.target.value);
-  };
-  
   const updateBillbackName = (name: string) => {
     setBillbackName(name);
     const newData: AppfolioLineItem[] = data.map((item) => {
@@ -104,9 +92,9 @@ const InvoicesDashboard = () => {
   
     
 
-  const fetchData = async (getBillingPeriod) => {
+  const fetchData = async () => {
     try {
-      const jobs = await fetchJobsAsBillingJob(getBillingPeriod);
+      const jobs = await fetchJobsAsBillingJob(billingPeriod);
       const billingProperties = await fetchAllBillingProperties();
       const billbackCategories = await fetchAllBillingAccounts();
       //convert billingJobs to AppfolioLineItems
@@ -146,7 +134,7 @@ const InvoicesDashboard = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [billingPeriod]);
 
   const convertToCSV = (objArray: AppFolioLineItem[]) => {
     if (!objArray.length) return '';
@@ -225,22 +213,6 @@ const InvoicesDashboard = () => {
         Export to CSV
       </Button>
       <Flex justifyContent="left" my="4" ml={0}>
-      <Select
-            size="md"
-            width="20%"
-            mx={10}
-            placeholder="Select Billing Period"
-            onChange={handleBillingPeriodChange}
-            value={billingPeriod?.id}
-            mb={4}
-            
-          >
-            {billingPeriods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.enddate}
-              </option>
-            ))}
-          </Select>
          <Input
           placeholder="Billback Name"
           value={billbackName}

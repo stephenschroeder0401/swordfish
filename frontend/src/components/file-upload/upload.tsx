@@ -82,7 +82,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false
     <Flex direction="column" width="14vw" alignItems="flex-start">
     <Button
       leftIcon={<Icon as={FaUpload} />}
-      colorScheme="blue"
+      colorScheme="gray"
       size='md'
       onClick={() => fileInputRef.current?.click()}
       isDisabled={disabled}

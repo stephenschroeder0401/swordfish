@@ -21,8 +21,8 @@ const theme = extendTheme({
       baseStyle: {
         fontFamily: 'Raleway',
         fontSize: "14px",
-        fontWeight: "600", 
-        color: "gray.700"
+        fontWeight: "800", 
+        
       },
     },
   },

@@ -1,15 +1,17 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer, Card, FormControl, FormLabel, SimpleGrid } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer, Card, FormControl, FormLabel, SimpleGrid,IconButton  } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
+import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
+import { AddIcon } from "@chakra-ui/icons"
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
+import { color } from "framer-motion";
 
 const BillBack = () => {
   const mileageRate = 0.65;
   const [isValid, setIsValid] = useState(false);
-  const [billingPeriod, setBillingPeriod] = useState(null);
-  const [billingPeriods, setBillingPeriods] = useState([]);
+  const { billingPeriod } = useBillingPeriod(); 
   const [sortCriteria, setSortCriteria] = useState("start_time");
   const [sortDirection, setSortDirection] = useState("AscNullsFirst");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,11 +44,9 @@ const BillBack = () => {
         const accounts = await fetchAllBillingAccounts();
         const employeeData = await fetchAllEmployees();
         const billingProperties = await fetchAllBillingProperties();
-        const billingPeriods = await fetchAllBillingPeriods();
         setBillingAccounts(accounts);
         setEmployees(employeeData);
         setBillingProperties(billingProperties);
-        setBillingPeriods(billingPeriods);
       } catch (error) {
         console.error("Error fetching initial data", error);
       }
@@ -54,6 +54,26 @@ const BillBack = () => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchBillbackData = async () => {
+      if (billingPeriod) {
+        try {
+          const data = await fetchBillbackUpload(billingPeriod);
+          if(data.upload_data)
+            setBillbackData(data.upload_data); // Set to empty array if data is not an array
+        } catch (error) {
+          console.error("Error fetching billback data for billing period", error);
+          setBillbackData([]); // Ensure state is still an array on error
+        }
+      }
+    };
+  
+    fetchBillbackData();
+  }, [billingPeriod]);
+  
+
+  
 
   const addRow = () => {
     const newRow = {
@@ -80,18 +100,6 @@ const BillBack = () => {
     };
     setBillbackData([newRow, ...billbackData]);
     console.log(billbackData);
-  };
-
-  const handleBillingPeriodChange = (event) => {
-    setBillingPeriod(event.target.value);
-    
-    fetchBillbackUpload(event.target.value).then((data) => { 
-      if (data) {
-        setBillbackData(data.upload_data);
-      } else {
-        setBillbackData([]);
-      }
-    });
   };
 
   const handleDataProcessed = (newData) => {
@@ -137,7 +145,6 @@ const BillBack = () => {
 
     setBillbackData((prevBillbackData) => [...prevBillbackData, ...billingJobs]);
 
-    const uniqueEmployees = Array.from(new Set(newData.map(item => item.employee)));
 
   };
   const handleDelete = (e, index) => {
@@ -271,6 +278,7 @@ const BillBack = () => {
     setIsLoading(true);
     try {
       await saveJobs(billbackData, billingPeriod);
+      await handleSaveProgress();
       toast({
         title: "Success",
         description: "Jobs have been successfully saved.",
@@ -295,72 +303,59 @@ const BillBack = () => {
   };
 
   return (
-    <Container maxW='5000px' py={5}>
-      <Heading  mb={6}>
-        Billback Upload
-      </Heading>
-      <Card size="md" type="outline" style={{
-      padding: '16px',
-      minWidth: '300px', // Ensures Card does not shrink below 300px
-      margin: '16px',
-      width: '20vw', // Keeps Card responsive but no smaller than 300px
-    }}>
-  {/* Billing Period Selection */}
-  <FormControl>
-    <FormLabel htmlFor="billing-period-select" mb={1}>Billing Period:</FormLabel>
-    <Flex alignItems="center">
-    <Select
-  id="billing-period-select"
-  size="md"
-  width='200px'
-  style={{
-    display: 'inline-block', // Ensures the select behaves correctly in flow
-    boxSizing: 'border-box' // Ensures padding and borders are included in the width
-  }}
-  placeholder="Select Billing Period"
-  onChange={handleBillingPeriodChange}
-  value={billingPeriod?.id}
->
-        {billingPeriods.map((period) => (
-          <option key={period.id} value={period.id}>
-            {period.enddate}
-          </option>
-        ))}
-      </Select>
-    </Flex>
-  </FormControl>
 
-  {/* CSV Upload */}
-  <FormControl mt={4}>
-    <FormLabel fontWeight mb={1}>Timero Upload:</FormLabel>
-    <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
-  </FormControl>
-</Card>
+    <Container maxW='5000px' py={5}>
+      <SimpleGrid mt={5} columns={2}>
+        <Flex direction="row" alignItems="flex-start" justifyContent="flex-start" >
+        <Card size="md" type="outline" mt={5} ml={7} p={4} style={{
+          minWidth: '250px', // Ensures Card does not shrink below 300px
+          width: '18vw', // Keeps Card responsive but no smaller than 300px
+        }}>
+
+          <FormControl>
+            <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
+            <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
+          </FormControl>
+        </Card>
+        </Flex>
+        <Flex direction="row" alignItems="flex-start" justifyContent="flex-end" >
+        <Heading color="gray.700" mr={10}>
+          Billback Upload
+        </Heading>
+        </Flex>
+      </SimpleGrid>
 
       <SimpleGrid mt={10} columns={2}>
       <Flex direction="row" alignItems="flex-start" justifyContent="flex-start" height="100%">
-        <Button onClick={addRow} colorScheme="blue" size="md" mt={2} ml={4}>
-          Add Row
-          </Button>
+      <IconButton
+        onClick={addRow}
+        colorScheme="white"
+        size="md"
+        width="4vw"
+        icon={<AddIcon size="large" color="green.400" _hover={{color:"green.200", transform: 'scale(1.2)'}}/>}
+        aria-label="Add Row"
+      />
       </Flex>
-      <Flex direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
+      <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
         <Button
           onClick={handleSaveProgress}
           size="md"
           colorScheme="gray"
           isDisabled={!billingPeriod}
           mr={4}
+          minWidth='9vw'
         >
           Save Progress
         </Button>
         <Button
           onClick={handleSubmit}
           size="md"
-          colorScheme="blue"
+          colorScheme="green"
+          bg={'green.400'}
           isLoading={isLoading}
           isDisabled={!isValid}
           mt={2}
-          mr={4}
+          minWidth='9vw'
         >
           Invoice Jobs
         </Button>
@@ -368,11 +363,12 @@ const BillBack = () => {
       </SimpleGrid>
 
       <Box
-        overflowX="scroll"
         border="1px"
         borderColor="gray.200"
         borderRadius="lg"
         mt={2}
+        mb={50}
+        overflow="auto" 
       >
         <BillbackDisplay
           tableConfig={tableConfig}

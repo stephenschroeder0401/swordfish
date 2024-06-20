@@ -43,8 +43,8 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
 }) => {
 
   return (
-    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
-      <Table variant="simple" size="sm">
+    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 150px)" zIndex={2}>
+      <Table mb={10} variant="simple" size="sm">
         <Thead position="sticky" top="0" bg="white" zIndex="sticky">
           <Tr>
             {tableConfig.map(({ label, column, canSort }) => (
@@ -65,8 +65,8 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
               {tableConfig.map(({ column, canEdit }) => (
                 <Td key={column}>
                   {column === 'delete' ? (
-                    <CloseIcon color={'lightblue'} width={'2vw'} onClick={(e) => handleDelete(e, index)} _hover={{
-                      color: 'darkblue',
+                    <CloseIcon color={'red.200'} width={'2vw'} onClick={(e) => handleDelete(e, index)} _hover={{
+                      color: 'red.700',
                       transform: 'scale(1.2)',
                     }}/>
                   ) : (canEdit !== false) ? (

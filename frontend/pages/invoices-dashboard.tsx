@@ -9,6 +9,7 @@ import {
   Heading,
   Button,
   Select,
+  SimpleGrid
 } from "@chakra-ui/react";
 
 import TableDisplay from "@/components/table/table-display";
@@ -201,17 +202,37 @@ const InvoicesDashboard = () => {
       document.body.removeChild(link);
     });
   };
-  
+  /*
+  <SimpleGrid mt={5}columns={2}>
+        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
+        <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
+          <FormControl>
+            <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
+            <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
+          </FormControl>
+        </Card>
+        </Flex>
+        <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
+        <Heading color="gray.700" mt={4} ml={1} mr={5}>
+          Billback Upload
+        </Heading>
+        </Flex>
+      </SimpleGrid>*/
   
 
   return (
     <Container maxW='5000px' py={5}>
+      <SimpleGrid mt={5}columns={2}>
+        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
+        </Flex>
+      <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
       <Heading as="h1" size="xl" mb={6}>
         Invoice Line Items
-      </Heading>
-      <Button colorScheme="blue" onClick={exportCSVFile} mb={4}>
-        Export to CSV
-      </Button>
+      </Heading>  
+
+      </Flex>
+      </SimpleGrid>
+      <SimpleGrid columns={2}>
       <Flex justifyContent="left" my="4" ml={0}>
          <Input
           placeholder="Billback Name"
@@ -235,32 +256,21 @@ const InvoicesDashboard = () => {
           width="auto"
           ml="4"
         />
+        </Flex>
+        <Flex justifyContent={"right"} alignItems={"flex-end"}>
+      <Button colorScheme="green"
+          bg={'green.500'} onClick={exportCSVFile} mb={4}>
+        Export to CSV
+      </Button>
       </Flex>
-        
+      </SimpleGrid>
       <Box
         overflowX="auto"
         border="1px"
         borderColor="gray.200"
         borderRadius="lg"
       >
-        {/* <Flex justifyContent="left" my="4">
-          <PaginationControls
-            currentPage={currentPage}
-            hasNextPage={hasNextPage}
-            itemsPerPage={itemsPerPage}
-            setItemsPerPage={setitemsPerPage}
-            handleNextPage={handleNextPage}
-            handlePrevPage={handlePrevPage}
-          />
-          <Input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => handleFilter(e.target.value)}
-            width="auto"
-            ml="4"
-          /> 
-        </Flex>*/
-  }
+
         <TableDisplay
          tableConfig ={tableConfig}
           data={data}

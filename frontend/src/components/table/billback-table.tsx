@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from "react";
-import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon } from "@chakra-ui/react";
+import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon, Text } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 interface TableConfigItem {
@@ -43,7 +43,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
 }) => {
 
   return (
-    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 150px)" zIndex={2}>
+    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
       <Table mb={10} variant="simple" size="sm">
         <Thead position="sticky" top="0" bg="white" zIndex="sticky">
           <Tr>
@@ -73,6 +73,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                     column === 'property' ? (
                       <Select
                         width="10vw"
+                        minWidth={'160px'}
                         backgroundColor='white'
                         value={item['propertyId']}
                         onChange={(e) => handleEdit && handleEdit(e, index, 'property', tableType)}
@@ -92,6 +93,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                         onChange={(e) => handleEdit && handleEdit(e, index, 'category', tableType)}
                         size="sm"
                         width={'10vw'}
+                        minWidth={'165px'}
                         placeholder={item['category'] ? `NOT FOUND ${item['category']}` : 'Select category'}
                       >
                         {accounts.map((account, idx) => (
@@ -107,6 +109,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                         onChange={(e) => handleEdit && handleEdit(e, index, 'employee', tableType)}
                         size="sm"
                         width='9.5vw'
+                        minWidth={'160px'}
                         placeholder="Select employee"
                       >
                         {employees.map((employee, idx) => (
@@ -118,7 +121,9 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                     ) : (
                       <Input
                         backgroundColor='white'
-                        width={column === 'job_date' ? '7.5vw': '5.5vw'}
+                        width={column === 'job_date' ? '7vw': '5.5vw'}
+                        minWidth={column === 'job_date' ? '130px': '65px'}
+
                         type={column === 'hours' || column === 'rate' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                         value={item[column]}
                         onChange={(e) => handleEdit && handleEdit(e, index, column, tableType)}
@@ -128,7 +133,7 @@ const BillbackDisplay: React.FC<BillbackDisplayProps> = ({
                   ) : (
                     column.includes("time") && item[column]
                       ? new Date(item[column]).toLocaleString()
-                      : item[column]
+                      : <Text minWidth={"160px"}>{item[column]}</Text>
                   )}
                 </Td>
               ))}

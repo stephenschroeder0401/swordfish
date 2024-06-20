@@ -247,18 +247,20 @@ const BillBack = () => {
     { column: "notes", label: "Notes", canSort: false, canEdit: false },
   ];
 
-  const handleSaveProgress = async () => {
+  const handleSaveProgress = async (notify:boolean) => {
     setIsLoading(true);
     try {
       await upsertBillbackUpload(billbackData, billingPeriod);
+      if(notify){
       toast({
         title: "Success",
-        description: "Jobs have been successfully saved for billing period",
+        description: "Progress has been saved",
         status: "success",
         duration: 5000,
         isClosable: true,
         position: "bottom-right"
       });
+    }
     } catch (error) {
       toast({
         title: "Error",
@@ -278,10 +280,10 @@ const BillBack = () => {
     setIsLoading(true);
     try {
       await saveJobs(billbackData, billingPeriod);
-      await handleSaveProgress();
+      await handleSaveProgress(false);
       toast({
         title: "Success",
-        description: "Jobs have been successfully saved.",
+        description: "Jobs saved for billing period",
         status: "success",
         duration: 5000,
         isClosable: true,
@@ -304,29 +306,25 @@ const BillBack = () => {
 
   return (
 
-    <Container maxW='5000px' py={5}>
-      <SimpleGrid mt={5} columns={2}>
-        <Flex direction="row" alignItems="flex-start" justifyContent="flex-start" >
-        <Card size="md" type="outline" mt={5} ml={7} p={4} style={{
-          minWidth: '250px', // Ensures Card does not shrink below 300px
-          width: '18vw', // Keeps Card responsive but no smaller than 300px
-        }}>
-
+    <Container maxW='5000px' py={2}>
+      <SimpleGrid mt={5}columns={2}>
+        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
+        <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
           <FormControl>
             <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
             <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
           </FormControl>
         </Card>
         </Flex>
-        <Flex direction="row" alignItems="flex-start" justifyContent="flex-end" >
-        <Heading color="gray.700" mr={10}>
+        <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
+        <Heading color="gray.700" mt={4} ml={1} mr={5}>
           Billback Upload
         </Heading>
         </Flex>
       </SimpleGrid>
 
-      <SimpleGrid mt={10} columns={2}>
-      <Flex direction="row" alignItems="flex-start" justifyContent="flex-start" height="100%">
+      <SimpleGrid mt={5} columns={2}>
+      <Flex direction="row" alignItems="flex-end" justifyContent="flex-start" height="100%">
       <IconButton
         onClick={addRow}
         colorScheme="white"
@@ -334,6 +332,8 @@ const BillBack = () => {
         width="4vw"
         icon={<AddIcon size="large" color="green.400" _hover={{color:"green.200", transform: 'scale(1.2)'}}/>}
         aria-label="Add Row"
+        mb={-2}
+        
       />
       </Flex>
       <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
@@ -367,7 +367,7 @@ const BillBack = () => {
         borderColor="gray.200"
         borderRadius="lg"
         mt={2}
-        mb={50}
+        mb={155}
         overflow="auto" 
       >
         <BillbackDisplay

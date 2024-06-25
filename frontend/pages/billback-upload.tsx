@@ -1,12 +1,13 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Spacer, Card, FormControl, FormLabel, SimpleGrid,IconButton  } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
 import { color } from "framer-motion";
+import { set } from "@vocode/vocode-api/core/schemas";
 
 const BillBack = () => {
   const mileageRate = 0.65;
@@ -40,6 +41,7 @@ const BillBack = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const accounts = await fetchAllBillingAccounts();
         const employeeData = await fetchAllEmployees();
@@ -50,6 +52,7 @@ const BillBack = () => {
       } catch (error) {
         console.error("Error fetching initial data", error);
       }
+      setIsLoading(false);
     };
 
     fetchData();
@@ -103,6 +106,7 @@ const BillBack = () => {
   };
 
   const handleDataProcessed = (newData) => {
+    setIsLoading(true);
     const billingJobs = newData.map((job) => {
       const billingAccount = billingAccounts.find((account) => account.name === job.category);
       const billingProperty = billingProperties.find((property) => property.name === job.property);
@@ -113,9 +117,9 @@ const BillBack = () => {
 
       const employee = employees.find((employee) => employee.name === job.employee);
 
-      
+      const rate = employee ? employee.rate : 0;
 
-      const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, employee.rate, job.mileage);
+      const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, job.mileage);
 
       const isError = !(billingAccount && billingProperty);
 
@@ -132,7 +136,7 @@ const BillBack = () => {
         startTime: job.clockedInAt,
         endTime: job.clockedOutAt,
         hours: job.hours,
-        rate: employee.rate,
+        rate: rate,
         total: laborTotal,
         billedmiles: job.mileage,
         mileageTotal: mileageTotal,
@@ -144,6 +148,7 @@ const BillBack = () => {
     });
 
     setBillbackData((prevBillbackData) => [...prevBillbackData, ...billingJobs]);
+    setIsLoading(false);
 
 
   };
@@ -153,6 +158,7 @@ const BillBack = () => {
   };
 
   const handleEdit = (event, index, column, tableType) => {
+    console.log('handling edit..');
     const newData = [...billbackData];
     let editedValue = event.target.value;
 
@@ -228,6 +234,8 @@ const BillBack = () => {
     };
 
       setBillbackData(newData);
+    
+    console.log('edit handled');
   };
 
 
@@ -352,7 +360,7 @@ const BillBack = () => {
           size="md"
           colorScheme="green"
           bg={'green.500'}
-          isLoading={isLoading}
+          isLoading={false}
           isDisabled={!isValid}
           mt={2}
           minWidth='9vw'
@@ -370,6 +378,11 @@ const BillBack = () => {
         mb={155}
         overflow="auto" 
       >
+        {isLoading ? (
+      <Center height="100vh">
+        <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
+      </Center>
+    ) : (
         <BillbackDisplay
           tableConfig={tableConfig}
           data={billbackData}
@@ -382,7 +395,7 @@ const BillBack = () => {
           properties={billingProperties}
           employees={employees}
           handleDelete={handleDelete}
-        />
+        />)}
       </Box>
     </Container>
   );

@@ -40,46 +40,47 @@ const BillBack = () => {
     checkIsValid();
   }, [billbackData]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const accounts = await fetchAllBillingAccounts();
-        const employeeData = await fetchAllEmployees();
-        const billingProperties = await fetchAllBillingProperties();
-        setBillingAccounts(accounts);
-        setEmployees(employeeData);
-        setBillingProperties(billingProperties);
-      } catch (error) {
-        console.error("Error fetching initial data", error);
-      }
-      setIsLoading(false);
-    };
+  const loadDependencies = async () => {
+    setIsLoading(true);
+    try {
+      const accounts = await fetchAllBillingAccounts();
+      const properties = await fetchAllBillingProperties();
+      const employeeData = await fetchAllEmployees();
+      setBillingAccounts(accounts);
+      setBillingProperties(properties);
+      setEmployees(employeeData);
+    } catch (error) {
+      console.error("Error fetching initial data", error);
+    }
+    setIsLoading(false);
+  };
 
-    fetchData();
+  // Effect to load dependencies
+  useEffect(() => {
+    loadDependencies();
   }, []);
 
   useEffect(() => {
     setSelectedFile(null);
-
     const fetchBillbackData = async () => {
-      setIsLoading(true);
-      if (billingPeriod) {
-        try {
-          const data = await fetchBillbackUpload(billingPeriod);
-          if(!!data)
-            setBillbackData(data.upload_data);
-          else  // Set to empty array if data is not an array
-            setBillbackData([]);
-        } catch (error) {
-          console.error("Error fetching billback data for billing period", error);
-          setBillbackData([]); // Ensure state is still an array on error
-        }
+      if (!billingPeriod || !billingAccounts.length || !billingProperties.length || !employees.length) {
+        return;  // Ensure all dependencies are loaded
       }
-      setIsLoading(false);
+
+      setIsLoading(true);
+      try {
+        const data = await fetchBillbackUpload(billingPeriod);
+        setBillbackData(data?.upload_data || []);
+      } catch (error) {
+        console.error("Error fetching billback data for billing period", error);
+        setBillbackData([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
     fetchBillbackData();
-  }, [billingPeriod]);
+  }, [billingPeriod, billingAccounts, billingProperties, employees]);
 
   const addRow = () => {
     const newRow = {

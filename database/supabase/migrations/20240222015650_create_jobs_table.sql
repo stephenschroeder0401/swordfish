@@ -1,5 +1,7 @@
 -- Table: public.jobs
 
+CREATE sequence IF NOT EXISTS jobs_id_seq;
+
 DROP TABLE IF EXISTS public.jobs;
 
 CREATE TABLE IF NOT EXISTS public.jobs

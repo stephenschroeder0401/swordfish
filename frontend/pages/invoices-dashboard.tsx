@@ -31,10 +31,14 @@ const InvoicesDashboard = () => {
     const newData = data.map(item => ({
       ...item,
       // Update fields based on state variables
+      
       payeeName: payeeName,  // Assuming you want to set all items to the same payeeName
       billDescription: billbackName ? `${billbackName}: ${item.billingAccountCategory}` : item.billDescription,
       billDate: billDate, // Set bill date for all items
       dueDate: billDate, // Set due date for all items
+      billReference: billbackName, // Set bill reference for all items
+      billRemarks: billbackName, // Set bill remarks for all items
+      memoForCheck: billbackName, // Set memo for check for all items
     }));
   
     setData(newData);
@@ -107,13 +111,13 @@ const InvoicesDashboard = () => {
         const property = billingProperties.find((property) => property.id == job.property_id);
 
         const lineItem = {
-          billPropertyCode: property ? property.name + ' - ' + property.name + ' Grand Junction 81501' : '',
-          billUnitName: '',
+          billPropertyCode: property.code,
+          billUnitName: property.unit,
           entity: property ? property.entityName : '',
           payeeName: payeeName,
           amount: job.total,
           billAccountCode: billbackCategory?.glcode,
-          billDescription: account? billbackName + ": " + account.name : "",
+          billDescription: account.description,
           billDate: billDate,
           dueDate: billDate,
           billReference: billbackName,

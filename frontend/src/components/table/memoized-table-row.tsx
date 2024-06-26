@@ -4,7 +4,7 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, Icon
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
-const MemoizedTableRow = React.memo(({ item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
   return (
     <Tr key={index} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
@@ -81,8 +81,7 @@ const MemoizedTableRow = React.memo(({ item, index, handleEdit, handleDelete, ta
       ))}
     </Tr>
   );
-}, (prevProps, nextProps) => {
-  return prevProps.item === nextProps.item;
-});
+};
+ // Add this closing parenthesis
 
 export default MemoizedTableRow;

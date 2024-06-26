@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
@@ -10,6 +10,8 @@ import { color } from "framer-motion";
 import { set } from "@vocode/vocode-api/core/schemas";
 
 const BillBack = () => {
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const mileageRate = 0.65;
   const [isValid, setIsValid] = useState(false);
   const { billingPeriod } = useBillingPeriod(); 
@@ -23,7 +25,6 @@ const BillBack = () => {
   const toast = useToast();
 
   const calculateTotals = (hours, rate, mileage) => {
-    console.log("CALCULATE TOTALS " + hours + " " + rate + " "+ mileage)
     const laborTotal = (hours * rate).toFixed(2);
     const mileageTotal = (mileage * mileageRate).toFixed(2);
     const jobTotal = ((parseFloat(laborTotal) + parseFloat(mileageTotal)).toFixed(2));
@@ -59,24 +60,26 @@ const BillBack = () => {
   }, []);
 
   useEffect(() => {
+    setSelectedFile(null);
+
     const fetchBillbackData = async () => {
+      setIsLoading(true);
       if (billingPeriod) {
         try {
           const data = await fetchBillbackUpload(billingPeriod);
-          if(data.upload_data)
-            setBillbackData(data.upload_data); // Set to empty array if data is not an array
+          if(!!data)
+            setBillbackData(data.upload_data);
+          else  // Set to empty array if data is not an array
+            setBillbackData([]);
         } catch (error) {
           console.error("Error fetching billback data for billing period", error);
           setBillbackData([]); // Ensure state is still an array on error
         }
       }
+      setIsLoading(false);
     };
-  
     fetchBillbackData();
   }, [billingPeriod]);
-  
-
-  
 
   const addRow = () => {
     const newRow = {
@@ -110,10 +113,6 @@ const BillBack = () => {
     const billingJobs = newData.map((job) => {
       const billingAccount = billingAccounts.find((account) => account.name === job.category);
       const billingProperty = billingProperties.find((property) => property.name === job.property);
-
-      console.log("Employees");
-      console.log(job.employee);
-      console.log(employees);
 
       const employee = employees.find((employee) => employee.name === job.employee);
 
@@ -259,6 +258,7 @@ const BillBack = () => {
     setIsLoading(true);
     try {
       await upsertBillbackUpload(billbackData, billingPeriod);
+      setIsLoading(false);
       if(notify){
       toast({
         title: "Success",
@@ -288,6 +288,7 @@ const BillBack = () => {
     setIsLoading(true);
     try {
       await saveJobs(billbackData, billingPeriod);
+      setIsLoading(false);
       await handleSaveProgress(false);
       toast({
         title: "Success",
@@ -320,7 +321,14 @@ const BillBack = () => {
         <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
           <FormControl>
             <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
-            <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
+            <CSVUpload
+              style={{ width: '180px' }}
+              disabled={!billingPeriod}
+              onDataProcessed={handleDataProcessed}
+              setLoading={setIsLoading}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}  // Pass the setIsLoading function to control loading
+             />
           </FormControl>
         </Card>
         </Flex>

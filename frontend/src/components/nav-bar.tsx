@@ -17,10 +17,8 @@ const NavBar = () => {
     const fetchData = async () => {
       try {
         const periods = await fetchAllBillingPeriods();
-        // Assuming periods are fetched as an array of { id, enddate } objects
         const sortedPeriods = periods.sort((a, b) => new Date(b.enddate).getTime() - new Date(a.enddate).getTime());
         setBillingPeriods(sortedPeriods);
-        // Set the most recent period as the active one
         if (sortedPeriods.length > 0 && !billingPeriod) {
           setBillingPeriod(sortedPeriods[0].id);
         }

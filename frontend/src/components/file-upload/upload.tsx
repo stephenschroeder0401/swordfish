@@ -1,27 +1,29 @@
 // components/CSVUpload.js
 import Papa from 'papaparse';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef} from 'react';
 import { Button, Input, useToast, Icon, Flex, Text } from '@chakra-ui/react';
 import { FaUpload } from 'react-icons/fa';
 
 
 interface CSVUploadProps {
   onDataProcessed: (data: any) => void;
+  setLoading: (loading: boolean) => void;  // New function prop to control loading state
   disabled?: boolean;
+  selectedFile: File | null;
+  setSelectedFile: (file: File | null) => void;
 }
 
-const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false }) => {
+const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, selectedFile, setSelectedFile, disabled = false}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const toast = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files ? event.target.files[0] : null;
+    setSelectedFile(file);  // Directly use the setSelectedFile function from props
     if (file) {
-      setSelectedFile(file); // Set the selected file
+      setLoading(true); // Set loading to true right when file selection is made
       parseCSV(file);
     }
-
   };
 
   const parseCSV = (file: File) => {
@@ -29,7 +31,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false
       complete: (result) => {
         console.log('Parsed: ', result);
         const transformedData = transformData(result.data);
-        onDataProcessed(transformedData); // Use the callback to pass data to parent
+        onDataProcessed(transformedData);
         toast({
           title: "File Uploaded",
           description: `File ${file.name} uploaded`,
@@ -38,7 +40,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, disabled = false
           isClosable: true,
           position: "bottom-right"
         });
-
+        setLoading(false); // Set loading to false when parsing is complete
       },
       header: true,
     });

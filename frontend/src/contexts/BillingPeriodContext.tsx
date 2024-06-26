@@ -7,7 +7,7 @@ const BillingPeriodContext = createContext(null);
 export const useBillingPeriod = () => useContext(BillingPeriodContext);
 
 export const BillingPeriodProvider = ({ children }) => {
-  const [billingPeriod, setBillingPeriod] = useState(null);
+  const [billingPeriod, setBillingPeriod] = useState(undefined);
 
   return (
     <BillingPeriodContext.Provider value={{ billingPeriod, setBillingPeriod }}>

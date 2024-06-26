@@ -3,7 +3,7 @@ import React from "react";
 import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon, Text } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
-
+//eslint-disable-next-line
 const MemoizedTableRow = React.memo(({ item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
   return (
     <Tr key={index} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center, Text } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
@@ -109,6 +109,11 @@ const BillBack = () => {
     console.log(billbackData);
   };
 
+  const handleClearData =() =>{
+    setBillbackData([]);
+    setSelectedFile(null);
+  }
+
   const handleDataProcessed = (newData) => {
     setIsLoading(true);
     const billingJobs = newData.map((job) => {
@@ -157,7 +162,7 @@ const BillBack = () => {
     const newData = [...billbackData].filter((_, i) => i !== index);
     setBillbackData(newData);
   };
-  
+
 
   const handleEdit = (event, index, column, tableType) => {
     console.log('handling edit..');
@@ -354,6 +359,14 @@ const BillBack = () => {
         mb={-2}
         
       />
+      <Text color={'red.400'} _hover={{
+              color: 'red.700',
+              transform: 'scale(1.1)',
+              cursor: 'pointer'
+            }}
+            onClick={handleClearData}>
+       CLEAR
+      </Text>
       </Flex>
       <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
         <Button

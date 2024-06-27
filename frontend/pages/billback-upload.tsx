@@ -8,6 +8,7 @@ import { AddIcon } from "@chakra-ui/icons"
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
 import { color } from "framer-motion";
 import { set } from "@vocode/vocode-api/core/schemas";
+import { NODE_ESM_RESOLVE_OPTIONS } from "next/dist/build/webpack-config";
 
 const BillBack = () => {
   
@@ -70,7 +71,13 @@ const BillBack = () => {
       setIsLoading(true);
       try {
         const data = await fetchBillbackUpload(billingPeriod);
-        setBillbackData(data?.upload_data || []);
+        if (!data || data.upload_data.length < 1) {
+          setBillbackData([]);
+        }
+        else{
+          const uploadData = data?.upload_data || [];
+          handleDataProcessed(uploadData);
+        }
       } catch (error) {
         console.error("Error fetching billback data for billing period", error);
         setBillbackData([]);
@@ -115,8 +122,11 @@ const BillBack = () => {
   }
 
   const handleDataProcessed = (newData) => {
+    
     setIsLoading(true);
+
     const billingJobs = newData.map((job) => {
+      if(!!job){
       const billingAccount = billingAccounts.find((account) => account.name === job.category);
       const billingProperty = billingProperties.find((property) => property.name === job.property);
 
@@ -132,7 +142,7 @@ const BillBack = () => {
       return {
         employeeId: employee ? employee.id : undefined,
         employee: employee ? employee.name : job.employee + "Not found",
-        job_date: job.date,
+        job_date: job.date ? job.date : job.job_date,
         propertyId: billingProperty ? billingProperty.id : undefined,
         property: billingProperty ? billingProperty.name : job.property,
         entityId: billingProperty ? billingProperty.entityid : undefined,
@@ -151,11 +161,11 @@ const BillBack = () => {
         isError: isError,
         isManual: false
       };
+    }
     });
 
     setBillbackData((prevBillbackData) => [...prevBillbackData, ...billingJobs]);
     setIsLoading(false);
-
 
   };
   const handleDelete = (e, index) => {
@@ -335,7 +345,7 @@ const BillBack = () => {
               onDataProcessed={handleDataProcessed}
               setLoading={setIsLoading}
               selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}  // Pass the setIsLoading function to control loading
+              setSelectedFile={setSelectedFile}  
              />
           </FormControl>
         </Card>

@@ -119,6 +119,7 @@ const BillBack = () => {
 
       const rate = employee ? employee.rate : 0;
 
+
       const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, job.mileage);
 
       const isError = !(billingAccount && billingProperty);
@@ -156,6 +157,7 @@ const BillBack = () => {
     const newData = [...billbackData].filter((_, i) => i !== index);
     setBillbackData(newData);
   };
+  
 
   const handleEdit = (event, index, column, tableType) => {
     console.log('handling edit..');

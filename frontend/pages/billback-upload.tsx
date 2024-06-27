@@ -133,15 +133,15 @@ const BillBack = () => {
       const employee = employees.find((employee) => employee.name === job.employee);
 
       const rate = employee ? employee.rate : 0;
+      const milage = job.mileage ? job.mileage : job.billedmiles;
 
-
-      const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, job.mileage);
+      const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
 
       const isError = !(billingAccount && billingProperty);
 
       return {
         employeeId: employee ? employee.id : undefined,
-        employee: employee ? employee.name : job.employee + "Not found",
+        employee: employee ? employee.name : job.employee,
         job_date: job.date ? job.date : job.job_date,
         propertyId: billingProperty ? billingProperty.id : undefined,
         property: billingProperty ? billingProperty.name : job.property,
@@ -154,7 +154,7 @@ const BillBack = () => {
         hours: job.hours,
         rate: rate,
         total: laborTotal,
-        billedmiles: job.mileage,
+        billedmiles: milage,
         mileageTotal: mileageTotal,
         jobTotal: jobTotal,
         notes: job.notes,

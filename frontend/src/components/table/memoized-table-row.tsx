@@ -68,7 +68,7 @@ const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, 
                 backgroundColor='white'
                 width={column === 'job_date' ? '7vw' : '5.5vw'}
                 minWidth={column === 'job_date' ? '130px' : '65px'}
-                type={column === 'hours' || column === 'rate' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
+                type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                 value={item[column]}
                 onChange={(e) => handleEdit(e, index, column, tableType)}
                 size="sm"

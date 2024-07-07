@@ -133,7 +133,11 @@ const BillBack = () => {
       const employee = employees.find((employee) => employee.name === job.employee);
 
       const rate = employee ? employee.rate : 0;
-      const milage = job.mileage ? job.mileage : job.billedmiles;
+
+      const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
+                : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
+                : 0;
+
 
       const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
 

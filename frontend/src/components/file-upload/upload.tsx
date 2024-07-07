@@ -58,37 +58,45 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
 
   const transformData = (csvData: any[]) => {
     console.log("Transforming data");
-    return csvData.map((row) => {
-      const [property, category] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+    return csvData
+      .filter((row) => Object.values(row).some((value) => value && value.trim() !== '')) // Filter out empty rows
+      .map((row) => {
+        const [property, category] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+  
+        // Parse the clock-in and clock-out times
+        const clockedInAt = new Date(row['Clocked In At']);
+        const clockedOutAt = new Date(row['Clocked Out At']);
+  
+        const formattedDate = clockedInAt.getFullYear() + '-' +
+          ('0' + (clockedInAt.getMonth() + 1)).slice(-2) + '-' +
+          ('0' + clockedInAt.getDate()).slice(-2);
+  
+        // Calculate the duration in hours
+        const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
+        let mileage = row['Mileage'] ? Number(row['Mileage']) : 0;
+        if (isNaN(mileage) || row['Mileage'].trim() === '') {
+          mileage = 0;
+        }
 
-      // Parse the clock-in and clock-out times
-      const clockedInAt = new Date(row['Clocked In At']);
-      const clockedOutAt = new Date(row['Clocked Out At']);
-
-      const formattedDate = clockedInAt.getFullYear() + '-' +
-        ('0' + (clockedInAt.getMonth() + 1)).slice(-2) + '-' +
-        ('0' + clockedInAt.getDate()).slice(-2);
-
-      // Calculate the duration in hours
-      const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
-      const mileage = row['Mileage'] ? Number(row['Mileage']) : 0;
-
-      return {
-        employee: row['Employee Name'].trim(), // Trim whitespace
-        date: formattedDate.trim(), // Trim is not necessarily needed here since this is constructed, but included for consistency
-        property: property.trim(), // Already trimmed above
-        category: category?.trim(), // Already trimmed above
-        clockedInAt: clockedInAt.toISOString(), // Convert to ISO string
-        clockedOutAt: clockedOutAt.toISOString(), // Convert to ISO string
-        hours: duration.toFixed(2), // This results in a string, no whitespace to trim
-        rate: 0, // Implement this function based on your logic
-        total: 0,
-        mileage: mileage,
-        notes: row['Notes'] // Assuming 'total' maps to 'Mileage', adjust as needed
-        // Add any additional transformations here
-      };
-    });
+        console.log("mileage: ", mileage);
+  
+        return {
+          employee: row['Employee Name'].trim(), // Trim whitespace
+          date: formattedDate.trim(), // Trim is not necessarily needed here since this is constructed, but included for consistency
+          property: property.trim(), // Already trimmed above
+          category: category?.trim(), // Already trimmed above
+          clockedInAt: clockedInAt.toISOString(), // Convert to ISO string
+          clockedOutAt: clockedOutAt.toISOString(), // Convert to ISO string
+          hours: duration.toFixed(2), // This results in a string, no whitespace to trim
+          rate: 0, // Implement this function based on your logic
+          total: 0,
+          mileage: mileage,
+          notes: row['Notes'] // Assuming 'total' maps to 'Mileage', adjust as needed
+          // Add any additional transformations here
+        };
+      });
   };
+  
 
   return (
     <Flex direction="column" width="14vw" alignItems="flex-start">

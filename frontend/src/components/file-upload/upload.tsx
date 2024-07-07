@@ -59,7 +59,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
   const transformData = (csvData: any[]) => {
     console.log("Transforming data");
     return csvData
-      .filter((row) => Object.values(row).some((value) => value && value.trim() !== '')) // Filter out empty rows
+      .filter((row: Record<string, string>) => Object.values(row).some((value) => value && value.trim() !== '')) // Filter out empty rows
       .map((row) => {
         const [property, category] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
   

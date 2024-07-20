@@ -61,7 +61,9 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
     return csvData
       .filter((row: Record<string, string>) => Object.values(row).some((value) => value && value.trim() !== '')) // Filter out empty rows
       .map((row) => {
-        const [property, category] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+        const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+        const category = categoryParts.join('/');
+
   
         // Parse the clock-in and clock-out times
         const clockedInAt = new Date(row['Clocked In At']);

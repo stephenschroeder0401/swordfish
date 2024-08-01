@@ -4,13 +4,15 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, Icon
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
-const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+const MemoizedTableRow = ({  rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+  console.log("MEMO ROW");
+  console.log(rowKey)
   return (
-    <Tr key={index} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
+    <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
         <Td key={column}>
           {column === 'delete' ? (
-            <CloseIcon color={'red.200'} width={'2vw'} onClick={(e) => handleDelete(e, index)} _hover={{
+            <CloseIcon color={'red.200'} width={'2vw'} onClick={(e) => handleDelete(e, rowKey)} _hover={{
               color: 'red.700',
               transform: 'scale(1.2)',
             }}/>
@@ -21,7 +23,7 @@ const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, 
                 minWidth={'160px'}
                 backgroundColor='white'
                 value={item.propertyId}
-                onChange={(e) => handleEdit(e, index, 'property', tableType)}
+                onChange={(e) => handleEdit(e, rowKey, 'property', tableType)}
                 size="sm"
                 placeholder={item.property ? `NOT FOUND ${item.property}` : 'Select property'}
               >
@@ -35,7 +37,7 @@ const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, 
               <Select
                 backgroundColor='white'
                 value={item.billingAccountId}
-                onChange={(e) => handleEdit(e, index, 'category', tableType)}
+                onChange={(e) => handleEdit(e, rowKey, 'category', tableType)}
                 size="sm"
                 width={'10vw'}
                 minWidth={'165px'}
@@ -51,7 +53,7 @@ const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, 
               <Select
                 backgroundColor='white'
                 value={item.employeeId}
-                onChange={(e) => handleEdit(e, index, 'employee', tableType)}
+                onChange={(e) => handleEdit(e, rowKey, 'employee', tableType)}
                 size="sm"
                 width='9.5vw'
                 minWidth={'160px'}
@@ -70,7 +72,7 @@ const MemoizedTableRow = ({ item, index, handleEdit, handleDelete, tableConfig, 
                 minWidth={column === 'job_date' ? '130px' : '65px'}
                 type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                 value={item[column]}
-                onChange={(e) => handleEdit(e, index, column, tableType)}
+                onChange={(e) => handleEdit(e, rowKey, column, tableType)}
                 size="sm"
               />
             )

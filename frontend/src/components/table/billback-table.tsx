@@ -1,21 +1,90 @@
 // @ts-nocheck
-import React from "react";
-import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon, Text } from "@chakra-ui/react";
-import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
-import MemoizedTableRow from "./memoized-table-row";  // Adjust the path if necessary
-
+import React, { useEffect, useState } from "react";
+import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Select, Icon, Text } from "@chakra-ui/react";
+import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
+import MemoizedTableRow from "./memoized-table-row";
 
 const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts, properties, employees, handleDelete }) => {
+  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedProperty, setSelectedProperty] = useState("");
+  const [filteredData, setFilteredData] = useState(data);
+
+  useEffect(() => {
+
+    const newFilteredData = data.filter(item => {
+        const matchesEmployee = !selectedEmployee || item.employeeId === selectedEmployee;
+        const matchesCategory = !selectedCategory || item.billingAccountId === selectedCategory;
+        const matchesProperty = !selectedProperty || item.propertyId === selectedProperty;
+        return matchesEmployee && matchesCategory && matchesProperty;
+    });
+
+    setFilteredData(newFilteredData);
+
+}, [data, selectedEmployee, selectedCategory, selectedProperty]); // Ensure useEffect triggers on changes to these states
+
+
+  const handleFilterChange = (setter) => (e) => {
+    setter(e.target.value);
+  };
+
   return (
     <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
+      <Box position="sticky" top="0" bg="white" zIndex="sticky" py={2}>
+        <Flex ml={4} mb={4} align="center" wrap="wrap" borderBottom={'1px'} padding={'7px'} gap={4}>
+          <Flex align="center" >
+            <Text mr={2}>Filters: </Text>
+            <Select
+              placeholder="Select employee"
+              value={selectedEmployee}
+              onChange={handleFilterChange(setSelectedEmployee)}
+              width="200px"
+            >
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </option>
+              ))}
+            </Select>
+          </Flex>
+          <Flex align="center">
+            <Select
+              placeholder="Select category"
+              value={selectedCategory}
+              onChange={handleFilterChange(setSelectedCategory)}
+              width="200px"
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </Select>
+          </Flex>
+          <Flex align="center">
+            <Select
+              placeholder="Select property"
+              value={selectedProperty}
+              onChange={handleFilterChange(setSelectedProperty)}
+              width="200px"
+            >
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </Select>
+          </Flex>
+        </Flex>
+      </Box>
       <Table mb={10} variant="simple" size="sm">
-        <Thead position="sticky" top="0" bg="white" zIndex="sticky">
+        <Thead position="sticky" top="50px" bg="white" zIndex="sticky">
           <Tr>
             {tableConfig.map(({ label, column, canSort }) => (
-              <Th key={column} cursor={canSort ? "pointer" : "default"} onClick={() => canSort && handleSort(column)}>
+              <Th key={column} cursor={canSort ? "pointer" : "default"} onClick={() => canSort && handleSortClick(column)}>
                 <Flex align="center">
                   {label}
-                  {canSort && sortField === column && (
+                  {sortField === column && (
                     sortDirection === "AscNullsFirst" ? <ChevronUpIcon ml={2} /> : <ChevronDownIcon ml={2} />
                   )}
                 </Flex>
@@ -24,9 +93,9 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
           </Tr>
         </Thead>
         <Tbody>
-          {data.map((item, index) => (
+          {filteredData.map((item, index) => (
             <MemoizedTableRow
-              key={index}
+              rowKey={item.rowId}
               item={item}
               index={index}
               handleEdit={handleEdit}

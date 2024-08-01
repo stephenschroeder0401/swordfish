@@ -3,12 +3,10 @@ import React, { useEffect, useState, useRef } from "react";
 import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center, Text } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/table/billback-table";
 import CSVUpload from "@/components/file-upload/upload";
+import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
 import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
-import { color } from "framer-motion";
-import { set } from "@vocode/vocode-api/core/schemas";
-import { NODE_ESM_RESOLVE_OPTIONS } from "next/dist/build/webpack-config";
 
 const BillBack = () => {
   
@@ -16,8 +14,6 @@ const BillBack = () => {
   const mileageRate = 0.65;
   const [isValid, setIsValid] = useState(false);
   const { billingPeriod } = useBillingPeriod(); 
-  const [sortCriteria, setSortCriteria] = useState("start_time");
-  const [sortDirection, setSortDirection] = useState("AscNullsFirst");
   const [isLoading, setIsLoading] = useState(false);
   const [billingAccounts, setBillingAccounts] = useState([]);
   const [billingProperties, setBillingProperties] = useState([]);
@@ -127,6 +123,7 @@ const BillBack = () => {
 
     const billingJobs = newData.map((job) => {
       if(!!job){
+      
       const billingAccount = billingAccounts.find((account) => account.name === job.category);
       const billingProperty = billingProperties.find((property) => property.name === job.property);
 
@@ -143,7 +140,10 @@ const BillBack = () => {
 
       const isError = !(billingAccount && billingProperty);
 
+    
+      
       return {
+        rowId: uuidv4(),
         employeeId: employee ? employee.id : undefined,
         employee: employee ? employee.name : job.employee,
         job_date: job.date ? job.date : job.job_date,
@@ -172,16 +172,26 @@ const BillBack = () => {
     setIsLoading(false);
 
   };
-  const handleDelete = (e, index) => {
-    const newData = [...billbackData].filter((_, i) => i !== index);
+  const handleDelete = (e, key) => {
+    console.log(key);
+    console.log(billbackData);
+    const newData = billbackData.filter(item => item.rowId !== key);
     setBillbackData(newData);
   };
+  
 
 
-  const handleEdit = (event, index, column, tableType) => {
+  const handleEdit = (event, key, column, tableType) => {
     console.log('handling edit..');
     const newData = [...billbackData];
     let editedValue = event.target.value;
+
+    // Find the index of the item using the key
+    const index = newData.findIndex(item => item.rowId === key);
+    if (index === -1) {
+        console.error('Item not found');
+        return; // Exit if item not found
+    }
 
     if ((column === 'hours' || column === 'rate') && editedValue !== '') {
       editedValue = Number(editedValue);
@@ -248,16 +258,16 @@ const BillBack = () => {
 
     console.log("IS ERROR", inError);
 
-
     newData[index] = {
       ...updatedRow,
       isError: inError
     };
 
-      setBillbackData(newData);
+    setBillbackData(newData);
     
     console.log('edit handled');
-  };
+};
+
 
 
   const tableConfig = [
@@ -425,8 +435,8 @@ const BillBack = () => {
           tableConfig={tableConfig}
           data={billbackData}
           handleSort={() => {}}
-          sortField={sortCriteria}
-          sortDirection={sortDirection}
+          sortField={'something'}
+          sortDirection={'up'}
           handleEdit={handleEdit}
           tableType="billback"
           accounts={billingAccounts}

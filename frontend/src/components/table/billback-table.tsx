@@ -31,11 +31,10 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
   return (
     <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
       <Box position="sticky" top="0" bg="white" zIndex="sticky" py={2}>
-        <Flex ml={4} mb={4} align="center" wrap="wrap" borderBottom={'1px'} padding={'7px'} gap={4}>
-          <Flex align="center" >
-            <Text mr={2}>Filters: </Text>
+        <Flex ml={4} mb={4} align="center" wrap="wrap"  padding={'7px'} gap={4} bg="gray.50">
+          <Flex align="center" bg="white">
             <Select
-              placeholder="Select employee"
+              placeholder="Filter employee"
               value={selectedEmployee}
               onChange={handleFilterChange(setSelectedEmployee)}
               width="200px"
@@ -49,7 +48,7 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
           </Flex>
           <Flex align="center">
             <Select
-              placeholder="Select category"
+              placeholder="Filter category"
               value={selectedCategory}
               onChange={handleFilterChange(setSelectedCategory)}
               width="200px"
@@ -63,7 +62,7 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
           </Flex>
           <Flex align="center">
             <Select
-              placeholder="Select property"
+              placeholder="Filter property"
               value={selectedProperty}
               onChange={handleFilterChange(setSelectedProperty)}
               width="200px"

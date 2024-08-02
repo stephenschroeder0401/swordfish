@@ -41,25 +41,29 @@ export const fetchCallHistory = async (
 };
 
 
-export const saveJobs = async (entries: any, billingPeriod: any) => {
+export const saveJobs = async (entries, billingPeriod) => {
   console.log('Entries!');
   console.log(entries);
   console.log('Billing Period!');
   console.log(billingPeriod);
 
-  // Format the entries for insertion
+  // Helper function to validate and format date/time fields
+  const validateDate = (date) => {
+    return date && !isNaN(Date.parse(date)) ? date : null;
+  };
+
   const formattedEntries = entries.map(entry => ({
     employee_id: entry.employeeId,
-    entity_id: entry.entityId,
+    entity_id: entry.entityId || null, // Set to null if empty
     property_id: entry.propertyId,
     billing_account_id: entry.billingAccountId,
     billing_period_id: billingPeriod,
-    job_date: entry.date,
-    start_time: entry.startTime,
-    end_time: entry.endTime,
+    job_date: validateDate(entry.job_date), // Validate job_date
+    start_time: validateDate(entry.startTime), // Validate start_time
+    end_time: validateDate(entry.endTime), // Validate end_time
     billed_miles: entry.billedmiles,
-    milage_rate: entry.milageRate, // Ensure this key is spelled correctly if it's 'mileageRate'
-    milage_total: entry.milageTotal,
+    milage_rate: entry.mileageRate, // Ensure this key is spelled correctly
+    milage_total: entry.mileageTotal,
     billed_hours: parseFloat(entry.hours), // Convert string to float if necessary
     hourly_rate: entry.rate,
     hourly_total: entry.total,

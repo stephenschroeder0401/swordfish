@@ -4,9 +4,8 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, Icon
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
-const MemoizedTableRow = ({  rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
-  console.log("MEMO ROW");
-  console.log(rowKey)
+const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+  
   return (
     <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (

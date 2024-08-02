@@ -65,8 +65,11 @@ const BillBack = () => {
       }
 
       setIsLoading(true);
+      setBillbackData([]);
       try {
+        console.log("GETTING NEW DATA for billing period ", billingPeriod);  
         const data = await fetchBillbackUpload(billingPeriod);
+        console.log(data);
         if (!data || data.upload_data.length < 1) {
           setBillbackData([]);
         }
@@ -89,7 +92,7 @@ const BillBack = () => {
     const newRow = {
         employeeId: "",
         employee: "",
-        job_date: "",
+        job_date: new Date().toISOString().split('T')[0],
         propertyId: "",
         property: "",
         entityId: "",
@@ -120,6 +123,8 @@ const BillBack = () => {
   const handleDataProcessed = (newData) => {
     
     setIsLoading(true);
+
+    console.log(newData);
 
     const billingJobs = newData.map((job) => {
       if(!!job){

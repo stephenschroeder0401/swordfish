@@ -24,6 +24,13 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
 }, [data, selectedEmployee, selectedCategory, selectedProperty]); // Ensure useEffect triggers on changes to these states
 
 
+const clearFilters = () => {
+  setSelectedEmployee("");
+  setSelectedCategory("");
+  setSelectedProperty("");
+};
+
+
   const handleFilterChange = (setter) => (e) => {
     setter(e.target.value);
   };
@@ -74,6 +81,16 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
               ))}
             </Select>
           </Flex>
+          <Flex align="center">
+          <Text color={'red.400'} _hover={{
+              color: 'red.700',
+              transform: 'scale(1.1)',
+              cursor: 'pointer'
+            }}
+            onClick={clearFilters}>
+       REMOVE FILTERS
+      </Text>
+      </Flex>
         </Flex>
       </Box>
       <Table mb={10} variant="simple" size="sm">

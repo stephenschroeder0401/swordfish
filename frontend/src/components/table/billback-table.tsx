@@ -111,6 +111,7 @@ const clearFilters = () => {
         <Tbody>
           {filteredData.map((item, index) => (
             <MemoizedTableRow
+              key={item.rowId}
               rowKey={item.rowId}
               item={item}
               index={index}

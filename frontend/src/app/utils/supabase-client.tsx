@@ -187,6 +187,7 @@ export const upsertBillbackUpload = async (uploadData: any, billingPeriodId: str
 
 
 export const fetchBillbackUpload = async (billingPeriodId: string) => {
+  
   const { data, error } = await supabase
     .from('billback_upload')
     .select("*")
@@ -197,7 +198,7 @@ export const fetchBillbackUpload = async (billingPeriodId: string) => {
     console.error("Error fetching billback upload:", error);
     throw error;
   }
-
+  console.log("returning: ", data)
   return data; 
 };
 

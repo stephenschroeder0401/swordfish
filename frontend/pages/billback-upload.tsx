@@ -394,7 +394,7 @@ const BillBack = () => {
               cursor: 'pointer'
             }}
             onClick={handleClearData}>
-       CLEAR
+       CLEAR FILTERS
       </Text>
       </Flex>
       <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">

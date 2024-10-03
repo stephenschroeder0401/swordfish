@@ -72,6 +72,16 @@ const NavBar = () => {
           </Text>
         </Link>
       </Box>
+      
+      {/* New Analytics menu item */}
+      <Box width="100%" bg={isActive('/analytics') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
+        <Link href="/analytics" passHref>
+          <Text m="2" cursor="pointer" color={isActive('/analytics') ? 'green.700' : 'black'}>
+            Analytics
+          </Text>
+        </Link>
+      </Box>
+      
       <Box width="100%" bg={isActive('/admin-panel') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
         <Link href="/admin-panel" passHref>
           <Text m="2" cursor="pointer" color={isActive('/admin-panel') ? 'green.700' : 'black'}>

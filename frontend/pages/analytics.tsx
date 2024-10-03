@@ -17,6 +17,7 @@ interface BillbackEntry {
   entity: string;
   category: string;
   property: string;
+  employee: string;  // Add this line
 }
 
 const Analytics: React.FC = () => {
@@ -26,7 +27,9 @@ const Analytics: React.FC = () => {
   const [entityChartData, setEntityChartData] = useState<ChartData<'pie'> | null>(null);
   const [categoryChartData, setCategoryChartData] = useState<ChartData<'pie'> | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [propertyChartData, setPropertyChartData] = useState<ChartData<'pie'> | null>(null);
+  const [employeeChartData, setEmployeeChartData] = useState<ChartData<'pie'> | null>(null);
   const { billingPeriod } = useBillingPeriod();
 
   useEffect(() => {
@@ -151,6 +154,31 @@ const Analytics: React.FC = () => {
     });
   };
 
+  const prepareEmployeeChartData = (category: string) => {
+    const employeeHours: { [key: string]: number } = {};
+    billbackData.forEach(entry => {
+      if (entry.category === category && entry.employee && entry.hours) {
+        employeeHours[entry.employee] = (employeeHours[entry.employee] || 0) + Number(entry.hours);
+      }
+    });
+
+    const labels = Object.keys(employeeHours);
+    const values = Object.values(employeeHours);
+
+    setEmployeeChartData({
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ],
+        hoverBackgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ]
+      }]
+    });
+  };
+
   useEffect(() => {
     if (billbackData.length > 0) {
       prepareEntityChartData(billbackData);
@@ -165,6 +193,17 @@ const Analytics: React.FC = () => {
         const clickedEntity = entityChartData.labels[clickedIndex] as string;
         setSelectedEntity(clickedEntity);
         preparePropertyChartData(clickedEntity);
+      }
+    }
+  };
+
+  const handleCategoryClick = (event: any, elements: any) => {
+    if (!selectedCategory && elements.length > 0 && categoryChartData && categoryChartData.labels) {
+      const clickedIndex = elements[0].index;
+      if (clickedIndex >= 0 && clickedIndex < categoryChartData.labels.length) {
+        const clickedCategory = categoryChartData.labels[clickedIndex] as string;
+        setSelectedCategory(clickedCategory);
+        prepareEmployeeChartData(clickedCategory);
       }
     }
   };
@@ -208,13 +247,18 @@ const Analytics: React.FC = () => {
 
   const categoryChartOptions: ChartOptions<'pie'> = {
     ...entityChartOptions,
-    onClick: undefined // Remove click handler for category chart
+    onClick: handleCategoryClick
+  };
+
+  const employeeChartOptions: ChartOptions<'pie'> = {
+    ...categoryChartOptions,
+    onClick: undefined
   };
 
   return (
     <Container maxW='5000px' py={2}>
       <Flex direction="column" alignItems="stretch">
-
+        <Heading color="gray.700" mb={4}>Analytics</Heading>
         <HStack spacing={4} align="stretch" mb={4}>
           <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
             <Heading fontSize="xl">% Of Goober In My Blood</Heading>
@@ -257,12 +301,19 @@ const Analytics: React.FC = () => {
             </Box>
           </Box>
           <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" width="48%">
-            <Heading fontSize="xl" mb={4}>Billed Hours by Category</Heading>
+            <Heading fontSize="xl" mb={4}>
+              {selectedCategory ? `Employees for ${selectedCategory}` : 'Billed Hours by Category'}
+            </Heading>
+            {selectedCategory && (
+              <Button onClick={() => setSelectedCategory(null)} mb={4}>
+                Back to Categories
+              </Button>
+            )}
             <Box height="400px">
-              {categoryChartData ? (
+              {(selectedCategory && employeeChartData) || (!selectedCategory && categoryChartData) ? (
                 <Pie 
-                  data={categoryChartData} 
-                  options={categoryChartOptions} 
+                  data={selectedCategory ? employeeChartData! : categoryChartData!} 
+                  options={selectedCategory ? employeeChartOptions : categoryChartOptions} 
                 />
               ) : (
                 <Text>Loading chart data...</Text>

@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Heading, Flex, Text, Box, HStack, Button } from "@chakra-ui/react";
+import { Container, Heading, Flex, Text, Box, HStack, Button, Select, Card, CardHeader, CardBody } from "@chakra-ui/react";
 import { fetchBillbackUpload } from '../src/app/utils/supabase-client';
 import { useBillingPeriod } from '@/contexts/BillingPeriodContext';
 import dynamic from 'next/dynamic';
 import { ChartData, ChartOptions } from 'chart.js';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-// Dynamically import the Pie component with SSR disabled
+// Dynamically import the Pie and Bar components with SSR disabled
 const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), { ssr: false });
 
 interface BillbackEntry {
   hours: number;
@@ -31,6 +32,12 @@ const Analytics: React.FC = () => {
   const [propertyChartData, setPropertyChartData] = useState<ChartData<'pie'> | null>(null);
   const [employeeChartData, setEmployeeChartData] = useState<ChartData<'pie'> | null>(null);
   const { billingPeriod } = useBillingPeriod();
+  const [employees, setEmployees] = useState<string[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [employeeCategoryData, setEmployeeCategoryData] = useState<ChartData<'bar'> | null>(null);
+  const [employeePieChartData, setEmployeePieChartData] = useState<ChartData<'pie'> | null>(null);
+  const [selectedEmployeeHours, setSelectedEmployeeHours] = useState(0);
+  const [selectedEmployeeRevenue, setSelectedEmployeeRevenue] = useState(0);
 
   useEffect(() => {
     if (billingPeriod) {
@@ -181,10 +188,69 @@ const Analytics: React.FC = () => {
 
   useEffect(() => {
     if (billbackData.length > 0) {
+      const uniqueEmployees = Array.from(new Set(billbackData.map(entry => entry.employee)));
+      setEmployees(uniqueEmployees);
       prepareEntityChartData(billbackData);
       prepareCategoryChartData(billbackData);
     }
   }, [billbackData]);
+
+  useEffect(() => {
+    if (selectedEmployee) {
+      prepareEmployeeCategoryData(selectedEmployee);
+    }
+  }, [selectedEmployee]);
+
+  const prepareEmployeeCategoryData = (employee: string) => {
+    let totalHours = 0;
+    let totalRevenue = 0;
+    const categoryHours: { [key: string]: number } = {};
+    
+    billbackData.forEach(entry => {
+      if (entry.employee === employee) {
+        const hours = Number(entry.hours) || 0;
+        const revenue = Number(entry.jobTotal) || 0;
+        
+        totalHours += hours;
+        totalRevenue += revenue;
+        
+        if (entry.category) {
+          categoryHours[entry.category] = (categoryHours[entry.category] || 0) + hours;
+        }
+      }
+    });
+
+    setSelectedEmployeeHours(totalHours);
+    setSelectedEmployeeRevenue(totalRevenue);
+
+    const labels = Object.keys(categoryHours);
+    const data = Object.values(categoryHours);
+
+    setEmployeeCategoryData({
+      labels: labels,
+      datasets: [{
+        label: 'Hours per Category',
+        data: data,
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    });
+
+    // Prepare pie chart data
+    setEmployeePieChartData({
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ],
+        hoverBackgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ]
+      }]
+    });
+  };
 
   const handleEntityClick = (event: any, elements: any) => {
     if (!selectedEntity && elements.length > 0 && entityChartData && entityChartData.labels) {
@@ -255,31 +321,81 @@ const Analytics: React.FC = () => {
     onClick: undefined
   };
 
+  const barChartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      title: {
+        display: true,
+        text: `Hours per Category for ${selectedEmployee}`
+      }
+    }
+  };
+
+  const employeePieChartOptions: ChartOptions<'pie'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        align: 'center',
+        labels: {
+          boxWidth: 15,
+          padding: 15,
+          font: {
+            size: 12
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw as number;
+            const total = context.dataset.data.reduce((acc: number, current: number) => acc + current, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ${percentage}%`;
+          }
+        }
+      }
+    },
+    layout: {
+      padding: {
+        right: 50
+      }
+    },
+  };
+
   return (
-    <Container maxW='5000px' py={2}>
-      <Flex direction="column" alignItems="stretch">
+    <Container maxW='5000px' py={2} height="auto" minHeight="100vh">
+      <Flex direction="column" alignItems="stretch" height="100%">
         <Heading color="gray.700" mb={4}>Analytics</Heading>
-        <HStack spacing={4} align="stretch" mb={4}>
-          <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
-            <Heading fontSize="xl">% Of Goober In My Blood</Heading>
-            <Text fontSize="3xl" fontWeight="bold" color="red.500">
-              0%
-            </Text>
-          </Box>
-          <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
-            <Heading fontSize="xl">Total Billed Hours</Heading>
-            <Text fontSize="3xl" fontWeight="bold">
-              {isNaN(totalHours) ? '0' : totalHours.toFixed(2)}
-            </Text>
-          </Box>
-          <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
-            <Heading fontSize="xl">Total Billed Revenue</Heading>
-            <Text fontSize="3xl" fontWeight="bold">
-              ${isNaN(totalRevenue) ? '0.00' : totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-            </Text>
-          </Box>
-        </HStack>
-        <Flex justify="space-between">
+        <Flex mb={4}>
+          <HStack spacing={4} align="stretch" w={'23vw'} minWidth={'300px'} mr={4}>
+            <Box p={4} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
+              <Heading fontSize="lg">Billed Hours</Heading>
+              <Text fontSize="2xl" fontWeight="bold">
+                {isNaN(totalHours) ? '0' : totalHours.toFixed(2)}
+              </Text>
+            </Box>
+            <Box p={4} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
+              <Heading fontSize="lg">Billed Revenue</Heading>
+              <Text color={"green.500"} fontSize="2xl" fontWeight="bold">
+                ${isNaN(totalRevenue) ? '0.00' : totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </Text>
+            </Box>
+          </HStack>
+          <Box flex={1} /> {/* This empty box pushes the charts to the right */}
+        </Flex>
+        <Flex justify="space-between" mb={4} flexWrap="wrap">
           <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" width="48%">
             <Heading fontSize="xl" mb={4}>
               {selectedEntity ? `Properties for ${selectedEntity}` : 'Billed Hours by Entity'}
@@ -321,6 +437,54 @@ const Analytics: React.FC = () => {
             </Box>
           </Box>
         </Flex>
+        <Card mt={4} mb={20}>
+          <CardHeader>
+            <Heading size="md">Employee Category Breakdown</Heading>
+          </CardHeader>
+          <CardBody>
+            <Flex alignItems="center" mb={4} justifyContent="space-between">
+              <Flex alignItems="center">
+                <Select
+                  placeholder="Select an employee"
+                  value={selectedEmployee}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  width="300px"
+                  mr={4}
+                >
+                  {employees.map((employee) => (
+                    <option key={employee} value={employee}>{employee}</option>
+                  ))}
+                </Select>
+                {!selectedEmployee && <Text fontSize="sm" color="gray.500">Select an employee to view their category breakdown</Text>}
+              </Flex>
+              {selectedEmployee && (
+                <Flex>
+                  <Box mr={8} p={2} borderWidth={1} borderColor="gray.200" borderRadius="md" px={6}>
+                    <Text fontWeight="bold">Billed Hours</Text>
+                    <Text>{selectedEmployeeHours.toFixed(2)}</Text>
+                  </Box>
+                  <Box mr={8} p={2} borderWidth={1} borderColor="gray.200" borderRadius="md" px={6}>
+                    <Text fontWeight="bold">Billed Revenue:</Text>
+                    <Text fontWeight="bold" color="green.500">${selectedEmployeeRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                  </Box>
+                </Flex>
+              )}
+              <Box flex={1} /> {/* This empty box pushes the totals to the right */}
+            </Flex>
+            <Flex>
+              <Box width="50%" height="300px" pr={2}>
+                {employeeCategoryData && (
+                  <Bar data={employeeCategoryData} options={barChartOptions} />
+                )}
+              </Box>
+              <Box width="50%" height="300px" pl={2}>
+                {employeePieChartData && (
+                  <Pie data={employeePieChartData} options={employeePieChartOptions} />
+                )}
+              </Box>
+            </Flex>
+          </CardBody>
+        </Card>
       </Flex>
     </Container>
   );

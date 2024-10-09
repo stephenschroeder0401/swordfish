@@ -15,7 +15,12 @@ import {
   Th,
   Thead,
   Tr,
-  useToast
+  useToast,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from '@chakra-ui/react';
 import {
   supabase,
@@ -23,7 +28,8 @@ import {
   fetchAllEmployees,
   fetchAllBillingProperties,
   fetchAllBillingPeriods,
-  fetchAllEntities
+  fetchAllEntities,
+  saveEmployeeAllocations,
 } from '@/app/utils/supabase-client';
 
 const AdminPanel = () => {
@@ -37,6 +43,8 @@ const AdminPanel = () => {
   const [newRow, setNewRow] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isAddRowDisabled, setIsAddRowDisabled] = useState(true);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [allocations, setAllocations] = useState({});
   const toast = useToast();
 
   useEffect(() => {
@@ -44,6 +52,7 @@ const AdminPanel = () => {
       try {
         const accounts = await fetchAllBillingAccounts();
         const employeeData = await fetchAllEmployees();
+        console.log('Fetched employees:', employeeData); // Log fetched employees
         const propertyData = await fetchAllBillingProperties();
         const periodData = await fetchAllBillingPeriods();
         const entityData = await fetchAllEntities();
@@ -70,29 +79,55 @@ const AdminPanel = () => {
     const tableName = event.target.value;
     setSelectedTable(tableName);
   
-    // Define which columns to select based on the table name
-    const selectColumns = tableName === 'billing_account' ? 'id, glcode, name' : '*';
-  
-    try {
-      const { data, error } = await supabase.from(tableName).select(selectColumns);
-      if (error) throw error;
-      setTableData(data || []);
-  
-      // Initialize newRow with keys for all columns (excluding 'id' if present)
-      if (data.length > 0) {
-        const newRowInit = {};
-        Object.keys(data[0]).forEach(key => {
-          if (key !== 'id') newRowInit[key] = '';
+    if (tableName === 'employee_time_allocation') {
+      try {
+        const { data, error } = await supabase
+          .from('employee_time_allocation')
+          .select(`
+            id,
+            employee_id,
+            category_id,
+            percentage
+          `);
+        if (error) throw error;
+        setTableData(data || []);
+        
+        // Initialize newRow for employee time allocation
+        setNewRow({
+          employee_id: '',
+          category_id: '',
+          percentage: ''
         });
-        setNewRow(newRowInit);
-      } else {
-        // If no data is present, clear newRow
+      } catch (error) {
+        console.error('Error fetching employee time allocations:', error);
+        setTableData([]);
         setNewRow({});
       }
-    } catch (error) {
-      console.error(`Error fetching data from ${tableName}:`, error);
-      setTableData([]);
-      setNewRow({});
+    } else {
+      // Define which columns to select based on the table name
+      const selectColumns = tableName === 'billing_account' ? 'id, glcode, name' : '*';
+    
+      try {
+        const { data, error } = await supabase.from(tableName).select(selectColumns);
+        if (error) throw error;
+        setTableData(data || []);
+    
+        // Initialize newRow with keys for all columns (excluding 'id' if present)
+        if (data.length > 0) {
+          const newRowInit = {};
+          Object.keys(data[0]).forEach(key => {
+            if (key !== 'id') newRowInit[key] = '';
+          });
+          setNewRow(newRowInit);
+        } else {
+          // If no data is present, clear newRow
+          setNewRow({});
+        }
+      } catch (error) {
+        console.error(`Error fetching data from ${tableName}:`, error);
+        setTableData([]);
+        setNewRow({});
+      }
     }
   };
   
@@ -150,6 +185,92 @@ const AdminPanel = () => {
     }
   };
 
+  const handleEmployeeChange = (event) => {
+    const employeeId = event.target.value;
+    setSelectedEmployee(employeeId);
+    // Initialize allocations for the selected employee if not exist
+    if (!allocations[employeeId]) {
+      setAllocations({ ...allocations, [employeeId]: [] });
+    }
+  };
+
+  const handleAddAllocation = (employeeId) => {
+    const newAllocation = { account: '', percentage: '' };
+    setAllocations({
+      ...allocations,
+      [employeeId]: [...(allocations[employeeId] || []), newAllocation],
+    });
+  };
+
+  const handleAllocationChange = (employeeId, index, field, value) => {
+    const updatedAllocations = { ...allocations };
+    updatedAllocations[employeeId][index][field] = value;
+    setAllocations(updatedAllocations);
+  };
+
+  const handleDeleteAllocation = (employeeId, index) => {
+    const updatedAllocations = { ...allocations };
+    updatedAllocations[employeeId].splice(index, 1);
+    setAllocations(updatedAllocations);
+  };
+
+  const handleSaveAllocations = async () => {
+    setIsLoading(true);
+    try {
+      console.log('allocations');
+      console.log(allocations);
+      const formattedAllocations = Object.entries(allocations).reduce((acc, [employeeId, employeeAllocations]) => {
+        acc[employeeId] = employeeAllocations.map(allocation => (
+          {
+          billing_account: allocation.billing_account, // Changed from 'category' to 'billing_account'
+          percentage: allocation.percentage
+        }));
+        return acc;
+      }, {});
+
+      console.log("Formatted allocations:", formattedAllocations);
+      await saveEmployeeAllocations(formattedAllocations);
+      toast({
+        title: "Allocations saved",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error saving allocations:', error);
+      toast({
+        title: "Error saving allocations",
+        description: error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderEmployeeDropdown = (value, onChange) => {
+    console.log('Rendering employee dropdown. Current employees:', employees);
+    return (
+      <Select
+        placeholder="Select Employee"
+        value={value || ''}
+        onChange={onChange}
+      >
+        {employees.length > 0 ? (
+          employees.map(employee => (
+            <option key={employee.id} value={employee.id}>
+              {employee.name}
+            </option>
+          ))
+        ) : (
+          <option disabled>No employees available</option>
+        )}
+      </Select>
+    );
+  };
+
   console.log('tableData:', tableData);
 
   return (
@@ -171,118 +292,163 @@ const AdminPanel = () => {
               Save Changes
             </Button>
           </Flex>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                {tableData.length > 0 && ['actions', ...Object.keys(tableData[0])].map((column) => (
-                  (column !== 'id' && column !== 'isbilledback') && <Th key={column}>{column}</Th>
-                ))}
-              </Tr>
-            </Thead>
-            <Tbody>
-              <Tr>
-                {tableData.length > 0 && ['actions', ...Object.keys(tableData[0])].map((column) => (
-                  (column !== 'id' && column !== 'isbilledback' ) &&(
-                    <Td key={column}>
-                      {column === 'actions' ? (
-                        <Button colorScheme="teal" onClick={handleAddRow} isDisabled={isAddRowDisabled}>
-                          Add
-                        </Button>
-                      ) : column === 'entityid' ? (
-                        <Select
-                          placeholder="Select Entity"
-                          onChange={(e) => handleNewRowInputChange(e, column)}
-                          value={newRow[column] || ''}
-                        >
-                          {entities.map(entity => (
-                            <option key={entity.id} value={entity.id}>{entity.name}</option>
-                          ))}
-                        </Select>
-                      ) : 
-                      selectedTable === 'billing_period' && (column === 'startdate' || column === 'enddate') ? (
-                        <Input
-                          type="date"
-                          placeholder={`Enter ${column}`}
-                          value={newRow[column] || ''}
-                          onChange={(e) => handleNewRowInputChange(e, column)}
-                        />
-                        ) : 
-                        selectedTable === 'employee' && (column === 'rate') ? (
-                          <>$
+          {Array.isArray(tableData) && tableData.length > 0 ? (
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  {['actions', ...Object.keys(tableData[0])].map((column) => (
+                    (column !== 'id') && <Th key={column}>{column}</Th>
+                  ))}
+                </Tr>
+              </Thead>
+              <Tbody>
+                <Tr>
+                  {['actions', ...Object.keys(tableData[0])].map((column) => (
+                    (column !== 'id') && (
+                      <Td key={column}>
+                        {column === 'actions' ? (
+                          <Button colorScheme="teal" onClick={handleAddRow} isDisabled={isAddRowDisabled}>
+                            Add
+                          </Button>
+                        ) : column === 'employee_id' ? (
+                          renderEmployeeDropdown(
+                            newRow[column],
+                            (e) => handleNewRowInputChange(e, column)
+                          )
+                        ) : column === 'category_id' ? (
+                          <Select
+                            placeholder="Select Category"
+                            value={newRow[column] || ''}
+                            onChange={(e) => handleNewRowInputChange(e, column)}
+                          >
+                            {billingAccounts.map(account => (
+                              <option key={account.id} value={account.id}>{account.name}</option>
+                            ))}
+                          </Select>
+                        ) : column === 'percentage' ? (
                           <Input
-                            ml={2}
-                            width='10vw'
                             type="number"
                             step="0.01"
-                            placeholder='0.00'
+                            placeholder="Enter percentage"
                             value={newRow[column] || ''}
                             onChange={(e) => handleNewRowInputChange(e, column)}
                           />
-                          </>
-                        ) :
-                        (  
-                        <Input
-                          placeholder={`Enter ${column}`}
-                          value={newRow[column] || ''}
-                          onChange={(e) => handleNewRowInputChange(e, column)}
-                        />
-                      )}
-                    </Td>
-                  )
-                ))}
-              </Tr>
-              {tableData.map((row, rowIndex) => (
-                <Tr key={rowIndex}>
-                  {['actions', ...Object.keys(row)].map((column) => (
-                    (column !== 'id' && column !== 'isbilledback') && (
-                      <Td key={column}>
-                        {column === 'actions' ? (
-                          <Button colorScheme="red" onClick={() => handleDeleteRow(rowIndex)}>
-                            Delete
-                          </Button>
-                        ) : column === 'entityid' ? (
-                          <Select
-                            placeholder="Select Entity"
-                            onChange={(e) => handleInputChange(e, rowIndex, column)}
-                            value={entities.find(entity => entity.id === row[column])?.id || ''}
-                          >
-                            {entities.map(entity => (
-                              <option key={entity.id} value={entity.id}>{entity.name}</option>
-                            ))}
-                          </Select>
-                        ) : 
-                        selectedTable === 'billing_period' && (column === 'startdate' || column === 'enddate') ? (
+                        ) : (
                           <Input
-                            type="date"
-                            value={row[column] || ''}
-                            onChange={(e) => handleInputChange(e, rowIndex, column)}
+                            placeholder={`Enter ${column}`}
+                            value={newRow[column] || ''}
+                            onChange={(e) => handleNewRowInputChange(e, column)}
                           />
-                          ) :
-                          selectedTable === 'employee' && (column === 'rate') ? (
-                            <>$
-                            <Input
-                              ml={2}
-                              width='10vw'
-                              type="number"
-                              step="0.01"
-                              value={row[column] || ''}
-                              onChange={(e) => handleInputChange(e, rowIndex, column)}
-                            />
-                            </>
-                          ): 
-                          (
-  
-                          <Input value={row[column] || ''} onChange={(e) => handleInputChange(e, rowIndex, column)} required />
                         )}
                       </Td>
                     )
                   ))}
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+                {tableData.map((row, rowIndex) => (
+                  <Tr key={rowIndex}>
+                    {['actions', ...Object.keys(row)].map((column) => (
+                      (column !== 'id') && (
+                        <Td key={column}>
+                          {column === 'actions' ? (
+                            <Button colorScheme="red" onClick={() => handleDeleteRow(rowIndex)}>
+                              Delete
+                            </Button>
+                          ) : column === 'employee_id' ? (
+                            renderEmployeeDropdown(
+                              row[column],
+                              (e) => handleInputChange(e, rowIndex, column)
+                            )
+                          ) : column === 'category_id' ? (
+                            <Select
+                              value={row[column] || ''}
+                              onChange={(e) => handleInputChange(e, rowIndex, column)}
+                            >
+                              {billingAccounts.map(account => (
+                                <option key={account.id} value={account.id}>{account.name}</option>
+                              ))}
+                            </Select>
+                          ) : column === 'percentage' ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={row[column] || ''}
+                              onChange={(e) => handleInputChange(e, rowIndex, column)}
+                            />
+                          ) : (
+                            <Input value={row[column] || ''} onChange={(e) => handleInputChange(e, rowIndex, column)} />
+                          )}
+                        </Td>
+                      )
+                    ))}
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          ) : (
+            <Box>No data available for this table.</Box>
+          )}
         </Box>
       )}
+      
+      <Heading as="h2" size="lg" mt={8} mb={4}>
+        Employee Allocations
+      </Heading>
+      <Select placeholder="Select Employee" onChange={handleEmployeeChange} mb={4}>
+        {employees.map(employee => (
+          <option key={employee.id} value={employee.id}>{employee.name}</option>
+        ))}
+      </Select>
+      
+      {selectedEmployee && (
+        <Accordion allowMultiple>
+          <AccordionItem>
+            <h2>
+              <AccordionButton>
+                <Box flex="1" textAlign="left">
+                  Allocations for {employees.find(e => e.id === selectedEmployee)?.name}
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              {allocations[selectedEmployee]?.map((allocation, index) => (
+                <Flex key={index} mb={2} alignItems="center">
+                  <Select
+                    placeholder="Select Billing Account"
+                    value={allocation.billing_account} // Changed from allocation.category
+                    onChange={(e) => handleAllocationChange(selectedEmployee, index, 'billing_account', e.target.value)}
+                    mr={4}
+                    width="400px"
+                  >
+                    {billingAccounts.map(account => (
+                      <option key={account.id} value={account.id}>{account.name}</option>
+                    ))}
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="%"
+                    value={allocation.percentage}
+                    onChange={(e) => handleAllocationChange(selectedEmployee, index, 'percentage', e.target.value)}
+                    mr={1}
+                    width="80px"
+                  />
+                  %
+                  <Button ml={8} colorScheme="red" onClick={() => handleDeleteAllocation(selectedEmployee, index)}>
+                    Delete
+                  </Button>
+                </Flex>
+              ))}
+              <Button mt={2} onClick={() => handleAddAllocation(selectedEmployee)}>
+                Add Allocation
+              </Button>
+            </AccordionPanel>
+          </AccordionItem>
+        </Accordion>
+      )}
+      
+      <Button mt={4} colorScheme="blue" onClick={handleSaveAllocations} isLoading={isLoading}>
+        Save Allocations
+      </Button>
     </Container>
   );
 };

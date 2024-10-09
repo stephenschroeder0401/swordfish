@@ -94,9 +94,6 @@ export const saveJobs = async (entries, billingPeriod) => {
   return insertData;
 };
 
-
-
-
 export const fetchJobsAsBillingJob = async (billingPeriod): Promise<BillingJob[]> => {
   const { data, error } = await supabase
     .from('billing_job')
@@ -229,4 +226,64 @@ export const fetchAllEntities = async () => {
   }
 
   return data; // Returns the array of entities
+};
+
+export const saveEmployeeAllocations = async (allocations: Record<string, Array<{billing_account: string, percentage: string}>>) => {
+  console.log("Saving employee allocations:", allocations);
+  const formattedAllocations = Object.entries(allocations).flatMap(([employeeId, allocs]) => 
+    allocs.map(alloc => ({
+      employee_id: employeeId,
+      billing_account_id: alloc.billing_account,
+      percentage: parseFloat(alloc.percentage)
+    }))
+  );
+
+  // Start a transaction
+  const { data, error } = await supabase
+    .from('employee_gl_allocation')
+    .upsert(formattedAllocations, {
+      onConflict: ['employee_id', 'billing_account_id'],
+      ignoreDuplicates: false
+    });
+
+  if (error) {
+    console.error("Error saving employee allocations:", error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchAllEmployeeGlAllocations = async () => {
+  const { data, error } = await supabase
+    .from('employee_gl_allocation')
+    .select(`
+      *,
+      employee:employee_id (id, name),
+      billing_account:billing_account_id (id, name)
+    `);
+
+  if (error) {
+    console.error("Error fetching employee GL allocations:", error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchEmployeeTimeAllocations = async (employeeId: string) => {
+  const { data, error } = await supabase
+    .from('employee_gl_allocation')
+    .select(`
+      *,
+      billing_account:billing_account_id (id, name)
+    `)
+    .eq('employee_id', employeeId);
+
+  if (error) {
+    console.error("Error fetching employee time allocations:", error);
+    throw error;
+  }
+
+  return data;
 };

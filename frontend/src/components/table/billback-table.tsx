@@ -4,10 +4,11 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Select, Icon, Text } from "
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import MemoizedTableRow from "./memoized-table-row";
 
-const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts, properties, employees, handleDelete }) => {
+const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts = [], properties = [], employees = [], handleDelete, entities = [] }) => {
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedProperty, setSelectedProperty] = useState("");
+  const [selectedEntity, setSelectedEntity] = useState("");
   const [filteredData, setFilteredData] = useState(data);
 
   useEffect(() => {
@@ -16,18 +17,20 @@ const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConf
         const matchesEmployee = !selectedEmployee || item.employeeId === selectedEmployee;
         const matchesCategory = !selectedCategory || item.billingAccountId === selectedCategory;
         const matchesProperty = !selectedProperty || item.propertyId === selectedProperty;
-        return matchesEmployee && matchesCategory && matchesProperty;
+        const matchesEntity = !selectedEntity || item.entity === selectedEntity;
+        return matchesEmployee && matchesCategory && matchesProperty && matchesEntity;
     });
 
     setFilteredData(newFilteredData);
 
-}, [data, selectedEmployee, selectedCategory, selectedProperty]); // Ensure useEffect triggers on changes to these states
+}, [data, selectedEmployee, selectedCategory, selectedProperty, selectedEntity]); // Ensure useEffect triggers on changes to these states
 
 
 const clearFilters = () => {
   setSelectedEmployee("");
   setSelectedCategory("");
   setSelectedProperty("");
+  setSelectedEntity("");
 };
 
 
@@ -38,7 +41,7 @@ const clearFilters = () => {
   return (
     <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
       <Box position="sticky" top="0" bg="white" zIndex="sticky" py={2}>
-        <Flex ml={4} mb={4} align="center" wrap="wrap"  padding={'7px'} gap={4} bg="gray.50">
+        <Flex ml={4} mb={4} align="center" wrap="wrap" padding={'7px'} gap={4} bg="gray.50" width="100%">
           <Flex align="center" bg="white">
             <Select
               placeholder="Filter employee"
@@ -81,6 +84,22 @@ const clearFilters = () => {
               ))}
             </Select>
           </Flex>
+          {entities && entities.length > 0 && (
+            <Flex align="center">
+              <Select
+                placeholder="Filter entity"
+                value={selectedEntity}
+                onChange={handleFilterChange(setSelectedEntity)}
+                width="200px"
+              >
+                {entities.map((entity) => (
+                  <option key={entity.id} value={entity.name}>
+                    {entity.name}
+                  </option>
+                ))}
+              </Select>
+            </Flex>
+          )}
           <Flex align="center">
           <Text color={'red.400'} _hover={{
               color: 'red.700',

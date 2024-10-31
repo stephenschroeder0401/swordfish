@@ -6,7 +6,7 @@ import CSVUpload from "@/components/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
-import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods } from "@/app/utils/supabase-client";
+import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods, fetchAllEntities } from "@/app/utils/supabase-client";
 
 const BillBack = () => {
   
@@ -20,6 +20,7 @@ const BillBack = () => {
   const [employees, setEmployees] = useState([]);
   const [billbackData, setBillbackData] = useState([]);
   const toast = useToast();
+  const [entities, setEntities] = useState([]);
 
   const calculateTotals = (hours, rate, mileage) => {
     const laborTotal = (hours * rate).toFixed(2);
@@ -350,111 +351,135 @@ const BillBack = () => {
     }
   };
 
-  return (
-
-    <Container maxW='5000px' py={2}>
-      <SimpleGrid mt={5}columns={2}>
-        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
-        <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
-          <FormControl>
-            <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
-            <CSVUpload
-              style={{ width: '180px' }}
-              disabled={!billingPeriod}
-              onDataProcessed={handleDataProcessed}
-              setLoading={setIsLoading}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}  
-             />
-          </FormControl>
-        </Card>
-        </Flex>
-        <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
-        <Heading color="gray.700" mt={4} ml={1} mr={5}>
-          Billback Upload
-        </Heading>
-        </Flex>
-      </SimpleGrid>
-
-      <SimpleGrid mt={5} columns={2}>
-      <Flex direction="row" alignItems="flex-end" justifyContent="flex-start" height="100%">
-      <IconButton
-        onClick={addRow}
-        colorScheme="white"
-        size="md"
-        width="4vw"
-        icon={<AddIcon size="large" color="green.400" _hover={{color:"green.200", transform: 'scale(1.2)'}}/>}
-        aria-label="Add Row"
-        mb={-2}
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch entities first
+        const fetchedEntities = await fetchAllEntities();
+        console.log('Fetched entities:', fetchedEntities); // Debug log
+        setEntities(fetchedEntities || []); // Ensure we set an empty array if null/undefined
         
-      />
-      <Text color={'red.400'} _hover={{
-              color: 'red.700',
-              transform: 'scale(1.1)',
-              cursor: 'pointer'
-            }}
-            onClick={handleClearData}>
-       CLEAR FILTERS
-      </Text>
-      </Flex>
-      <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
-        <Button
-          onClick={handleSaveProgress}
+        // ... other fetch calls ...
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setEntities([]); // Set empty array on error
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Add debug log to check entities before passing to component
+  console.log('Current entities:', entities);
+
+  return (
+    <Box width="100%" overflowX="hidden">
+      <Container maxW='100%' px={0} py={2}>
+        <SimpleGrid mt={5}columns={2}>
+          <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
+          <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
+            <FormControl>
+              <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
+              <CSVUpload
+                style={{ width: '180px' }}
+                disabled={!billingPeriod}
+                onDataProcessed={handleDataProcessed}
+                setLoading={setIsLoading}
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}  
+               />
+            </FormControl>
+          </Card>
+          </Flex>
+          <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
+          <Heading color="gray.700" mt={4} ml={1} mr={5}>
+            Billback Upload
+          </Heading>
+          </Flex>
+        </SimpleGrid>
+
+        <SimpleGrid mt={5} columns={2}>
+        <Flex direction="row" alignItems="flex-end" justifyContent="flex-start" height="100%">
+        <IconButton
+          onClick={addRow}
+          colorScheme="white"
           size="md"
-          colorScheme="gray"
-          isDisabled={!billingPeriod}
-          mr={4}
-          minWidth='9vw'
-        >
-          Save Progress
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          size="md"
-          colorScheme="green"
-          bg={'green.500'}
-          isLoading={false}
-          isDisabled={!isValid}
-          mt={2}
-          minWidth='9vw'
-        >
-          Invoice Jobs
-        </Button>
-      </Flex>
-      </SimpleGrid>
+          width="4vw"
+          icon={<AddIcon size="large" color="green.400" _hover={{color:"green.200", transform: 'scale(1.2)'}}/>}
+          aria-label="Add Row"
+          mb={-2}
+          
+        />
+        <Text color={'red.400'} _hover={{
+                color: 'red.700',
+                transform: 'scale(1.1)',
+                cursor: 'pointer'
+              }}
+              onClick={handleClearData}>
+         CLEAR FILTERS
+        </Text>
+        </Flex>
+        <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
+          <Button
+            onClick={handleSaveProgress}
+            size="md"
+            colorScheme="gray"
+            isDisabled={!billingPeriod}
+            mr={4}
+            minWidth='9vw'
+          >
+            Save Progress
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            size="md"
+            colorScheme="green"
+            bg={'green.500'}
+            isLoading={false}
+            isDisabled={!isValid}
+            mt={2}
+            minWidth='9vw'
+          >
+            Invoice Jobs
+          </Button>
+        </Flex>
+        </SimpleGrid>
+      </Container>
 
       <Box
+        width="100%"
+        overflowX="auto"
         border="1px"
         borderColor="gray.200"
         borderRadius="lg"
         mt={2}
         mb={155}
-        overflow="auto" 
       >
         {isLoading ? (
-      <Center height="100vh">
-        <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
-      </Center>
-    ) : (
-        <BillbackDisplay
-          tableConfig={tableConfig}
-          data={billbackData}
-          handleSort={() => {}}
-          sortField={'something'}
-          sortDirection={'up'}
-          handleEdit={handleEdit}
-          tableType="billback"
-          accounts={billingAccounts}
-          properties={billingProperties}
-          employees={employees}
-          handleDelete={handleDelete}
-        />)}
+          <Center height="100vh">
+            <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
+          </Center>
+        ) : (
+          <Box minWidth="100%" width="fit-content">
+            <BillbackDisplay
+              tableConfig={tableConfig}
+              data={billbackData}
+              handleSort={() => {}}
+              sortField={'something'}
+              sortDirection={'up'}
+              handleEdit={handleEdit}
+              tableType="billback"
+              accounts={billingAccounts || []}
+              properties={billingProperties || []}
+              employees={employees || []}
+              entities={entities}
+              handleDelete={handleDelete}
+            />
+          </Box>
+        )}
       </Box>
-    </Container>
+    </Box>
   );
 };
 
 export default BillBack;
-
-
-

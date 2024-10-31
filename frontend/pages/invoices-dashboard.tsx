@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  Text,
   Box,
   Flex,
   Input,
@@ -237,31 +238,37 @@ const InvoicesDashboard = () => {
       </Flex>
       </SimpleGrid>
       <SimpleGrid columns={2}>
-      <Flex justifyContent="left" my="4" ml={0}>
-         <Input
-          placeholder="Billback Name"
-          value={billbackName}
-          onChange={(e) => updateBillbackName(e.target.value)}
-          width="auto"
-          ml="4"
-        />
-        <Input
-          placeholder="Payee Name"
-          value={payeeName}
-          onChange={(e) => setPayeeName(e.target.value)}
-          width="auto"
-          ml="4"
-        />
-         <Input
-          placeholder="Bill Date"
-          type="date"
-          value={billDate}
-          onChange={(e) => setBillDate(e.target.value)}
-          width="auto"
-          ml="4"
-        />
-        </Flex>
-        <Flex justifyContent={"right"} alignItems={"flex-end"}>
+      <Flex direction="row" justifyContent="left" my="4" ml={0}>
+        <Box mr={4}>
+          <Text fontWeight="bold" mb={2}>Billback Name</Text>
+          <Input
+            placeholder="Billback Name"
+            value={billbackName}
+            onChange={(e) => updateBillbackName(e.target.value)}
+            width="auto"
+          />
+        </Box>
+        <Box mr={4}>
+          <Text fontWeight="bold" mb={2}>Payee Name</Text>
+          <Input
+            placeholder="Payee Name"
+            value={payeeName}
+            onChange={(e) => setPayeeName(e.target.value)}
+            width="auto"
+          />
+        </Box>
+        <Box>
+          <Text fontWeight="bold" mb={2}>Bill Date</Text>
+          <Input
+            placeholder="Bill Date"
+            type="date"
+            value={billDate}
+            onChange={(e) => setBillDate(e.target.value)}
+            width="auto"
+          />
+        </Box>
+      </Flex>
+      <Flex justifyContent={"right"} alignItems={"flex-end"}>
       <Button colorScheme="green"
           bg={'green.500'} onClick={exportCSVFile} mb={4}>
         Export to CSV

@@ -30,6 +30,7 @@ import {
   fetchAllBillingPeriods,
   fetchAllEntities,
   saveEmployeeAllocations,
+  fetchEmployeeAllocations,
 } from '@/app/utils/supabase-client';
 
 const AdminPanel = () => {
@@ -185,12 +186,25 @@ const AdminPanel = () => {
     }
   };
 
-  const handleEmployeeChange = (event) => {
+  const handleEmployeeChange = async (event) => {
     const employeeId = event.target.value;
     setSelectedEmployee(employeeId);
-    // Initialize allocations for the selected employee if not exist
-    if (!allocations[employeeId]) {
-      setAllocations({ ...allocations, [employeeId]: [] });
+    
+    try {
+      const employeeAllocations = await fetchEmployeeAllocations(employeeId);
+      setAllocations({
+        ...allocations,
+        [employeeId]: employeeAllocations
+      });
+    } catch (error) {
+      console.error('Error fetching employee allocations:', error);
+      toast({
+        title: "Error fetching allocations",
+        description: error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 

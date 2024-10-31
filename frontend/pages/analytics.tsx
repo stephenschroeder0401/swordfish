@@ -5,8 +5,9 @@ import { useBillingPeriod } from '@/contexts/BillingPeriodContext';
 import dynamic from 'next/dynamic';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, annotationPlugin);
 
 // Dynamically import the Pie and Bar components with SSR disabled
 const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
@@ -499,6 +500,54 @@ const Analytics: React.FC = () => {
               label += context.parsed.y.toFixed(2) + ' hours';
             }
             return label;
+          }
+        }
+      },
+      annotation: {
+        annotations: {
+          capexLine: {
+            type: 'line',
+            display: (ctx) => ctx.chart.data.labels?.includes('2 CapEx - Other'),
+            yMin: 6,
+            yMax: 6,
+            xMin: (ctx) => {
+              const index = ctx.chart.data.labels?.indexOf('2 CapEx - Other') ?? -1;
+              return index - 0.5;
+            },
+            xMax: (ctx) => {
+              const index = ctx.chart.data.labels?.indexOf('2 CapEx - Other') ?? -1;
+              return index + 0.5;
+            },
+            borderColor: 'rgb(255, 99, 132)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: true,
+              content: '6 hours 🎯',
+              position: 'end'
+            }
+          },
+          rmLine: {
+            type: 'line',
+            display: (ctx) => ctx.chart.data.labels?.includes('1 R&M - General Labor'),
+            yMin: 4,
+            yMax: 4,
+            xMin: (ctx) => {
+              const index = ctx.chart.data.labels?.indexOf('1 R&M - General Labor') ?? -1;
+              return index - 0.5;
+            },
+            xMax: (ctx) => {
+              const index = ctx.chart.data.labels?.indexOf('1 R&M - General Labor') ?? -1;
+              return index + 0.5;
+            },
+            borderColor: 'rgb(255, 99, 132)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: true,
+              content: '4 hours 🎯',
+              position: 'end'
+            }
           }
         }
       }

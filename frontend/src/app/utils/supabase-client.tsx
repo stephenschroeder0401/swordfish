@@ -287,3 +287,26 @@ export const fetchEmployeeTimeAllocations = async (employeeId: string) => {
 
   return data;
 };
+
+export const fetchEmployeeAllocations = async (employeeId: string) => {
+  const { data, error } = await supabase
+    .from('employee_gl_allocation')
+    .select(`
+      billing_account_id,
+      percentage,
+      billing_account:billing_account_id (
+        name
+      )
+    `)
+    .eq('employee_id', employeeId);
+    
+  if (error) {
+    console.error("Error fetching employee allocations:", error);
+    throw error;
+  }
+
+  return data.map(allocation => ({
+    billing_account: allocation.billing_account_id, // Keep the ID for the select value
+    percentage: allocation.percentage.toString()
+  }));
+};

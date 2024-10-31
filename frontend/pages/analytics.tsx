@@ -14,6 +14,7 @@ const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr:
 const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), { ssr: false });
 
 interface BillbackEntry {
+  billingAccountId: string;
   hours: number;
   jobTotal: string;
   entity: string;
@@ -28,6 +29,8 @@ interface JobChartData extends ChartData<'pie'> {
 }
 
 interface TimeAllocation {
+  percentage: any;
+  billing_account_id: any;
   billing_account: {
     id: string;
     name: string;
@@ -103,7 +106,7 @@ const Analytics: React.FC = () => {
         calculateTotals(uploadData, true);
         
         // Get unique employees from the new data
-        const newUniqueEmployees = Array.from(new Set(uploadData.map(entry => entry.employee)));
+        const newUniqueEmployees = Array.from(new Set(uploadData.map(entry => entry.employee))) as string[];
         setEmployees(newUniqueEmployees);
         
         // Store all employees with their IDs and log them
@@ -329,43 +332,9 @@ const Analytics: React.FC = () => {
       borderWidth: 1
     }];
 
-    // Add allocation lines with correct matching and calculations
-    employeeAllocations.forEach(allocation => {
-      // Find the category index by matching billing_account_id instead of name
-      const categoryIndex = categoryIds.findIndex(id => id === allocation.billing_account_id);
-      
-      console.log(`Matching allocation for ${allocation.billing_account.name}:`, {
-        allocationId: allocation.billing_account_id,
-        categoryIndex,
-        categoryIds,
-        allocationPercentage: allocation.percentage,
-        totalHours,
-        targetHours: (allocation.percentage / 100) * totalHours
-      });
-
-      if (categoryIndex !== -1) {
-        const targetHours = (allocation.percentage / 100) * totalHours;
-        
-        datasets.push({
-          label: `${allocation.billing_account.name} Target`,
-          data: labels.map((_, index) => 
-            index === categoryIndex ? targetHours : null
-          ),
-          type: 'line' as const,
-          borderColor: 'red',
-          borderWidth: 2,
-          pointRadius: 0,
-          fill: false
-        });
-      }
-    });
-
-    console.log("Final datasets:", datasets);
-
     setEmployeeCategoryData({
       labels: labels,
-      datasets: datasets,
-      categoryIds: categoryIds
+      datasets: datasets
     });
 
     setEmployeePieChartData({
@@ -378,9 +347,8 @@ const Analytics: React.FC = () => {
         hoverBackgroundColor: [
           '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
         ]
-      }],
-      categoryIds: categoryIds
-    });
+      }]
+    } as JobChartData);
   };
 
   const handleEntityClick = (event: any, elements: any) => {
@@ -433,7 +401,7 @@ const Analytics: React.FC = () => {
       setEmployeeTotalRevenue(0);
       setEmployeeCategoryData(null);
       setEmployeePieChartData(null);
-      setEmployeeAllocations([]);
+      setEmployeeAllocations([]);     
     }
   };
 

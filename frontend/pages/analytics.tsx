@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Heading, Flex, Text, Box, HStack, Button, Select, Card, CardHeader, CardBody } from "@chakra-ui/react";
-import { fetchBillbackUpload, fetchEmployeeTimeAllocations } from '../src/app/utils/supabase-client';
+import { fetchBillbackUpload, fetchEmployeeTimeAllocations, fetchAllEmployees } from '../src/app/utils/supabase-client';
 import { useBillingPeriod } from '@/contexts/BillingPeriodContext';
 import dynamic from 'next/dynamic';
 import { ChartData, ChartOptions } from 'chart.js';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, annotationPlugin);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, annotationPlugin);
 
 // Dynamically import the Pie and Bar components with SSR disabled
 const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
@@ -35,6 +35,11 @@ interface TimeAllocation {
   allocation_percentage: number;
 }
 
+interface Employee {
+  id: string;
+  name: string;
+}
+
 const Analytics: React.FC = () => {
   const [billbackData, setBillbackData] = useState<BillbackEntry[]>([]);
   const [overallTotalHours, setOverallTotalHours] = useState(0);
@@ -49,6 +54,7 @@ const Analytics: React.FC = () => {
   const [employeeChartData, setEmployeeChartData] = useState<ChartData<'pie'> | null>(null);
   const { billingPeriod } = useBillingPeriod();
   const [employees, setEmployees] = useState<string[]>([]);
+  const [employeesWithIds, setEmployeesWithIds] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [employeeCategoryData, setEmployeeCategoryData] = useState<ChartData<'bar'> | null>(null);
   const [employeePieChartData, setEmployeePieChartData] = useState<ChartData<'pie'> | null>(null);
@@ -72,15 +78,25 @@ const Analytics: React.FC = () => {
     }
   }, [selectedEmployee]);
 
+  useEffect(() => {
+    console.log("Employee allocations updated:", employeeAllocations);
+    if (selectedEmployee) {
+      prepareEmployeeCategoryData(selectedEmployee, billbackData);
+    }
+  }, [employeeAllocations]);
+
   const fetchBillbackData = async () => {
     try {
       console.log("GETTING NEW DATA for billing period ", billingPeriod);  
       
-      const data = await fetchBillbackUpload(billingPeriod);
+      const [billbackData, employeesData] = await Promise.all([
+        fetchBillbackUpload(billingPeriod),
+        fetchAllEmployees()
+      ]);
 
-      if (data && data.upload_data) {
-        console.log("here is the data: ", data.upload_data);
-        const uploadData = data.upload_data;
+      if (billbackData && billbackData.upload_data) {
+        console.log("here is the data: ", billbackData.upload_data);
+        const uploadData = billbackData.upload_data;
         setBillbackData(uploadData);
         
         // Calculate overall totals
@@ -90,6 +106,10 @@ const Analytics: React.FC = () => {
         const newUniqueEmployees = Array.from(new Set(uploadData.map(entry => entry.employee)));
         setEmployees(newUniqueEmployees);
         
+        // Store all employees with their IDs and log them
+        console.log("Setting employees with IDs:", employeesData);
+        setEmployeesWithIds(employeesData);
+
         // If there's a selected employee, filter data for that employee
         if (selectedEmployee) {
           const filteredData = uploadData.filter(entry => entry.employee === selectedEmployee);
@@ -105,14 +125,16 @@ const Analytics: React.FC = () => {
         setOverallTotalHours(0);
         setOverallTotalRevenue(0);
         setEmployees([]);
+        setEmployeesWithIds([]);
         setSelectedEmployee('');
       }
     } catch (error) {
-      console.error("Error fetching billback data:", error);
+      console.error("Error fetching data:", error);
       setBillbackData([]);
       setOverallTotalHours(0);
       setOverallTotalRevenue(0);
       setEmployees([]);
+      setEmployeesWithIds([]);
       setSelectedEmployee('');
     }
   };
@@ -246,6 +268,8 @@ const Analytics: React.FC = () => {
   }, [billbackData]);
 
   const prepareEmployeeCategoryData = (employee: string, data: BillbackEntry[] = []) => {
+    console.log("Raw employee allocations:", employeeAllocations);
+    
     if (!data || data.length === 0) {
       console.log("No data available for employee category breakdown");
       setSelectedEmployeeHours(0);
@@ -257,9 +281,10 @@ const Analytics: React.FC = () => {
 
     let totalHours = 0;
     let totalRevenue = 0;
-    const categoryHours: { [key: string]: number } = {};
+    const categoryHours: { [key: string]: { hours: number, id?: string } } = {};
     
     data.forEach(entry => {
+      console.log("entry: ", entry);
       if (entry.employee === employee) {
         const hours = Number(entry.hours) || 0;
         const revenue = Number(entry.jobTotal) || 0;
@@ -268,7 +293,13 @@ const Analytics: React.FC = () => {
         totalRevenue += revenue;
         
         if (entry.category) {
-          categoryHours[entry.category] = (categoryHours[entry.category] || 0) + hours;
+          if (!categoryHours[entry.category]) {
+            categoryHours[entry.category] = {
+              hours: 0,
+              id: entry.billingAccountId// Make sure this property exists in your data
+            };
+          }
+          categoryHours[entry.category].hours += hours;
         }
       }
     });
@@ -277,58 +308,79 @@ const Analytics: React.FC = () => {
     setSelectedEmployeeRevenue(totalRevenue);
 
     const labels = Object.keys(categoryHours);
-    const chartData = Object.values(categoryHours);
+    const chartData = Object.values(categoryHours).map(cat => cat.hours);
+    const categoryIds = Object.values(categoryHours).map(cat => cat.id);
 
-    if (labels.length === 0) {
-      setEmployeeCategoryData(null);
-      setEmployeePieChartData(null);
-    } else {
-      const datasets = [{
-        label: 'Hours per Category',
+    console.log("Category mapping:", Object.entries(categoryHours).map(([name, data]) => ({
+      name,
+      hours: data.hours,
+      id: data.id
+    })));
+
+    console.log("Employee Allocations:", employeeAllocations);
+    console.log("Category IDs:", categoryIds);
+    console.log("Total Hours:", totalHours);
+
+    const datasets = [{
+      label: 'Hours per Category',
+      data: chartData,
+      backgroundColor: 'rgba(75, 192, 192, 0.6)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 1
+    }];
+
+    // Add allocation lines with correct matching and calculations
+    employeeAllocations.forEach(allocation => {
+      // Find the category index by matching billing_account_id instead of name
+      const categoryIndex = categoryIds.findIndex(id => id === allocation.billing_account_id);
+      
+      console.log(`Matching allocation for ${allocation.billing_account.name}:`, {
+        allocationId: allocation.billing_account_id,
+        categoryIndex,
+        categoryIds,
+        allocationPercentage: allocation.percentage,
+        totalHours,
+        targetHours: (allocation.percentage / 100) * totalHours
+      });
+
+      if (categoryIndex !== -1) {
+        const targetHours = (allocation.percentage / 100) * totalHours;
+        
+        datasets.push({
+          label: `${allocation.billing_account.name} Target`,
+          data: labels.map((_, index) => 
+            index === categoryIndex ? targetHours : null
+          ),
+          type: 'line' as const,
+          borderColor: 'red',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false
+        });
+      }
+    });
+
+    console.log("Final datasets:", datasets);
+
+    setEmployeeCategoryData({
+      labels: labels,
+      datasets: datasets,
+      categoryIds: categoryIds
+    });
+
+    setEmployeePieChartData({
+      labels: labels,
+      datasets: [{
         data: chartData,
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1
-      }];
-
-      // Add allocation lines
-      employeeAllocations.forEach(allocation => {
-        const categoryIndex = labels.findIndex(label => 
-          label.toLowerCase() === allocation.billing_account.name.toLowerCase()
-        );
-        if (categoryIndex !== -1) {
-          datasets.push({
-            label: `${allocation.billing_account.name} Allocation`,
-            data: labels.map((_, index) => 
-              index === categoryIndex ? allocation.allocation_percentage * totalHours / 100 : null
-            ),
-            type: 'line' as const,
-            borderColor: 'red',
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: false
-          });
-        }
-      });
-
-      setEmployeeCategoryData({
-        labels: labels,
-        datasets: datasets
-      });
-
-      setEmployeePieChartData({
-        labels: labels,
-        datasets: [{
-          data: chartData,
-          backgroundColor: [
-            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-          ],
-          hoverBackgroundColor: [
-            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-          ]
-        }]
-      });
-    }
+        backgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ],
+        hoverBackgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ]
+      }],
+      categoryIds: categoryIds
+    });
   };
 
   const handleEntityClick = (event: any, elements: any) => {
@@ -354,16 +406,24 @@ const Analytics: React.FC = () => {
   };
 
   const handleEmployeeChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const employee = event.target.value;
-    setSelectedEmployee(employee);
+    const employeeName = event.target.value;
+    setSelectedEmployee(employeeName);
     
-    if (employee) {
-      const filteredData = billbackData.filter(entry => entry.employee === employee);
+    if (employeeName) {
+      const filteredData = billbackData.filter(entry => entry.employee === employeeName);
       calculateTotals(filteredData, false);
       
       try {
-        const allocations = await fetchEmployeeTimeAllocations(employee);
-        setEmployeeAllocations(allocations);
+        // Find the employee ID from our stored employeesWithIds
+        const employee = employeesWithIds.find(emp => emp.name === employeeName);
+        if (employee) {
+          console.log("Found employee:", employee);
+          const allocations = await fetchEmployeeTimeAllocations(employee.id);
+          console.log("Fetched allocations:", allocations);
+          setEmployeeAllocations(allocations);
+        } else {
+          console.log("Could not find employee with name:", employeeName);
+        }
       } catch (error) {
         console.error("Failed to fetch employee time allocations:", error);
         setEmployeeAllocations([]);
@@ -469,90 +529,107 @@ const Analytics: React.FC = () => {
     onClick: undefined
   };
 
-  const barChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true,
+  const getBarChartOptions = (allocations: any[], totalHours: number): ChartOptions<'bar'> => {
+    const annotations: any = {};
+    
+    console.log("Creating annotations with:", {
+      chartLabels: employeeCategoryData?.labels,
+      allocations: allocations.map(a => ({
+        name: a.billing_account.name,
+        percentage: a.percentage
+      }))
+    });
+    
+    allocations.forEach((allocation, index) => {
+      const targetHours = (allocation.percentage / 100) * totalHours;
+      
+      // Find the corresponding category index in the chart data
+      const categoryIndex = employeeCategoryData?.labels?.findIndex(
+        label => label === allocation.billing_account.name
+      ) ?? -1;
+
+      console.log(`Matching allocation for ${allocation.billing_account.name}:`, {
+        categoryIndex,
+        labels: employeeCategoryData?.labels,
+        allocationPercentage: allocation.percentage,
+        totalHours,
+        targetHours
+      });
+
+      // Only create annotation if we found the matching category
+      if (categoryIndex !== -1) {
+        annotations[`line${index + 1}`] = {
+          type: 'line',
+          yMin: targetHours,
+          yMax: targetHours,
+          borderColor: 'red',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          xMin: categoryIndex - 0.5,
+          xMax: categoryIndex + 0.5,
+          label: {
+            display: true,
+            content: `Target: ${targetHours.toFixed(1)}h (${allocation.percentage}%)`,
+            position: 'end',
+            backgroundColor: 'rgba(255, 0, 0, 0.8)',
+            color: 'white',
+            padding: 4,
+            font: {
+              size: 11
+            }
+          }
+        };
+      } else {
+        console.warn(`No matching category found for ${allocation.billing_account.name}`);
+      }
+    });
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Hours'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
         title: {
           display: true,
-          text: 'Hours'
-        }
-      }
-    },
-    plugins: {
-      legend: {
-        display: true
-      },
-      title: {
-        display: true,
-        text: `Hours per Category for ${selectedEmployee}`
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y.toFixed(2) + ' hours';
-            }
-            return label;
-          }
-        }
-      },
-      annotation: {
-        annotations: {
-          capexLine: {
-            type: 'line',
-            display: (ctx) => ctx.chart.data.labels?.includes('2 CapEx - Other'),
-            yMin: 6,
-            yMax: 6,
-            xMin: (ctx) => {
-              const index = ctx.chart.data.labels?.indexOf('2 CapEx - Other') ?? -1;
-              return index - 0.5;
-            },
-            xMax: (ctx) => {
-              const index = ctx.chart.data.labels?.indexOf('2 CapEx - Other') ?? -1;
-              return index + 0.5;
-            },
-            borderColor: 'rgb(255, 99, 132)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: true,
-              content: '6 hours 🎯',
-              position: 'end'
-            }
-          },
-          rmLine: {
-            type: 'line',
-            display: (ctx) => ctx.chart.data.labels?.includes('1 R&M - General Labor'),
-            yMin: 4,
-            yMax: 4,
-            xMin: (ctx) => {
-              const index = ctx.chart.data.labels?.indexOf('1 R&M - General Labor') ?? -1;
-              return index - 0.5;
-            },
-            xMax: (ctx) => {
-              const index = ctx.chart.data.labels?.indexOf('1 R&M - General Labor') ?? -1;
-              return index + 0.5;
-            },
-            borderColor: 'rgb(255, 99, 132)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: true,
-              content: '4 hours 🎯',
-              position: 'end'
+          text: [
+            `Hours per Category for ${selectedEmployee}`,
+            `Total Hours: ${selectedEmployeeHours.toFixed(2)}`,
+            `Total Revenue: $${selectedEmployeeRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+          ]
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toFixed(2) + ' hours';
+              }
+              return label;
             }
           }
+        },
+        annotation: {
+          annotations: annotations
         }
       }
-    }
+    };
   };
+
+  const barChartOptions = getBarChartOptions(employeeAllocations, selectedEmployeeHours);
 
   const employeePieChartOptions: ChartOptions<'pie'> = {
     responsive: true,

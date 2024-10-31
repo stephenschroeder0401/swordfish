@@ -511,9 +511,9 @@ const Analytics: React.FC = () => {
     allocations.forEach((allocation, index) => {
       const targetHours = (allocation.percentage / 100) * totalHours;
       
-      // Find the corresponding category index in the chart data
+      // Find the exact category name match
       const categoryIndex = employeeCategoryData?.labels?.findIndex(
-        label => label === allocation.billing_account.name
+        label => label.trim() === allocation.billing_account.name.trim()
       ) ?? -1;
 
       console.log(`Matching allocation for ${allocation.billing_account.name}:`, {
@@ -524,7 +524,7 @@ const Analytics: React.FC = () => {
         targetHours
       });
 
-      // Only create annotation if we found the matching category
+      // Only create annotation if we found the exact matching category
       if (categoryIndex !== -1) {
         annotations[`line${index + 1}`] = {
           type: 'line',

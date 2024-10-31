@@ -230,6 +230,22 @@ export const fetchAllEntities = async () => {
 
 export const saveEmployeeAllocations = async (allocations: Record<string, Array<{billing_account: string, percentage: string}>>) => {
   console.log("Saving employee allocations:", allocations);
+  
+  // Get all employee IDs from the allocations object
+  const employeeIds = Object.keys(allocations);
+  
+  // Start by deleting all existing allocations for these employees
+  const { error: deleteError } = await supabase
+    .from('employee_gl_allocation')
+    .delete()
+    .in('employee_id', employeeIds);
+
+  if (deleteError) {
+    console.error("Error deleting existing allocations:", deleteError);
+    throw deleteError;
+  }
+
+  // Format and insert the new allocations
   const formattedAllocations = Object.entries(allocations).flatMap(([employeeId, allocs]) => 
     allocs.map(alloc => ({
       employee_id: employeeId,
@@ -238,20 +254,21 @@ export const saveEmployeeAllocations = async (allocations: Record<string, Array<
     }))
   );
 
-  // Start a transaction
-  const { data, error } = await supabase
-    .from('employee_gl_allocation')
-    .upsert(formattedAllocations, {
-      onConflict: ['employee_id', 'billing_account_id'],
-      ignoreDuplicates: false
-    });
+  // Only insert if there are allocations to insert
+  if (formattedAllocations.length > 0) {
+    const { data, error } = await supabase
+      .from('employee_gl_allocation')
+      .insert(formattedAllocations);
 
-  if (error) {
-    console.error("Error saving employee allocations:", error);
-    throw error;
+    if (error) {
+      console.error("Error saving employee allocations:", error);
+      throw error;
+    }
+
+    return data;
   }
-
-  return data;
+  
+  return [];
 };
 
 export const fetchAllEmployeeGlAllocations = async () => {

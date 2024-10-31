@@ -569,14 +569,17 @@ const Analytics: React.FC = () => {
           xMax: categoryIndex + 0.5,
           label: {
             display: true,
-            content: `Target: ${targetHours.toFixed(1)}h (${allocation.percentage}%)`,
+            content: `🎯 ${targetHours.toFixed(1)}h (${allocation.percentage}%)`,
             position: 'end',
-            backgroundColor: 'rgba(255, 0, 0, 0.8)',
+            backgroundColor: '#2D3748',
             color: 'white',
-            padding: 4,
+            padding: 6,
             font: {
-              size: 11
-            }
+              size: 12,
+              weight: 'bold'
+            },
+            borderRadius: 4,
+            z: 100
           }
         };
       } else {

@@ -513,7 +513,7 @@ const Analytics: React.FC = () => {
       
       // Find the exact category name match
       const categoryIndex = employeeCategoryData?.labels?.findIndex(
-        label => label.trim() === allocation.billing_account.name.trim()
+        label => (label as string).trim() === allocation.billing_account.name.trim()
       ) ?? -1;
 
       console.log(`Matching allocation for ${allocation.billing_account.name}:`, {

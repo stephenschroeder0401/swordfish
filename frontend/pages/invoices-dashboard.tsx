@@ -18,7 +18,7 @@ import { useBillingPeriod } from "@/contexts/BillingPeriodContext";
 
 import { TableConfigItem } from "../src/app/types/table-config";
 import { AppfolioLineItem } from "@/app/types/billing-types";
-import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchJobsAsBillingJob, fetchAllBillingPeriods} from "@/app/utils/supabase-client";
+import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchJobsAsBillingJob, fetchAllBillingPeriods, fetchAllBillingPropertiesNoPagination, fetchAllBillingAccountsNoPagination } from "@/app/utils/supabase-client";
 
 const InvoicesDashboard = () => {
   const [data, setData] = useState<AppfolioLineItem[]>([]);
@@ -55,11 +55,6 @@ const InvoicesDashboard = () => {
       try {
         const accounts = await fetchAllBillingAccounts();
         const billingProperties = await fetchAllBillingProperties();
-
-        setBillingAccounts(accounts as never[]);
-        setBillingProperties(billingProperties as never[]);
-
-
       } catch (error) {
         console.error("Error fetching initial data", error);
       }
@@ -98,49 +93,51 @@ const InvoicesDashboard = () => {
   
     
 
-  const fetchData = async () => {
-    try {
-      const jobs = await fetchJobsAsBillingJob(billingPeriod);
-      const billingProperties = await fetchAllBillingProperties();
-      const billbackCategories = await fetchAllBillingAccounts();
-      //convert billingJobs to AppfolioLineItems
-      const appfolioLineItems: AppFolioLineItem[] = jobs.map((job) => {
-
-        const account = billbackCategories.find((account) => account.id == job.billing_account_id);
-
-        const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
-        const property = billingProperties.find((property) => property.id == job.property_id);
-
-        const lineItem = {
-          billPropertyCode: property.code,
-          billUnitName: property.unit,
-          entity: property ? property.entityName : '',
-          payeeName: payeeName,
-          amount: job.total,
-          billAccountCode: billbackCategory?.glcode,
-          billDescription: account.description,
-          billDate: billDate,
-          dueDate: billDate,
-          billReference: billbackName,
-          billRemarks: billbackName,
-          memoForCheck: billbackName,
-          billingAccountCategory: account ? account.name : ""
-        };
-
-        return lineItem;
-      });
-
-      setData(appfolioLineItems);
-
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-    }
-
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      // Only fetch if we have a valid billing period
+      if (!billingPeriod) {
+        setData([]); // Clear data if no billing period
+        return;
+      }
+
+      try {
+        const jobs = await fetchJobsAsBillingJob(billingPeriod);
+        const billingProperties = await fetchAllBillingPropertiesNoPagination();
+        const billbackCategories = await fetchAllBillingAccountsNoPagination();
+        
+        const appfolioLineItems: AppFolioLineItem[] = jobs.map((job) => {
+          const account = billbackCategories.find((account) => account.id == job.billing_account_id);
+          const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
+          const property = billingProperties.find((property) => property.id == job.property_id);
+
+          const lineItem = {
+            billPropertyCode: property?.code,
+            billUnitName: property?.unit,
+            entity: property ? property.entityName : '',
+            payeeName: payeeName,
+            amount: job.total,
+            billAccountCode: billbackCategory?.glcode,
+            billDescription: account?.description,
+            billDate: billDate,
+            dueDate: billDate,
+            billReference: billbackName,
+            billRemarks: billbackName,
+            memoForCheck: billbackName,
+            billingAccountCategory: account ? account.name : ""
+          };
+
+          return lineItem;
+        });
+
+        setData(appfolioLineItems);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      }
+    };
+
     fetchData();
-  }, [billingPeriod]);
+  }, [billingPeriod]); // Only run when billingPeriod changes
 
   const convertToCSV = (objArray: AppFolioLineItem[]) => {
     if (!objArray.length) return '';

@@ -6,7 +6,7 @@ import CSVUpload from "@/components/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
-import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods, fetchAllEntities } from "@/app/utils/supabase-client";
+import { saveJobs, fetchAllBillingAccountsNoPagination, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods, fetchAllEntities, fetchAllBillingPropertiesNoPagination } from "@/app/utils/supabase-client";
 
 const BillBack = () => {
   
@@ -41,8 +41,8 @@ const BillBack = () => {
   const loadDependencies = async () => {
     setIsLoading(true);
     try {
-      const accounts = await fetchAllBillingAccounts();
-      const properties = await fetchAllBillingProperties();
+      const accounts = await fetchAllBillingAccountsNoPagination();
+      const properties = await fetchAllBillingPropertiesNoPagination();
       const employeeData = await fetchAllEmployees();
       setBillingAccounts(accounts);
       setBillingProperties(properties);
@@ -425,7 +425,7 @@ const BillBack = () => {
             size="md"
             colorScheme="gray"
             isDisabled={!billingPeriod}
-            mr={4}
+            mr={4}  
             minWidth='9vw'
           >
             Save Progress

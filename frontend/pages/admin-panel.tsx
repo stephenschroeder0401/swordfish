@@ -21,6 +21,17 @@ import {
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Spinner,
+  Center,
+  Text,
+  VStack,
+  Icon,
+  IconButton,
 } from '@chakra-ui/react';
 import {
   supabase,
@@ -31,7 +42,10 @@ import {
   fetchAllEntities,
   saveEmployeeAllocations,
   fetchEmployeeAllocations,
+  fetchAllBillingAccountsNoPagination,
 } from '@/app/utils/supabase-client';
+import { FiDatabase, FiPieChart } from 'react-icons/fi';
+import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 
 const AdminPanel = () => {
   const [billingAccounts, setBillingAccounts] = useState([]);
@@ -47,23 +61,24 @@ const AdminPanel = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [allocations, setAllocations] = useState({});
   const toast = useToast();
+  const [pageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isTableLoading, setIsTableLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [selectedSection, setSelectedSection] = useState('data');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const accounts = await fetchAllBillingAccounts();
+        // Use the no-pagination version for dropdowns
+        const accountsData = await fetchAllBillingAccountsNoPagination();
+        setBillingAccounts(accountsData);
+        
         const employeeData = await fetchAllEmployees();
-        console.log('Fetched employees:', employeeData); // Log fetched employees
-        const propertyData = await fetchAllBillingProperties();
-        const periodData = await fetchAllBillingPeriods();
-        const entityData = await fetchAllEntities();
-        setBillingAccounts(accounts);
         setEmployees(employeeData);
-        setProperties(propertyData);
-        setBillingPeriods(periodData);
-        setEntities(entityData);
       } catch (error) {
-        console.error('Error fetching initial data', error);
+        console.error('Error fetching initial data:', error);
+        setBillingAccounts([]);
       }
     };
 
@@ -287,183 +302,423 @@ const AdminPanel = () => {
 
   console.log('tableData:', tableData);
 
-  return (
-    <Container maxW='5000px' py={5}>
-      <Heading as="h1" size="xl" mb={6}>
-        Admin Panel
-      </Heading>
-      <Select placeholder="Select Table" onChange={handleTableChange} mb={6}>
-        <option value="billing_account">Billing Account</option>
-        <option value="employee">Employee</option>
-        <option value="property">Property</option>
-        <option value="billing_period">Billing Period</option>
-        <option value="entity">Entity</option>
-      </Select>
-      {selectedTable && (
-        <Box>
-          <Flex mb={4} justify="space-between">
-            <Button onClick={handleSaveChanges} colorScheme="green" isLoading={isLoading}>
-              Save Changes
-            </Button>
-          </Flex>
-          {Array.isArray(tableData) && tableData.length > 0 ? (
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  {['actions', ...Object.keys(tableData[0])].map((column) => (
-                    (column !== 'id') && <Th key={column}>{column}</Th>
+  const handleTabChange = async (index: number) => {
+    const tables = ['billing_account', 'employee', 'property', 'billing_period', 'entity'];
+    if (index < tables.length) {
+      const tableName = tables[index];
+      setSelectedTable(tableName);
+      setIsTableLoading(true);
+      try {
+        let data, count;
+
+        switch(tableName) {
+          case 'property':
+            const propResult = await fetchAllBillingProperties(currentPage, pageSize);
+            data = propResult.data;
+            count = propResult.count;
+            break;
+          case 'billing_account':
+            const accResult = await fetchAllBillingAccounts(currentPage, pageSize);
+            data = accResult.data;
+            count = accResult.count;
+            break;
+          case 'employee':
+            // For now, no pagination on employees
+            const empData = await fetchAllEmployees();
+            data = empData;
+            count = empData.length;
+            break;
+          case 'billing_period':
+            // For now, no pagination on billing periods
+            const periodData = await fetchAllBillingPeriods();
+            data = periodData;
+            count = periodData.length;
+            break;
+          case 'entity':
+            // For now, no pagination on entities
+            const entityData = await fetchAllEntities();
+            data = entityData;
+            count = entityData.length;
+            break;
+        }
+        
+        setTableData(data || []);
+        setTotalCount(count);
+        
+        if (data && data.length > 0) {
+          const newRowInit = {};
+          Object.keys(data[0]).forEach(key => {
+            if (key !== 'id') newRowInit[key] = '';
+          });
+          setNewRow(newRowInit);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${tableName}:`, error);
+      } finally {
+        setIsTableLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTable) {
+      const tables = ['billing_account', 'employee', 'property', 'billing_period', 'entity'];
+      handleTabChange(tables.indexOf(selectedTable));
+    }
+  }, [currentPage]);
+
+  const renderEmployeeAllocations = () => {
+    return (
+      <Box>
+        {renderEmployeeDropdown(selectedEmployee, handleEmployeeChange)}
+        
+        {selectedEmployee && (
+          <Box mt={4}>
+            <Accordion allowMultiple>
+              <AccordionItem>
+                <AccordionButton>
+                  <Box flex="1" textAlign="left">
+                    Time Allocations
+                  </Box>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel>
+                  {allocations[selectedEmployee]?.map((allocation, index) => (
+                    <Flex key={index} gap={4} mb={4}>
+                      <Select
+                        value={allocation.billing_account}
+                        onChange={(e) => handleAllocationChange(selectedEmployee, index, 'billing_account', e.target.value)}
+                      >
+                        <option value="">Select Account</option>
+                        {billingAccounts.map(account => (
+                          <option key={account.id} value={account.id}>
+                            {account.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <Input
+                        type="number"
+                        value={allocation.percentage}
+                        onChange={(e) => handleAllocationChange(selectedEmployee, index, 'percentage', e.target.value)}
+                        placeholder="Percentage"
+                      />
+                      <Button
+                        colorScheme="red"
+                        onClick={() => handleDeleteAllocation(selectedEmployee, index)}
+                      >
+                        Delete
+                      </Button>
+                    </Flex>
                   ))}
-                </Tr>
-              </Thead>
-              <Tbody>
-                <Tr>
-                  {['actions', ...Object.keys(tableData[0])].map((column) => (
-                    (column !== 'id') && (
-                      <Td key={column}>
-                        {column === 'actions' ? (
-                          <Button colorScheme="teal" onClick={handleAddRow} isDisabled={isAddRowDisabled}>
-                            Add
-                          </Button>
-                        ) : column === 'employee_id' ? (
-                          renderEmployeeDropdown(
-                            newRow[column],
-                            (e) => handleNewRowInputChange(e, column)
-                          )
-                        ) : column === 'category_id' ? (
-                          <Select
-                            placeholder="Select Category"
-                            value={newRow[column] || ''}
-                            onChange={(e) => handleNewRowInputChange(e, column)}
-                          >
-                            {billingAccounts.map(account => (
-                              <option key={account.id} value={account.id}>{account.name}</option>
-                            ))}
-                          </Select>
-                        ) : column === 'percentage' ? (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Enter percentage"
-                            value={newRow[column] || ''}
-                            onChange={(e) => handleNewRowInputChange(e, column)}
-                          />
-                        ) : (
-                          <Input
-                            placeholder={`Enter ${column}`}
-                            value={newRow[column] || ''}
-                            onChange={(e) => handleNewRowInputChange(e, column)}
-                          />
-                        )}
-                      </Td>
-                    )
-                  ))}
-                </Tr>
-                {tableData.map((row, rowIndex) => (
-                  <Tr key={rowIndex}>
-                    {['actions', ...Object.keys(row)].map((column) => (
-                      (column !== 'id') && (
-                        <Td key={column}>
-                          {column === 'actions' ? (
-                            <Button colorScheme="red" onClick={() => handleDeleteRow(rowIndex)}>
-                              Delete
-                            </Button>
-                          ) : column === 'employee_id' ? (
-                            renderEmployeeDropdown(
-                              row[column],
-                              (e) => handleInputChange(e, rowIndex, column)
-                            )
-                          ) : column === 'category_id' ? (
-                            <Select
-                              value={row[column] || ''}
-                              onChange={(e) => handleInputChange(e, rowIndex, column)}
-                            >
-                              {billingAccounts.map(account => (
-                                <option key={account.id} value={account.id}>{account.name}</option>
-                              ))}
-                            </Select>
-                          ) : column === 'percentage' ? (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={row[column] || ''}
-                              onChange={(e) => handleInputChange(e, rowIndex, column)}
-                            />
-                          ) : (
-                            <Input value={row[column] || ''} onChange={(e) => handleInputChange(e, rowIndex, column)} />
-                          )}
-                        </Td>
-                      )
-                    ))}
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          ) : (
-            <Box>No data available for this table.</Box>
-          )}
-        </Box>
-      )}
-      
-      <Heading as="h2" size="lg" mt={8} mb={4}>
-        Employee Allocations
-      </Heading>
-      <Select placeholder="Select Employee" onChange={handleEmployeeChange} mb={4}>
-        {employees.map(employee => (
-          <option key={employee.id} value={employee.id}>{employee.name}</option>
-        ))}
-      </Select>
-      
-      {selectedEmployee && (
-        <Accordion allowMultiple>
-          <AccordionItem>
-            <h2>
-              <AccordionButton>
-                <Box flex="1" textAlign="left">
-                  Allocations for {employees.find(e => e.id === selectedEmployee)?.name}
-                </Box>
-                <AccordionIcon />
-              </AccordionButton>
-            </h2>
-            <AccordionPanel pb={4}>
-              {allocations[selectedEmployee]?.map((allocation, index) => (
-                <Flex key={index} mb={2} alignItems="center">
-                  <Select
-                    placeholder="Select Billing Account"
-                    value={allocation.billing_account} // Changed from allocation.category
-                    onChange={(e) => handleAllocationChange(selectedEmployee, index, 'billing_account', e.target.value)}
-                    mr={4}
-                    width="400px"
+                  <Button
+                    mt={2}
+                    onClick={() => handleAddAllocation(selectedEmployee)}
                   >
-                    {billingAccounts.map(account => (
-                      <option key={account.id} value={account.id}>{account.name}</option>
-                    ))}
-                  </Select>
-                  <Input
-                    type="number"
-                    placeholder="%"
-                    value={allocation.percentage}
-                    onChange={(e) => handleAllocationChange(selectedEmployee, index, 'percentage', e.target.value)}
-                    mr={1}
-                    width="80px"
-                  />
-                  %
-                  <Button ml={8} colorScheme="red" onClick={() => handleDeleteAllocation(selectedEmployee, index)}>
-                    Delete
+                    Add Allocation
                   </Button>
-                </Flex>
+                </AccordionPanel>
+              </AccordionItem>
+            </Accordion>
+            
+            <Button
+              mt={4}
+              colorScheme="blue"
+              onClick={handleSaveAllocations}
+              isLoading={isLoading}
+            >
+              Save Allocations
+            </Button>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
+      {/* Fixed Header */}
+      <Flex 
+        bg="white" 
+        borderBottom="1px" 
+        borderColor="gray.200" 
+        p={10}
+        h="36px"
+        alignItems="center"
+      >
+        <Heading as="h1" size="lg">
+          Admin Panel
+        </Heading>
+      </Flex>
+
+      {/* Fixed Navigation and Content Area */}
+      <Box flex="1" display="flex" flexDirection="column" overflow="hidden">
+        <Tabs 
+          variant="enclosed" 
+          onChange={(index) => setSelectedSection(index === 0 ? 'data' : 'allocations')}
+          display="flex"
+          flexDirection="column"
+          h="100%"
+        >
+          <TabList h="32px">
+            <Tab py={1} fontSize="lg">Data Management</Tab>
+            <Tab py={1} fontSize="lg">Allocations</Tab>
+          </TabList>
+          <TabPanels flex="1" overflow="hidden">
+            <TabPanel h="100%" p={0}>
+              {/* Data Management Content */}
+              <Tabs 
+                variant="line" 
+                onChange={handleTabChange}
+                display="flex"
+                flexDirection="column"
+                h="100%"
+              >
+                <TabList h="32px">
+                  <Tab py={1} fontSize="sm">Billing Accounts</Tab>
+                  <Tab py={1} fontSize="sm">Employees</Tab>
+                  <Tab py={1} fontSize="sm">Properties</Tab>
+                  <Tab py={1} fontSize="sm">Billing Periods</Tab>
+                  <Tab py={1} fontSize="sm">Entities</Tab>
+                </TabList>
+                <TabPanels flex="1" overflow="hidden">
+                  <TabPanel h="calc(100vh - 180px)" overflowY="auto" padding={0}>
+                    {renderTable('billing_account', {
+                      tableData,
+                      newRow,
+                      handleNewRowInputChange,
+                      handleAddRow,
+                      isAddRowDisabled,
+                      handleInputChange,
+                      handleDeleteRow,
+                      handleSaveChanges,
+                      isLoading,
+                      isTableLoading,
+                      currentPage,
+                      setCurrentPage,
+                      totalCount,
+                      pageSize
+                    })}
+                  </TabPanel>
+                  <TabPanel h="100%" overflowY="auto" padding={0}>
+                    {renderTable('employee', {
+                      tableData,
+                      newRow,
+                      handleNewRowInputChange,
+                      handleAddRow,
+                      isAddRowDisabled,
+                      handleInputChange,
+                      handleDeleteRow,
+                      handleSaveChanges,
+                      isLoading,
+                      isTableLoading,
+                      currentPage,
+                      setCurrentPage,
+                      totalCount,
+                      pageSize
+                    })}
+                  </TabPanel>
+                  <TabPanel h="100%" overflowY="auto" padding={0}>
+                    <Box maxH="calc(100vh - 200px)">
+                      {renderTable('property', {
+                        tableData,
+                        newRow,
+                        handleNewRowInputChange,
+                        handleAddRow,
+                        isAddRowDisabled,
+                        handleInputChange,
+                        handleDeleteRow,
+                        handleSaveChanges,
+                        isLoading,
+                        isTableLoading,
+                        currentPage,
+                        setCurrentPage,
+                        totalCount,
+                        pageSize: 20
+                      })}
+                    </Box>
+                  </TabPanel>
+                  <TabPanel h="100%" overflowY="auto" padding={0}>
+                    {renderTable('billing_period', {
+                      tableData,
+                      newRow,
+                      handleNewRowInputChange,
+                      handleAddRow,
+                      isAddRowDisabled,
+                      handleInputChange,
+                      handleDeleteRow,
+                      handleSaveChanges,
+                      isLoading,
+                      isTableLoading,
+                      currentPage,
+                      setCurrentPage,
+                      totalCount,
+                      pageSize
+                    })}
+                  </TabPanel>
+                  <TabPanel h="100%" overflowY="auto" padding={0}>
+                    {renderTable('entity', {
+                      tableData,
+                      newRow,
+                      handleNewRowInputChange,
+                      handleAddRow,
+                      isAddRowDisabled,
+                      handleInputChange,
+                      handleDeleteRow,
+                      handleSaveChanges,
+                      isLoading,
+                      isTableLoading,
+                      currentPage,
+                      setCurrentPage,
+                      totalCount,
+                      pageSize
+                    })}
+                  </TabPanel>
+                </TabPanels>
+              </Tabs>
+            </TabPanel>
+            <TabPanel h="100%">
+              <Box p={4}>
+                {renderEmployeeAllocations()}
+              </Box>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+      </Box>
+    </Box>
+  );
+};
+
+// Update renderTable to remove its own scrolling container
+const renderTable = (
+  tableName: string,
+  {
+    tableData,
+    newRow,
+    handleNewRowInputChange,
+    handleAddRow,
+    isAddRowDisabled,
+    handleInputChange,
+    handleDeleteRow,
+    handleSaveChanges,
+    isLoading,
+    isTableLoading,
+    currentPage,
+    setCurrentPage,
+    totalCount,
+    pageSize
+  }
+) => {
+  if (isTableLoading) {
+    return (
+      <Center py={10}>
+        <Spinner size="xl" />
+      </Center>
+    );
+  }
+
+  return (
+    <Box>
+      <Table variant="simple" size="sm">
+        <Thead
+          position="sticky"
+          top={0}
+          bg="white"
+          zIndex={1}
+          boxShadow="0 1px 3px rgba(0,0,0,0.1)"
+        >
+          <Tr>
+            <Th width="50px" px={2.5}></Th>
+            {tableData.length > 0 && 
+              Object.keys(tableData[0]).map(column => (
+                <Th key={column} px={2.5}>{column}</Th>
+              ))
+            }
+          </Tr>
+        </Thead>
+        <Tbody>
+          {/* New Row */}
+          <Tr>
+            <Td px={2.5}>
+              <IconButton
+                aria-label="Add row"
+                icon={<AddIcon />}
+                size="sm"
+                colorScheme="green"
+                onClick={handleAddRow}
+                isDisabled={isAddRowDisabled}
+                variant="ghost"
+              />
+            </Td>
+            {Object.keys(newRow).map(column => (
+              <Td key={column} px={2.5}>
+                <Input
+                  size="sm"
+                  value={newRow[column] || ''}
+                  onChange={(e) => handleNewRowInputChange(e, column)}
+                />
+              </Td>
+            ))}
+          </Tr>
+          {/* Existing Rows */}
+          {tableData.map((row, index) => (
+            <Tr key={row.id || index}>
+              <Td px={2.5}>
+                <IconButton
+                  aria-label="Delete row"
+                  icon={<MinusIcon />}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => handleDeleteRow(index)}
+                  variant="ghost"
+                />
+              </Td>
+              {Object.keys(row).map(column => (
+                <Td key={column} px={2.5}>
+                  <Input
+                    size="sm"
+                    value={row[column] || ''}
+                    onChange={(e) => handleInputChange(e, index, column)}
+                  />
+                </Td>
               ))}
-              <Button mt={2} onClick={() => handleAddAllocation(selectedEmployee)}>
-                Add Allocation
-              </Button>
-            </AccordionPanel>
-          </AccordionItem>
-        </Accordion>
-      )}
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
       
-      <Button mt={4} colorScheme="blue" onClick={handleSaveAllocations} isLoading={isLoading}>
-        Save Allocations
+      {/* Pagination Controls */}
+      <Flex justify="space-between" align="center" mt={4}>
+        <Button
+          size="sm"
+          onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+          isDisabled={currentPage === 0}
+        >
+          Previous
+        </Button>
+        
+        <Text>
+          Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)}
+        </Text>
+        
+        <Button
+          size="sm"
+          onClick={() => setCurrentPage(p => p + 1)}
+          isDisabled={(currentPage + 1) * pageSize >= totalCount}
+        >
+          Next
+        </Button>
+      </Flex>
+
+      <Button
+        size="sm"
+        mt={4}
+        colorScheme="blue"
+        onClick={handleSaveChanges}
+        isLoading={isLoading}
+      >
+        Save Changes
       </Button>
-    </Container>
+    </Box>
   );
 };
 

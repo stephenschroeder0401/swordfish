@@ -110,17 +110,42 @@ export const fetchJobsAsBillingJob = async (billingPeriod): Promise<BillingJob[]
   return data as BillingJob[];
 };
 
-export const fetchAllBillingAccounts = async () => {
-  const { data, error } = await supabase
+export const fetchAllBillingAccounts = async (page = 0, pageSize = 10) => {
+  const start = page * pageSize;
+  const end = start + pageSize - 1;
+
+  console.log('Fetching accounts with:', { start, end });
+
+  const { data, error, count } = await supabase
     .from('billing_account')
-    .select("*");
+    .select('*', { count: 'exact' })
+    .range(start, end);
 
   if (error) {
     console.error("Error fetching billing accounts:", error);
     throw error;
   }
 
-  return data; // Returns the array of billing accounts
+  console.log('Fetched accounts:', data);
+
+  return { 
+    data: data || [],
+    count: count || 0
+  };
+};
+
+export const fetchAllBillingAccountsNoPagination = async () => {
+  const { data, error } = await supabase
+    .from('billing_account')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error("Error fetching all billing accounts:", error);
+    throw error;
+  }
+
+  return data || [];
 };
 
 export const fetchAllEmployees = async () => {
@@ -136,29 +161,34 @@ export const fetchAllEmployees = async () => {
   return data; // Returns the array of employees
 };
 
-export const fetchAllBillingProperties = async () => {
-  const { data, error } = await supabase
+export const fetchAllBillingProperties = async (page = 0, pageSize = 10) => {
+  const start = page * pageSize;
+  const end = start + pageSize - 1;
+
+  const { data, error, count } = await supabase
     .from('property')
     .select(`
       *,
       entity:entityid (
         name
       )
-    `);  // 'entity' is the foreign table name, and 'entity_id' is the column in the 'property' table
+    `, { count: 'exact' })
+    .range(start, end);
 
   if (error) {
     console.error("Error fetching properties with entity names:", error);
     throw error;
   }
 
-  // Optionally, you can map over the data to simplify the structure
-  // This would flatten the data, making it easier to use in the frontend
   const formattedData = data.map(item => ({
     ...item,
-    entityName: item.entity.name  // Assuming 'entity' is not null
+    entityName: item.entity?.name
   }));
 
-  return formattedData; // Returns the array of properties with entity names included
+  return { 
+    data: formattedData,
+    count: count || 0
+  };
 };
 
 
@@ -326,4 +356,28 @@ export const fetchEmployeeAllocations = async (employeeId: string) => {
     billing_account: allocation.billing_account_id, // Keep the ID for the select value
     percentage: allocation.percentage.toString()
   }));
+};
+
+export const fetchAllBillingPropertiesNoPagination = async () => {
+  const { data, error } = await supabase
+    .from('property')
+    .select(`
+      *,
+      entity:entityid (
+        name
+      )
+    `)
+    .order('name');
+
+  if (error) {
+    console.error("Error fetching properties with entity names:", error);
+    throw error;
+  }
+
+  const formattedData = data.map(item => ({
+    ...item,
+    entityName: item.entity?.name
+  }));
+
+  return formattedData || [];
 };

@@ -46,6 +46,7 @@ import {
 } from '@/app/utils/supabase-client';
 import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
+import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 
 const AdminPanel = () => {
   const [billingAccounts, setBillingAccounts] = useState([]);
@@ -164,20 +165,14 @@ const AdminPanel = () => {
   };
 
   const handleAddRow = () => {
-    if (Object.values(newRow).some(value => !value)) {
-      toast({
-        title: "Unable to add row",
-        description: "Please fill in all fields before adding a new row.",
-        status: "error",
-        duration: 5000,
-        isClosable: true
+    const emptyRow = { id: uuidv4() };
+    // Add empty values for all columns except id
+    if (tableData.length > 0) {
+      Object.keys(tableData[0]).forEach(key => {
+        if (key !== 'id') emptyRow[key] = '';
       });
-      return;
     }
-
-    const newRowWithId = { ...newRow, id: uuidv4() };
-    setTableData([newRowWithId, ...tableData]);
-    setNewRow({});
+    setTableData([emptyRow, ...tableData]);
   };
 
   const handleDeleteRow = (index) => {
@@ -426,7 +421,7 @@ const AdminPanel = () => {
               onClick={handleSaveAllocations}
               isLoading={isLoading}
             >
-              Save Allocations
+              Allocations
             </Button>
           </Box>
         )}
@@ -441,12 +436,13 @@ const AdminPanel = () => {
         bg="white" 
         borderBottom="1px" 
         borderColor="gray.200" 
-        p={10}
-        h="36px"
+        p={4}
+        h="7vh"
         alignItems="center"
+        pb="3vh"
       >
         <Heading as="h1" size="lg">
-          Admin Panel
+          Configuration
         </Heading>
       </Flex>
 
@@ -458,8 +454,21 @@ const AdminPanel = () => {
           display="flex"
           flexDirection="column"
           h="100%"
+          sx={{
+            '.chakra-tabs__tab[aria-selected=true]': {
+              color: 'green.700',
+              borderColor: 'green.700',
+              borderBottomColor: 'transparent'
+            },
+            '.chakra-tabs__tab:hover': {
+              color: 'green.600'
+            },
+            '.chakra-tabs__tab-panel': {
+              padding: 0
+            }
+          }}
         >
-          <TabList h="32px">
+          <TabList height="5vh">
             <Tab py={1} fontSize="lg">Data Management</Tab>
             <Tab py={1} fontSize="lg">Allocations</Tab>
           </TabList>
@@ -472,8 +481,17 @@ const AdminPanel = () => {
                 display="flex"
                 flexDirection="column"
                 h="100%"
+                sx={{
+                  '.chakra-tabs__tab[aria-selected=true]': {
+                    color: 'green.700',
+                    borderColor: 'green.700'
+                  },
+                  '.chakra-tabs__tab:hover': {
+                    color: 'green.600'
+                  }
+                }}
               >
-                <TabList h="32px">
+                <TabList height="5vh">
                   <Tab py={1} fontSize="sm">Billing Accounts</Tab>
                   <Tab py={1} fontSize="sm">Employees</Tab>
                   <Tab py={1} fontSize="sm">Properties</Tab>
@@ -481,7 +499,7 @@ const AdminPanel = () => {
                   <Tab py={1} fontSize="sm">Entities</Tab>
                 </TabList>
                 <TabPanels flex="1" overflow="hidden">
-                  <TabPanel h="calc(100vh - 180px)" overflowY="auto" padding={0}>
+                  <TabPanel h="100%" overflowY="auto" padding={0}>
                     {renderTable('billing_account', {
                       tableData,
                       newRow,
@@ -518,24 +536,22 @@ const AdminPanel = () => {
                     })}
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    <Box maxH="calc(100vh - 200px)">
-                      {renderTable('property', {
-                        tableData,
-                        newRow,
-                        handleNewRowInputChange,
-                        handleAddRow,
-                        isAddRowDisabled,
-                        handleInputChange,
-                        handleDeleteRow,
-                        handleSaveChanges,
-                        isLoading,
-                        isTableLoading,
-                        currentPage,
-                        setCurrentPage,
-                        totalCount,
-                        pageSize: 20
-                      })}
-                    </Box>
+                    {renderTable('property', {
+                      tableData,
+                      newRow,
+                      handleNewRowInputChange,
+                      handleAddRow,
+                      isAddRowDisabled,
+                      handleInputChange,
+                      handleDeleteRow,
+                      handleSaveChanges,
+                      isLoading,
+                      isTableLoading,
+                      currentPage,
+                      setCurrentPage,
+                      totalCount,
+                      pageSize: 20
+                    })}
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
                     {renderTable('billing_period', {
@@ -608,116 +624,119 @@ const renderTable = (
     pageSize
   }
 ) => {
-  if (isTableLoading) {
-    return (
-      <Center py={10}>
-        <Spinner size="xl" />
-      </Center>
-    );
-  }
-
   return (
-    <Box>
-      <Table variant="simple" size="sm">
-        <Thead
-          position="sticky"
-          top={0}
-          bg="white"
-          zIndex={1}
-          boxShadow="0 1px 3px rgba(0,0,0,0.1)"
-        >
-          <Tr>
-            <Th width="50px" px={2.5}></Th>
-            {tableData.length > 0 && 
-              Object.keys(tableData[0]).map(column => (
-                <Th key={column} px={2.5}>{column}</Th>
-              ))
-            }
-          </Tr>
-        </Thead>
-        <Tbody>
-          {/* New Row */}
-          <Tr>
-            <Td px={2.5}>
-              <IconButton
-                aria-label="Add row"
-                icon={<AddIcon />}
-                size="sm"
-                colorScheme="green"
-                onClick={handleAddRow}
-                isDisabled={isAddRowDisabled}
-                variant="ghost"
-              />
-            </Td>
-            {Object.keys(newRow).map(column => (
-              <Td key={column} px={2.5}>
-                <Input
-                  size="sm"
-                  value={newRow[column] || ''}
-                  onChange={(e) => handleNewRowInputChange(e, column)}
-                />
-              </Td>
-            ))}
-          </Tr>
-          {/* Existing Rows */}
-          {tableData.map((row, index) => (
-            <Tr key={row.id || index}>
-              <Td px={2.5}>
-                <IconButton
-                  aria-label="Delete row"
-                  icon={<MinusIcon />}
-                  size="sm"
-                  colorScheme="red"
-                  onClick={() => handleDeleteRow(index)}
-                  variant="ghost"
-                />
-              </Td>
-              {Object.keys(row).map(column => (
-                <Td key={column} px={2.5}>
-                  <Input
-                    size="sm"
-                    value={row[column] || ''}
-                    onChange={(e) => handleInputChange(e, index, column)}
-                  />
-                </Td>
-              ))}
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-      
-      {/* Pagination Controls */}
-      <Flex justify="space-between" align="center" mt={4}>
-        <Button
-          size="sm"
-          onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-          isDisabled={currentPage === 0}
-        >
-          Previous
-        </Button>
-        
-        <Text>
-          Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)}
-        </Text>
-        
-        <Button
-          size="sm"
-          onClick={() => setCurrentPage(p => p + 1)}
-          isDisabled={(currentPage + 1) * pageSize >= totalCount}
-        >
-          Next
-        </Button>
-      </Flex>
-
-      <Button
-        size="sm"
-        mt={4}
-        colorScheme="blue"
-        onClick={handleSaveChanges}
-        isLoading={isLoading}
+    <Box display="flex" flexDirection="column" height="100%">
+      {/* Pagination Bar */}
+      <Box 
+        position="sticky"
+        top={0}
+        bg="white" 
+        zIndex={2}
+        borderBottom="1px"
+        borderColor="gray.200"
+        py={2}
       >
-        Save Changes
-      </Button>
+        <Flex justify="space-between" align="center" px={4}>
+          <IconButton
+            aria-label="Add row"
+            icon={<AddIcon />}
+            size="xs"
+            colorScheme="green"
+            onClick={handleAddRow}
+          />
+
+          <Flex justify="center" align="center" gap={4}>
+            <IconButton
+              size="sm"
+              icon={<ChevronLeftIcon boxSize={5} />}
+              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+              isDisabled={currentPage === 0}
+              variant="ghost"
+              aria-label="Previous page"
+            />
+            
+            <Text fontSize="sm" fontWeight="bold">
+              Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)}
+            </Text>
+            
+            <IconButton
+              size="sm"
+              icon={<ChevronRightIcon boxSize={5} />}
+              onClick={() => setCurrentPage(p => p + 1)}
+              isDisabled={(currentPage + 1) * pageSize >= totalCount}
+              variant="ghost"
+              aria-label="Next page"
+            />
+          </Flex>
+
+          <Button
+            size="sm"
+            colorScheme="green"
+            onClick={handleSaveChanges}
+            isLoading={isLoading}
+            mr='3vw'
+          >
+            Save Changes
+          </Button>
+        </Flex>
+      </Box>
+
+      {/* Table Container */}
+      <Box overflowY="auto" flex="1" position="relative">
+        <Table variant="simple" size="sm">
+          <Thead
+            position="sticky"
+            top="0"
+            bg="white"
+            zIndex={1}
+            boxShadow="0 1px 3px rgba(0,0,0,0.1)"
+          >
+            <Tr>
+              <Th width="50px" px={2.5} bg="white"></Th>
+              {tableData.length > 0 && 
+                Object.keys(tableData[0]).map(column => (
+                  <Th key={column} px={2.5} bg="white">{column}</Th>
+                ))
+              }
+            </Tr>
+          </Thead>
+          <Tbody>
+            {isTableLoading ? (
+              <Tr>
+                <Td colSpan={tableData.length > 0 ? Object.keys(tableData[0]).length + 1 : 2}>
+                  <Center py={10}>
+                    <Spinner size="xl" />
+                  </Center>
+                </Td>
+              </Tr>
+            ) : (
+              tableData.map((row, index) => (
+                <Tr key={row.id || index}>
+                  <Td px={2.5}>
+                    <IconButton
+                      aria-label="Delete row"
+                      icon={<MinusIcon />}
+                      size="sm"
+                      colorScheme="red"
+                      onClick={() => handleDeleteRow(index)}
+                      variant="ghost"
+                    />
+                  </Td>
+                  {Object.keys(row).map(column => (
+                    <Td key={column} px={2.5}>
+                      <Input
+                        size="sm"
+                        value={row[column] || ''}
+                        onChange={(e) => handleInputChange(e, index, column)}
+                      />
+                    </Td>
+                  ))}
+                </Tr>
+              ))
+            )}
+          </Tbody>
+        </Table>
+      </Box>
     </Box>
   );
 };

@@ -32,6 +32,7 @@ import {
   VStack,
   Icon,
   IconButton,
+  Checkbox,
 } from '@chakra-ui/react';
 import {
   supabase,
@@ -48,13 +49,67 @@ import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 
+type ColumnConfig = {
+  visible: boolean;
+  displayName?: string;
+  width?: string;
+  type?: 'text' | 'boolean' | 'decimal';
+};
+
+type TableConfig = {
+  [columnName: string]: ColumnConfig;
+};
+
+export const TABLE_CONFIG: Record<string, TableConfig> = {
+  billing_account: {
+    id: { visible: false },
+    name: { 
+      visible: true, 
+      displayName: 'Account Name',
+      width: '200px',
+      type: 'text'
+    },
+    glcode: { 
+      visible: true, 
+      displayName: 'GL Code',
+      type: 'text'
+    },
+    rate: {
+      visible: true,
+      displayName: 'Hourly Rate ($)',
+      type: 'decimal'
+    },
+    isbilledback: {
+      visible: true,
+      displayName: 'Billed Back',
+      type: 'boolean'
+    },
+    client_id: { visible: false },
+  },
+};
+
+// Helper function to filter visible columns
+export const getVisibleColumns = (tableName: string): string[] => {
+  const tableConfig = TABLE_CONFIG[tableName];
+  if (!tableConfig) return [];
+  
+  return Object.entries(tableConfig)
+    .filter(([_, config]) => config.visible)
+    .map(([columnName]) => columnName);
+};
+
+// Helper to get display name for a column
+export const getColumnDisplayName = (tableName: string, columnName: string): string => {
+  return TABLE_CONFIG[tableName]?.[columnName]?.displayName || columnName;
+};
+
 const AdminPanel = () => {
   const [billingAccounts, setBillingAccounts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [properties, setProperties] = useState([]);
   const [billingPeriods, setBillingPeriods] = useState([]);
   const [entities, setEntities] = useState([]);
-  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedTable, setSelectedTable] = useState('billing_account');
   const [tableData, setTableData] = useState([]);
   const [newRow, setNewRow] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -181,10 +236,15 @@ const AdminPanel = () => {
 
   const handleSaveChanges = async () => {
     setIsLoading(true);
-
     try {
       console.log('Saving changes:', tableData);
-      const { data, error } = await supabase.from(selectedTable).upsert(tableData, {
+      // Make sure rate is converted to a number before saving
+      const dataToSave = tableData.map(row => ({
+        ...row,
+        rate: row.rate ? parseFloat(row.rate) : null
+      }));
+      
+      const { data, error } = await supabase.from(selectedTable).upsert(dataToSave, {
         onConflict: 'id'
       });
       if (error) throw error;
@@ -307,15 +367,60 @@ const AdminPanel = () => {
         let data, count;
 
         switch(tableName) {
-          case 'property':
-            const propResult = await fetchAllBillingProperties(currentPage, pageSize);
-            data = propResult.data;
-            count = propResult.count;
-            break;
           case 'billing_account':
             const accResult = await fetchAllBillingAccounts(currentPage, pageSize);
-            data = accResult.data;
+            data = accResult.data?.map(({ id, client_id, name, glcode, rate, isbilledback }) => ({
+              id,  // Keep the original id instead of _id
+              client_id,  // Keep the original client_id
+              name,
+              glcode,
+              rate: rate ?? '',  // Use nullish coalescing to handle null rates
+              isbilledback
+            }));
             count = accResult.count;
+            
+            // Initialize newRow with only visible fields
+            setNewRow({
+              name: '',
+              glcode: '',
+              rate: '',
+              isbilledback: false
+            });
+            break;
+          case 'property':
+            const { data: propData, count: propCount } = await supabase
+              .from('property')
+              .select(`
+                id,
+                name,
+                code,
+                address,
+                unit,
+                entityid,
+                entity (
+                  name
+                )
+              `, { count: 'exact' })
+              .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
+            
+            data = propData?.map(({ id, name, code, address, unit, entity }) => ({
+              name,
+              code,
+              address,
+              unit,
+              entity: entity?.name || 'Unknown Entity',
+              _id: id
+            }));
+            count = propCount;
+            
+            // Initialize newRow with only visible fields
+            setNewRow({
+              name: '',
+              code: '',
+              address: '',
+              unit: '',
+              entity: ''
+            });
             break;
           case 'employee':
             // For now, no pagination on employees
@@ -343,7 +448,7 @@ const AdminPanel = () => {
         if (data && data.length > 0) {
           const newRowInit = {};
           Object.keys(data[0]).forEach(key => {
-            if (key !== 'id') newRowInit[key] = '';
+            if (!key.startsWith('_')) newRowInit[key] = '';
           });
           setNewRow(newRowInit);
         }
@@ -428,6 +533,11 @@ const AdminPanel = () => {
       </Box>
     );
   };
+
+  useEffect(() => {
+    // Trigger initial load of billing accounts
+    handleTabChange(0); // 0 is the index for billing accounts tab
+  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
@@ -625,7 +735,7 @@ const renderTable = (
   }
 ) => {
   return (
-    <Box display="flex" flexDirection="column" height="100%">
+    <Box display="flex" flexDirection="column" height="100%" maxH="83vh">
       {/* Pagination Bar */}
       <Box 
         position="sticky"
@@ -655,8 +765,8 @@ const renderTable = (
               aria-label="Previous page"
             />
             
-            <Text fontSize="sm" fontWeight="bold">
-              Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)}
+            <Text fontSize="sm">
+              Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)} ({totalCount} rows)
             </Text>
             
             <IconButton
@@ -671,7 +781,8 @@ const renderTable = (
 
           <Button
             size="sm"
-            colorScheme="green"
+            color="white"
+            background="green.600"
             onClick={handleSaveChanges}
             isLoading={isLoading}
             mr='3vw'
@@ -682,58 +793,79 @@ const renderTable = (
       </Box>
 
       {/* Table Container */}
-      <Box overflowY="auto" flex="1" position="relative">
+      <Box 
+        overflowY="auto" 
+        flex="1" 
+        position="relative"
+        pb="50vh"
+        sx={{
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#f1f1f1',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#888',
+            borderRadius: '4px',
+          },
+        }}
+      >
         <Table variant="simple" size="sm">
-          <Thead
-            position="sticky"
-            top="0"
-            bg="white"
-            zIndex={1}
-            boxShadow="0 1px 3px rgba(0,0,0,0.1)"
-          >
+          <Thead position="sticky" top={0} bg="white" zIndex={1}> {/* Made header sticky */}
             <Tr>
-              <Th width="50px" px={2.5} bg="white"></Th>
-              {tableData.length > 0 && 
-                Object.keys(tableData[0]).map(column => (
-                  <Th key={column} px={2.5} bg="white">{column}</Th>
-                ))
-              }
+              <Th width="50px" px={2.5}></Th>
+              {getVisibleColumns(tableName).map(column => (
+                <Th key={column} px={2.5}>
+                  {getColumnDisplayName(tableName, column)}
+                </Th>
+              ))}
             </Tr>
           </Thead>
           <Tbody>
-            {isTableLoading ? (
-              <Tr>
-                <Td colSpan={tableData.length > 0 ? Object.keys(tableData[0]).length + 1 : 2}>
-                  <Center py={10}>
-                    <Spinner size="xl" />
-                  </Center>
+            {tableData.map((row, index) => (
+              <Tr key={row._id || index}>
+                <Td px={2.5}>
+                  <IconButton
+                    aria-label="Delete row"
+                    icon={<MinusIcon />}
+                    size="sm"
+                    colorScheme="red"
+                    onClick={() => handleDeleteRow(index)}
+                    variant="ghost"
+                  />
                 </Td>
-              </Tr>
-            ) : (
-              tableData.map((row, index) => (
-                <Tr key={row.id || index}>
-                  <Td px={2.5}>
-                    <IconButton
-                      aria-label="Delete row"
-                      icon={<MinusIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() => handleDeleteRow(index)}
-                      variant="ghost"
-                    />
-                  </Td>
-                  {Object.keys(row).map(column => (
-                    <Td key={column} px={2.5}>
+                {getVisibleColumns(tableName).map(column => (
+                  <Td key={column} px={2.5}>
+                    {TABLE_CONFIG[tableName][column].type === 'boolean' ? (
+                      <Checkbox
+                        isChecked={row[column]}
+                        onChange={(e) => handleInputChange(
+                          { target: { value: e.target.checked } }, 
+                          index, 
+                          column
+                        )}
+                      />
+                    ) : (
                       <Input
                         size="sm"
-                        value={row[column] || ''}
-                        onChange={(e) => handleInputChange(e, index, column)}
+                        value={column === 'rate' ? `$ ${row[column] || ''}` : (row[column] || '')}
+                        onChange={(e) => {
+                          // For rate column, strip the $ and only pass the number
+                          if (column === 'rate') {
+                            const numericValue = e.target.value.replace(/[^0-9.]/g, '');
+                            handleInputChange({ target: { value: numericValue } }, index, column);
+                          } else {
+                            handleInputChange(e, index, column);
+                          }
+                        }}
+                        placeholder={column === 'rate' ? '$ ' : ''}
                       />
-                    </Td>
-                  ))}
-                </Tr>
-              ))
-            )}
+                    )}
+                  </Td>
+                ))}
+              </Tr>
+            ))}
           </Tbody>
         </Table>
       </Box>

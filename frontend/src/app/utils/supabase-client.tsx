@@ -126,10 +126,16 @@ export const fetchAllBillingAccounts = async (page = 0, pageSize = 10) => {
     throw error;
   }
 
-  console.log('Fetched accounts:', data);
+  // Make sure boolean values are properly set
+  const formattedData = data?.map(account => ({
+    ...account,
+    isbilledback: Boolean(account.isbilledback)  // Convert to proper boolean
+  }));
+
+  console.log('Fetched accounts:', formattedData);
 
   return { 
-    data: data || [],
+    data: formattedData || [],
     count: count || 0
   };
 };

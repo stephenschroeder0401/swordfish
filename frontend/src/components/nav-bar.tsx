@@ -4,6 +4,13 @@ import { Flex, Box, Text, Select, Divider } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { fetchAllBillingPeriods } from '@/app/utils/supabase-client';
 import { useBillingPeriod } from '../contexts/BillingPeriodContext';
+import { 
+  FiUploadCloud, 
+  FiFileText, 
+  FiPieChart, 
+  FiSettings,
+  FiCalendar 
+} from 'react-icons/fi';
 
 const NavBar = () => {
   const router = useRouter();
@@ -44,12 +51,13 @@ const NavBar = () => {
       position="sticky"
       top="60px"
       height="calc(100vh - 60px)"
+      width="150px"
     >
-      <Box width="100%" p="2">
-        <Text m="2" color={'black'}>
+      <Box width="100%" p="2.5">
+        <Text m="1" fontSize="sm" fontWeight="bold" color={'black'} display="flex" alignItems="center">
           Billing Period:
         </Text>
-        <Select bg='white' value={billingPeriod} onChange={handleBillingPeriodChange}>
+        <Select size="sm" bg='white' value={billingPeriod} onChange={handleBillingPeriodChange}>
           {billingPeriods.map((period) => (
             <option key={period.id} value={period.id}>
               {period.enddate}
@@ -58,33 +66,36 @@ const NavBar = () => {
         </Select>
       </Box>
       <Divider mt={2} borderColor="gray.300" />
-      <Box width="100%" bg={isActive('/billback-upload') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
+      <Box width="100%" bg={isActive('/billback-upload') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/billback-upload" passHref>
-          <Text m="2" cursor="pointer" color={isActive('/billback-upload') ? 'green.700' : 'black'}>
+          <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/billback-upload') ? 'green.700' : 'black'} display="flex" alignItems="center">
+            <FiUploadCloud style={{ marginRight: '4px' }} />
             Upload Billback
           </Text>
         </Link>
       </Box>
-      <Box width="100%" bg={isActive('/invoices-dashboard') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
+      <Box width="100%" bg={isActive('/invoices-dashboard') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/invoices-dashboard" passHref>
-          <Text m="2" cursor="pointer" color={isActive('/invoices-dashboard') ? 'green.700' : 'black'}>
+          <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/invoices-dashboard') ? 'green.700' : 'black'} display="flex" alignItems="center">
+            <FiFileText style={{ marginRight: '4px' }} />
             Invoices
           </Text>
         </Link>
       </Box>
       
-      {/* New Analytics menu item */}
-      <Box width="100%" bg={isActive('/analytics') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
+      <Box width="100%" bg={isActive('/analytics') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/analytics" passHref>
-          <Text m="2" cursor="pointer" color={isActive('/analytics') ? 'green.700' : 'black'}>
+          <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/analytics') ? 'green.700' : 'black'} display="flex" alignItems="center">
+            <FiPieChart style={{ marginRight: '4px' }} />
             Analytics
           </Text>
         </Link>
       </Box>
       
-      <Box width="100%" bg={isActive('/admin-panel') ? 'gray.100' : 'transparent'} p="2" borderRadius="md">
+      <Box width="100%" bg={isActive('/admin-panel') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/admin-panel" passHref>
-          <Text m="2" cursor="pointer" color={isActive('/admin-panel') ? 'green.700' : 'black'}>
+          <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/admin-panel') ? 'green.700' : 'black'} display="flex" alignItems="center">
+            <FiSettings style={{ marginRight: '4px' }} />
             Admin
           </Text>
         </Link>

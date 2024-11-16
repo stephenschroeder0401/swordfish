@@ -74,6 +74,12 @@ export const TABLE_CONFIG: Record<string, TableConfig> = {
       displayName: 'GL Code',
       type: 'text'
     },
+    description: { 
+      visible: true,
+      displayName: 'Description',
+      width: '300px',
+      type: 'text'
+    },
     rate: {
       visible: true,
       displayName: 'Hourly Rate ($)',
@@ -220,13 +226,15 @@ const AdminPanel = () => {
   };
 
   const handleAddRow = () => {
-    const emptyRow = { id: uuidv4() };
-    // Add empty values for all columns except id
-    if (tableData.length > 0) {
-      Object.keys(tableData[0]).forEach(key => {
-        if (key !== 'id') emptyRow[key] = '';
-      });
-    }
+    const emptyRow = { 
+      id: uuidv4(),
+      name: '',
+      glcode: '',
+      description: '',
+      rate: '',
+      isbilledback: false,
+      client_id: 'fc6b5a65-19bd-4419-9c14-5479b3d24f77'
+    };
     setTableData([emptyRow, ...tableData]);
   };
 
@@ -237,20 +245,64 @@ const AdminPanel = () => {
   const handleSaveChanges = async () => {
     setIsLoading(true);
     try {
-      console.log('Saving changes:', tableData);
-      // Make sure rate is converted to a number before saving
+      // Validate all required fields are filled
+      const visibleColumns = getVisibleColumns(selectedTable);
+      const hasEmptyFields = tableData.some(row => 
+        visibleColumns.some(column => {
+          // Skip validation for rate field
+          if (column === 'rate') return false;
+          
+          // For boolean fields, false is a valid value
+          if (TABLE_CONFIG[selectedTable][column].type === 'boolean') {
+            return row[column] === undefined || row[column] === null;
+          }
+          // For other fields, empty string or null/undefined is invalid
+          return !row[column] || row[column].toString().trim() === '';
+        })
+      );
+
+      if (hasEmptyFields) {
+        toast({
+          title: "Validation Error",
+          description: "All fields except Hourly Rate are required. Please fill in all empty fields.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Clean and format the data before saving
       const dataToSave = tableData.map(row => ({
         ...row,
-        rate: row.rate ? parseFloat(row.rate) : null
+        rate: row.rate ? parseFloat(row.rate.toString().replace(/[^0-9.]/g, '')) : null,
+        isbilledback: !!row.isbilledback  // Ensure boolean
       }));
       
       const { data, error } = await supabase.from(selectedTable).upsert(dataToSave, {
         onConflict: 'id'
       });
       if (error) throw error;
-      if (data) setTableData(data);
+      if (data) {
+        setTableData(data);
+        toast({
+          title: "Success",
+          description: "Changes saved successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
       console.error('Error saving changes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -369,12 +421,13 @@ const AdminPanel = () => {
         switch(tableName) {
           case 'billing_account':
             const accResult = await fetchAllBillingAccounts(currentPage, pageSize);
-            data = accResult.data?.map(({ id, client_id, name, glcode, rate, isbilledback }) => ({
-              id,  // Keep the original id instead of _id
-              client_id,  // Keep the original client_id
+            data = accResult.data?.map(({ id, client_id, name, glcode, description, rate, isbilledback }) => ({
+              id,
+              client_id,
               name,
               glcode,
-              rate: rate ?? '',  // Use nullish coalescing to handle null rates
+              description,
+              rate: rate ?? '',
               isbilledback
             }));
             count = accResult.count;
@@ -383,6 +436,7 @@ const AdminPanel = () => {
             setNewRow({
               name: '',
               glcode: '',
+              description: '',
               rate: '',
               isbilledback: false
             });

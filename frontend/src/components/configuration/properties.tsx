@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -76,14 +76,26 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(40);
   const [isLoading, setIsLoading] = useState(false);
+  const searchTimeout = useRef(null);
 
-  // Debounce effect
+  // Debounce effect with cleanup
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Clear any pending timeout
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    // Set new timeout
+    searchTimeout.current = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
     }, 300);
 
-    return () => clearTimeout(timer);
+    // Cleanup function
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
   }, [searchTerm]);
 
   // Load initial data and handle search
@@ -91,38 +103,29 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     const loadData = async () => {
       setIsLoading(true);
       try {
+        let query = supabase
+          .from('property')
+          .select(`
+            id,
+            name,
+            code,
+            unit,
+            entityid
+          `, { count: 'exact' });
+
+        // Apply filter
         if (debouncedSearchTerm) {
-          const { data: searchData, count: searchCount } = await supabase
-            .from('property')
-            .select(`
-              id,
-              name,
-              code,
-              unit,
-              entityid
-            `, { count: 'planned' })
-            .range(0, pageSize - 1)
-            .or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
-          
-          setTableData(searchData || []);
-          setTotalCount(searchCount || 0);
-          setHasMore((searchData?.length || 0) < (searchCount || 0));
-        } else {
-          const { data: regularData, count: regularCount } = await supabase
-            .from('property')
-            .select(`
-              id,
-              name,
-              code,
-              unit,
-              entityid
-            `, { count: 'planned' })
-            .range(0, pageSize - 1);
-          
-          setTableData(regularData || []);
-          setTotalCount(regularCount || 0);
-          setHasMore((regularData?.length || 0) < (regularCount || 0));
+          query = query.or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
         }
+
+        // Get data and count in one query
+        const { data, count } = await query.range(0, pageSize - 1);
+        
+        console.log('Data length:', data?.length, 'Total count:', count); // Debug log
+        
+        setTableData(data || []);
+        setTotalCount(count || 0);
+        setHasMore((data?.length || 0) < (count || 0));
       } catch (error) {
         console.error('Error loading properties:', error);
       } finally {
@@ -154,11 +157,11 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
         query = query.or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
       }
 
-      const { data: newData, count: totalItems } = await query;
+      const { data: newData, count } = await query;
 
       if (newData?.length) {
         setTableData(prev => [...prev, ...newData]);
-        setHasMore(tableData.length + newData.length < totalItems);
+        setHasMore(tableData.length + newData.length < count);
       } else {
         setHasMore(false);
       }

@@ -53,7 +53,8 @@ type ColumnConfig = {
   visible: boolean;
   displayName?: string;
   width?: string;
-  type?: 'text' | 'boolean' | 'decimal';
+  type?: 'text' | 'boolean' | 'decimal' | 'select';
+  options?: { value: string; label: string }[];
 };
 
 type TableConfig = {
@@ -92,6 +93,78 @@ export const TABLE_CONFIG: Record<string, TableConfig> = {
     },
     client_id: { visible: false },
   },
+  employee: {
+    id: { visible: false },
+    name: { 
+      visible: true, 
+      displayName: 'Name',
+      width: '200px',
+      type: 'text'
+    },
+    email: { 
+      visible: true, 
+      displayName: 'Email',
+      width: '250px',
+      type: 'text'
+    },
+    rate: {
+      visible: true,
+      displayName: 'Hourly Rate ($)',
+      type: 'decimal'
+    }
+  },
+  property: {
+    id: { visible: false },
+    name: { 
+      visible: true, 
+      displayName: 'Property Name',
+      width: '200px',
+      type: 'text'
+    },
+    code: { 
+      visible: true, 
+      displayName: 'Code',
+      width: '100px',
+      type: 'text'
+    },
+    unit: {
+      visible: true,
+      displayName: 'Unit',
+      width: '100px',
+      type: 'text'
+    },
+    entityid: {
+      visible: true,
+      displayName: 'Entity',
+      width: '200px',
+      type: 'select'
+    },
+    client_id: { visible: false }
+  },
+  billing_period: {
+    id: { visible: false },
+    startdate: { 
+      visible: true, 
+      displayName: 'Start Date',
+      width: '150px',
+      type: 'text'
+    },
+    enddate: { 
+      visible: true, 
+      displayName: 'End Date',
+      width: '150px',
+      type: 'text'
+    }
+  },
+  entity: {
+    id: { visible: false },
+    name: { 
+      visible: true, 
+      displayName: 'Name',
+      width: '200px',
+      type: 'text'
+    }
+  },
 };
 
 // Helper function to filter visible columns
@@ -108,6 +181,9 @@ export const getVisibleColumns = (tableName: string): string[] => {
 export const getColumnDisplayName = (tableName: string, columnName: string): string => {
   return TABLE_CONFIG[tableName]?.[columnName]?.displayName || columnName;
 };
+
+// Constants for future user/auth implementation
+const TEMP_CLIENT_ID = 'fc6b5a65-19bd-4419-9c14-5479b3d24f77';  // TODO: Replace with actual client ID from auth
 
 const AdminPanel = () => {
   const [billingAccounts, setBillingAccounts] = useState([]);
@@ -128,6 +204,9 @@ const AdminPanel = () => {
   const [isTableLoading, setIsTableLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedSection, setSelectedSection] = useState('data');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -138,6 +217,9 @@ const AdminPanel = () => {
         
         const employeeData = await fetchAllEmployees();
         setEmployees(employeeData);
+
+        const entityData = await fetchAllEntities();  // Fetch entities
+        setEntities(entityData);
       } catch (error) {
         console.error('Error fetching initial data:', error);
         setBillingAccounts([]);
@@ -226,16 +308,37 @@ const AdminPanel = () => {
   };
 
   const handleAddRow = () => {
-    const emptyRow = { 
-      id: uuidv4(),
-      name: '',
-      glcode: '',
-      description: '',
-      rate: '',
-      isbilledback: false,
-      client_id: 'fc6b5a65-19bd-4419-9c14-5479b3d24f77'
-    };
-    setTableData([emptyRow, ...tableData]);
+    if (selectedTable === 'property') {
+      const emptyRow = { 
+        id: uuidv4(),
+        name: '',
+        code: '',
+        unit: '',
+        entity_id: '',
+        client_id: TEMP_CLIENT_ID
+      };
+      setTableData([emptyRow, ...tableData]);
+    } else if (selectedTable === 'employee') {
+      const emptyRow = { 
+        id: uuidv4(),
+        name: '',
+        email: '',
+        rate: '',
+        client_id: TEMP_CLIENT_ID  // Added client_id for employees
+      };
+      setTableData([emptyRow, ...tableData]);
+    } else if (selectedTable === 'billing_account') {
+      const emptyRow = { 
+        id: uuidv4(),
+        name: '',
+        glcode: '',
+        description: '',
+        rate: '',
+        isbilledback: false,
+        client_id: TEMP_CLIENT_ID
+      };
+      setTableData([emptyRow, ...tableData]);
+    }
   };
 
   const handleDeleteRow = (index) => {
@@ -274,11 +377,19 @@ const AdminPanel = () => {
       }
 
       // Clean and format the data before saving
-      const dataToSave = tableData.map(row => ({
-        ...row,
-        rate: row.rate ? parseFloat(row.rate.toString().replace(/[^0-9.]/g, '')) : null,
-        isbilledback: !!row.isbilledback  // Ensure boolean
-      }));
+      const dataToSave = tableData.map(row => {
+        const cleanedRow = {
+          ...row,
+          rate: row.rate ? parseFloat(row.rate.toString().replace(/[^0-9.]/g, '')) : null,
+        };
+
+        // Only add isbilledback for billing_account
+        if (selectedTable === 'billing_account') {
+          cleanedRow.isbilledback = !!row.isbilledback;
+        }
+
+        return cleanedRow;
+      });
       
       const { data, error } = await supabase.from(selectedTable).upsert(dataToSave, {
         onConflict: 'id'
@@ -448,31 +559,30 @@ const AdminPanel = () => {
                 id,
                 name,
                 code,
-                address,
                 unit,
-                entityid,
-                entity (
-                  name
-                )
+                entityid
               `, { count: 'exact' })
               .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
+
+            console.log('prop data ', propData);
             
-            data = propData?.map(({ id, name, code, address, unit, entity }) => ({
+            data = propData?.map(({ id, name, code, unit, entityid }) => ({
+              id,
               name,
               code,
-              address,
               unit,
-              entity: entity?.name || 'Unknown Entity',
-              _id: id
+              entityid
             }));
             count = propCount;
+
+            console.log("property data ",  data);
             
             // Initialize newRow with only visible fields
             setNewRow({
               name: '',
               code: '',
-              address: '',
               unit: '',
+              entity_id: '',
               entity: ''
             });
             break;
@@ -592,6 +702,273 @@ const AdminPanel = () => {
     // Trigger initial load of billing accounts
     handleTabChange(0); // 0 is the index for billing accounts tab
   }, []); // Empty dependency array means this runs once on mount
+
+  // Move renderTable inside the component
+  const renderTable = (
+    tableName: string,
+    {
+      tableData,
+      newRow,
+      handleNewRowInputChange,
+      handleAddRow,
+      isAddRowDisabled,
+      handleInputChange,
+      handleDeleteRow,
+      handleSaveChanges,
+      isLoading,
+      isTableLoading,
+      currentPage,
+      setCurrentPage,
+      totalCount,
+      pageSize
+    }
+  ) => {
+    return (
+      <Box display="flex" flexDirection="column" height="100%" maxH="83vh">
+        {/* Pagination Bar */}
+        <Box 
+          position="sticky"
+          top={0}
+          bg="white" 
+          zIndex={2}
+          borderBottom="1px"
+          borderColor="gray.200"
+          py={2}
+        >
+          <Flex justify="space-between" align="center" px={4}>
+            {/* Left side: Add button and Search */}
+            <Flex gap={4} align="center" width="300px">
+              <IconButton
+                aria-label="Add row"
+                icon={<AddIcon />}
+                size="xs"
+                colorScheme="green"
+                onClick={handleAddRow}
+              />
+
+              <Input
+                placeholder="Search properties..."
+                size="sm"
+                width="100%"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </Flex>
+
+            {/* Center: Record Count */}
+            <Text fontSize="sm" color="gray.600">
+              {tableData.length} / {totalCount} records
+            </Text>
+
+            {/* Right side: Save Button */}
+            <Box width="300px" textAlign="right">
+              <Button
+                size="sm"
+                color="white"
+                background="green.600"
+                onClick={handleSaveChanges}
+                isLoading={isLoading}
+              >
+                Save Changes
+              </Button>
+            </Box>
+          </Flex>
+        </Box>
+
+        {/* Table Container */}
+        <Box 
+          overflowY="auto" 
+          flex="1" 
+          position="relative"
+          onScroll={(e) => {
+            const target = e.target as HTMLDivElement;
+            if (
+              target.scrollHeight - target.scrollTop <= target.clientHeight * 1.3 && 
+              !isLoadingMore && 
+              hasMore
+            ) {
+              loadMoreData();
+            }
+          }}
+          sx={{
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+            },
+          }}
+        >
+          {isTableLoading ? (
+            <Center h="200px">
+              <VStack spacing={4}>
+                <Spinner size="xl" color="green.500" thickness="4px" />
+                <Text>Loading data...</Text>
+              </VStack>
+            </Center>
+          ) : (
+            <>
+              <Table variant="simple" size="sm">
+                <Thead position="sticky" top={0} bg="white" zIndex={1}> {/* Made header sticky */}
+                  <Tr>
+                    <Th width="50px" px={2.5}></Th>
+                    {getVisibleColumns(tableName).map(column => (
+                      <Th key={column} px={2.5}>
+                        {getColumnDisplayName(tableName, column)}
+                      </Th>
+                    ))}
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {filterTableData(tableData).map((row, index) => (
+                    <Tr key={row._id || index}>
+                      <Td px={2.5}>
+                        <IconButton
+                          aria-label="Delete row"
+                          icon={<MinusIcon />}
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => handleDeleteRow(index)}
+                          variant="ghost"
+                        />
+                      </Td>
+                      {getVisibleColumns(tableName).map(column => (
+                        <Td key={column} px={2.5}>
+                          {TABLE_CONFIG[tableName][column].type === 'boolean' ? (
+                            <Checkbox
+                              isChecked={row[column]}
+                              onChange={(e) => handleInputChange(
+                                { target: { value: e.target.checked } }, 
+                                index, 
+                                column
+                              )}
+                            />
+                          ) : TABLE_CONFIG[tableName][column].type === 'select' ? (
+                            <Select
+                              size="sm"
+                              value={row[column] || ''}
+                              onChange={(e) => handleInputChange(e, index, column)}
+                            >
+                              <option value="">Select Entity</option>
+                              {entities.map(entity => (
+                                <option key={entity.id} value={entity.id}>
+                                  {entity.name}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Input
+                              size="sm"
+                              value={column === 'rate' ? `$ ${row[column] || ''}` : (row[column] || '')}
+                              onChange={(e) => {
+                                if (column === 'rate') {
+                                  const numericValue = e.target.value.replace(/[^0-9.]/g, '');
+                                  handleInputChange({ target: { value: numericValue } }, index, column);
+                                } else {
+                                  handleInputChange(e, index, column);
+                                }
+                              }}
+                              placeholder={column === 'rate' ? '$ ' : ''}
+                            />
+                          )}
+                        </Td>
+                      ))}
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+              
+              {/* Centered loading spinner */}
+              {isLoadingMore && (
+                <Center 
+                  position="sticky" 
+                  bottom="50%" 
+                  width="100%" 
+                  py={4}
+                  bg="whiteAlpha.800"
+                >
+                  <Spinner 
+                    size="lg" 
+                    color="green.500" 
+                    thickness="4px"
+                  />
+                </Center>
+              )}
+
+              {/* Whitespace for infinite scroll */}
+              {(isLoadingMore || hasMore) && (
+                <Box height="200px" />
+              )}
+            </>
+          )}
+        </Box>
+      </Box>
+    );
+  };
+
+  // Add filter function
+  const filterTableData = (data) => {
+    if (!searchTerm) return data;
+    
+    return data.filter(row => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (row.name?.toLowerCase().includes(searchLower)) ||
+        (row.code?.toLowerCase().includes(searchLower)) ||
+        (entities.find(e => e.id === row.entityid)?.name.toLowerCase().includes(searchLower))
+      );
+    });
+  };
+
+  // Add this function to handle loading more data
+  const loadMoreData = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const nextPage = Math.ceil(tableData.length / pageSize);
+      let newData, totalItems;
+
+      switch(selectedTable) {
+        case 'billing_account':
+          const accResult = await fetchAllBillingAccounts(nextPage, pageSize);
+          newData = accResult.data;
+          totalItems = accResult.count;
+          break;
+        case 'property':
+          const { data: propData, count: propCount } = await supabase
+            .from('property')
+            .select(`
+              id,
+              name,
+              code,
+              unit,
+              entityid
+            `, { count: 'exact' })
+            .range(nextPage * pageSize, (nextPage + 1) * pageSize - 1);
+          
+          newData = propData;
+          totalItems = propCount;
+          break;
+        // ... other cases
+      }
+
+      if (newData?.length) {
+        setTableData(prev => [...prev, ...newData]);
+        setHasMore(tableData.length + newData.length < totalItems);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Error loading more data:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
@@ -763,165 +1140,6 @@ const AdminPanel = () => {
             </TabPanel>
           </TabPanels>
         </Tabs>
-      </Box>
-    </Box>
-  );
-};
-
-// Update renderTable to remove its own scrolling container
-const renderTable = (
-  tableName: string,
-  {
-    tableData,
-    newRow,
-    handleNewRowInputChange,
-    handleAddRow,
-    isAddRowDisabled,
-    handleInputChange,
-    handleDeleteRow,
-    handleSaveChanges,
-    isLoading,
-    isTableLoading,
-    currentPage,
-    setCurrentPage,
-    totalCount,
-    pageSize
-  }
-) => {
-  return (
-    <Box display="flex" flexDirection="column" height="100%" maxH="83vh">
-      {/* Pagination Bar */}
-      <Box 
-        position="sticky"
-        top={0}
-        bg="white" 
-        zIndex={2}
-        borderBottom="1px"
-        borderColor="gray.200"
-        py={2}
-      >
-        <Flex justify="space-between" align="center" px={4}>
-          <IconButton
-            aria-label="Add row"
-            icon={<AddIcon />}
-            size="xs"
-            colorScheme="green"
-            onClick={handleAddRow}
-          />
-
-          <Flex justify="center" align="center" gap={4}>
-            <IconButton
-              size="sm"
-              icon={<ChevronLeftIcon boxSize={5} />}
-              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-              isDisabled={currentPage === 0}
-              variant="ghost"
-              aria-label="Previous page"
-            />
-            
-            <Text fontSize="sm">
-              Page {currentPage + 1} of {Math.ceil(totalCount / pageSize)} ({totalCount} rows)
-            </Text>
-            
-            <IconButton
-              size="sm"
-              icon={<ChevronRightIcon boxSize={5} />}
-              onClick={() => setCurrentPage(p => p + 1)}
-              isDisabled={(currentPage + 1) * pageSize >= totalCount}
-              variant="ghost"
-              aria-label="Next page"
-            />
-          </Flex>
-
-          <Button
-            size="sm"
-            color="white"
-            background="green.600"
-            onClick={handleSaveChanges}
-            isLoading={isLoading}
-            mr='3vw'
-          >
-            Save Changes
-          </Button>
-        </Flex>
-      </Box>
-
-      {/* Table Container */}
-      <Box 
-        overflowY="auto" 
-        flex="1" 
-        position="relative"
-        pb="50vh"
-        sx={{
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: '#f1f1f1',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: '#888',
-            borderRadius: '4px',
-          },
-        }}
-      >
-        <Table variant="simple" size="sm">
-          <Thead position="sticky" top={0} bg="white" zIndex={1}> {/* Made header sticky */}
-            <Tr>
-              <Th width="50px" px={2.5}></Th>
-              {getVisibleColumns(tableName).map(column => (
-                <Th key={column} px={2.5}>
-                  {getColumnDisplayName(tableName, column)}
-                </Th>
-              ))}
-            </Tr>
-          </Thead>
-          <Tbody>
-            {tableData.map((row, index) => (
-              <Tr key={row._id || index}>
-                <Td px={2.5}>
-                  <IconButton
-                    aria-label="Delete row"
-                    icon={<MinusIcon />}
-                    size="sm"
-                    colorScheme="red"
-                    onClick={() => handleDeleteRow(index)}
-                    variant="ghost"
-                  />
-                </Td>
-                {getVisibleColumns(tableName).map(column => (
-                  <Td key={column} px={2.5}>
-                    {TABLE_CONFIG[tableName][column].type === 'boolean' ? (
-                      <Checkbox
-                        isChecked={row[column]}
-                        onChange={(e) => handleInputChange(
-                          { target: { value: e.target.checked } }, 
-                          index, 
-                          column
-                        )}
-                      />
-                    ) : (
-                      <Input
-                        size="sm"
-                        value={column === 'rate' ? `$ ${row[column] || ''}` : (row[column] || '')}
-                        onChange={(e) => {
-                          // For rate column, strip the $ and only pass the number
-                          if (column === 'rate') {
-                            const numericValue = e.target.value.replace(/[^0-9.]/g, '');
-                            handleInputChange({ target: { value: numericValue } }, index, column);
-                          } else {
-                            handleInputChange(e, index, column);
-                          }
-                        }}
-                        placeholder={column === 'rate' ? '$ ' : ''}
-                      />
-                    )}
-                  </Td>
-                ))}
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
       </Box>
     </Box>
   );

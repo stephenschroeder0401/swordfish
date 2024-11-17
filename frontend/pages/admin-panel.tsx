@@ -44,10 +44,12 @@ import {
   saveEmployeeAllocations,
   fetchEmployeeAllocations,
   fetchAllBillingAccountsNoPagination,
+  searchProperties,
 } from '@/app/utils/supabase-client';
 import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import PropertiesTab from '@/components/configuration/properties';
 
 type ColumnConfig = {
   visible: boolean;
@@ -199,14 +201,29 @@ const AdminPanel = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [allocations, setAllocations] = useState({});
   const toast = useToast();
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(40);
   const [currentPage, setCurrentPage] = useState(0);
   const [isTableLoading, setIsTableLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedSection, setSelectedSection] = useState('data');
-  const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (selectedTable === 'property') {
+      handleTabChange(2); // 2 is the index for properties tab
+    }
+  }, [debouncedSearchTerm]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -561,8 +578,9 @@ const AdminPanel = () => {
                 code,
                 unit,
                 entityid
-              `, { count: 'exact' })
-              .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
+              `, { count: 'planned' })
+              .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
+              .or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
 
             console.log('prop data ', propData);
             
@@ -745,14 +763,14 @@ const AdminPanel = () => {
                 colorScheme="green"
                 onClick={handleAddRow}
               />
-
-              <Input
-                placeholder="Search properties..."
-                size="sm"
-                width="100%"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              {selectedTable === 'property' && (
+                <Input
+                  placeholder="Search properties..."
+                  size="sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              )}
             </Flex>
 
             {/* Center: Record Count */}
@@ -783,7 +801,7 @@ const AdminPanel = () => {
           onScroll={(e) => {
             const target = e.target as HTMLDivElement;
             if (
-              target.scrollHeight - target.scrollTop <= target.clientHeight * 1.3 && 
+              target.scrollHeight - target.scrollTop <= target.clientHeight * 1.2 && 
               !isLoadingMore && 
               hasMore
             ) {
@@ -814,7 +832,7 @@ const AdminPanel = () => {
             <>
               <Table variant="simple" size="sm">
                 <Thead position="sticky" top={0} bg="white" zIndex={1}> {/* Made header sticky */}
-                  <Tr>
+                  <Tr height="5vh">
                     <Th width="50px" px={2.5}></Th>
                     {getVisibleColumns(tableName).map(column => (
                       <Th key={column} px={2.5}>
@@ -824,7 +842,7 @@ const AdminPanel = () => {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filterTableData(tableData).map((row, index) => (
+                  {tableData.map((row, index) => (
                     <Tr key={row._id || index}>
                       <Td px={2.5}>
                         <IconButton
@@ -910,21 +928,12 @@ const AdminPanel = () => {
     );
   };
 
-  // Add filter function
-  const filterTableData = (data) => {
-    if (!searchTerm) return data;
-    
-    return data.filter(row => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        (row.name?.toLowerCase().includes(searchLower)) ||
-        (row.code?.toLowerCase().includes(searchLower)) ||
-        (entities.find(e => e.id === row.entityid)?.name.toLowerCase().includes(searchLower))
-      );
-    });
+  // Update the search input handler and effect
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value);
   };
 
-  // Add this function to handle loading more data
+  // Update loadMoreData to handle search
   const loadMoreData = async () => {
     if (isLoadingMore || !hasMore) return;
     
@@ -942,19 +951,13 @@ const AdminPanel = () => {
         case 'property':
           const { data: propData, count: propCount } = await supabase
             .from('property')
-            .select(`
-              id,
-              name,
-              code,
-              unit,
-              entityid
-            `, { count: 'exact' })
+            .select('*', { count: 'exact' })
             .range(nextPage * pageSize, (nextPage + 1) * pageSize - 1);
           
           newData = propData;
           totalItems = propCount;
           break;
-        // ... other cases
+        // Add other cases for different tables
       }
 
       if (newData?.length) {
@@ -1077,22 +1080,7 @@ const AdminPanel = () => {
                     })}
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    {renderTable('property', {
-                      tableData,
-                      newRow,
-                      handleNewRowInputChange,
-                      handleAddRow,
-                      isAddRowDisabled,
-                      handleInputChange,
-                      handleDeleteRow,
-                      handleSaveChanges,
-                      isLoading,
-                      isTableLoading,
-                      currentPage,
-                      setCurrentPage,
-                      totalCount,
-                      pageSize: 20
-                    })}
+                    <PropertiesTab entities={entities} />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
                     {renderTable('billing_period', {

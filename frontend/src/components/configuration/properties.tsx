@@ -19,6 +19,7 @@ import {
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { supabase } from '@/app/utils/supabase-client';
 import { v4 as uuidv4 } from 'uuid';
+import { useToast } from '@chakra-ui/react';
 
 const TABLE_CONFIG = {
   id: { visible: false },
@@ -61,8 +62,6 @@ const getColumnDisplayName = (columnName: string): string => {
   return TABLE_CONFIG[columnName]?.displayName || columnName;
 };
 
-const TEMP_CLIENT_ID = 'fc6b5a65-19bd-4419-9c14-5479b3d24f77';
-
 interface PropertiesTabProps {
   entities: any[]; // Replace 'any' with your entity type if you have one
 }
@@ -77,6 +76,9 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
   const [pageSize] = useState(40);
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeout = useRef(null);
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   // Debounce effect with cleanup
   useEffect(() => {
@@ -101,7 +103,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
   // Load initial data and handle search
   useEffect(() => {
     const loadData = async () => {
-      setIsLoading(true);
+      setIsFilterLoading(true);
       try {
         let query = supabase
           .from('property')
@@ -113,15 +115,11 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
             entityid
           `, { count: 'exact' });
 
-        // Apply filter
         if (debouncedSearchTerm) {
           query = query.or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
         }
 
-        // Get data and count in one query
         const { data, count } = await query.range(0, pageSize - 1);
-        
-        console.log('Data length:', data?.length, 'Total count:', count); // Debug log
         
         setTableData(data || []);
         setTotalCount(count || 0);
@@ -129,7 +127,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
       } catch (error) {
         console.error('Error loading properties:', error);
       } finally {
-        setIsLoading(false);
+        setIsFilterLoading(false);
       }
     };
 
@@ -184,8 +182,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
       name: '',
       code: '',
       unit: '',
-      entity_id: '',
-      client_id: TEMP_CLIENT_ID
+      entityid: ''
     };
     setTableData([emptyRow, ...tableData]);
   };
@@ -197,9 +194,39 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
   const handleSaveChanges = async () => {
     setIsLoading(true);
     try {
+      // Validate all rows before saving
+      const invalidRows = tableData.filter(row => 
+        !row.name?.trim() || 
+        !row.code?.trim() || 
+        !row.entityid
+      );
+
+      if (invalidRows.length > 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'All properties must have a name, code, and entity selected',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+          position: 'top'
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from('property').upsert(tableData);
       if (error) throw error;
-      // Reload data after save
+      
+      toast({
+        title: 'Success',
+        description: 'Properties saved successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
+
+      // Rest of your existing load data code...
       const { data, count } = await supabase
         .from('property')
         .select('*', { count: 'planned' })
@@ -209,6 +236,14 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
       setTotalCount(count || 0);
     } catch (error) {
       console.error('Error saving changes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save changes. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+        position: 'top'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -228,9 +263,12 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
           <Input
             placeholder="Search properties..."
             size="sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            ref={inputRef}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+            }}
           />
+          {isFilterLoading && <Spinner size="sm" />}  {/* Add spinner next to input */}
         </Flex>
 
         <Text fontSize="sm" color="gray.600">

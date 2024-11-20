@@ -50,6 +50,7 @@ import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import PropertiesTab from '@/components/configuration/properties';
+import { AllocationsTab } from '@/components/configuration/tabs/allocations-tab';
 
 type ColumnConfig = {
   visible: boolean;
@@ -514,27 +515,6 @@ const AdminPanel = () => {
     }
   };
 
-  const renderEmployeeDropdown = (value, onChange) => {
-    console.log('Rendering employee dropdown. Current employees:', employees);
-    return (
-      <Select
-        placeholder="Select Employee"
-        value={value || ''}
-        onChange={onChange}
-      >
-        {employees.length > 0 ? (
-          employees.map(employee => (
-            <option key={employee.id} value={employee.id}>
-              {employee.name}
-            </option>
-          ))
-        ) : (
-          <option disabled>No employees available</option>
-        )}
-      </Select>
-    );
-  };
-
   console.log('tableData:', tableData);
 
   const handleTabChange = async (index: number) => {
@@ -648,78 +628,6 @@ const AdminPanel = () => {
       handleTabChange(tables.indexOf(selectedTable));
     }
   }, [currentPage]);
-
-  const renderEmployeeAllocations = () => {
-    return (
-      <Box>
-        {renderEmployeeDropdown(selectedEmployee, handleEmployeeChange)}
-        
-        {selectedEmployee && (
-          <Box mt={4}>
-            <Accordion allowMultiple>
-              <AccordionItem>
-                <AccordionButton>
-                  <Box flex="1" textAlign="left">
-                    Time Allocations
-                  </Box>
-                  <AccordionIcon />
-                </AccordionButton>
-                <AccordionPanel>
-                  {allocations[selectedEmployee]?.map((allocation, index) => (
-                    <Flex key={index} gap={4} mb={4}>
-                      <Select
-                        value={allocation.billing_account}
-                        onChange={(e) => handleAllocationChange(selectedEmployee, index, 'billing_account', e.target.value)}
-                      >
-                        <option value="">Select Account</option>
-                        {billingAccounts.map(account => (
-                          <option key={account.id} value={account.id}>
-                            {account.name}
-                          </option>
-                        ))}
-                      </Select>
-                      <Input
-                        type="number"
-                        value={allocation.percentage}
-                        onChange={(e) => handleAllocationChange(selectedEmployee, index, 'percentage', e.target.value)}
-                        placeholder="Percentage"
-                      />
-                      <Button
-                        colorScheme="red"
-                        onClick={() => handleDeleteAllocation(selectedEmployee, index)}
-                      >
-                        Delete
-                      </Button>
-                    </Flex>
-                  ))}
-                  <Button
-                    mt={2}
-                    onClick={() => handleAddAllocation(selectedEmployee)}
-                  >
-                    Add Allocation
-                  </Button>
-                </AccordionPanel>
-              </AccordionItem>
-            </Accordion>
-            
-            <Button
-              mt={4}
-              colorScheme="blue"
-              onClick={handleSaveAllocations}
-              isLoading={isLoading}
-            >
-              Allocations
-            </Button>
-          </Box>
-        )}
-      </Box>
-    );
-  };
-
-  useEffect(() => {
-    // Trigger initial load of billing accounts
-    handleTabChange(0); // 0 is the index for billing accounts tab
-  }, []); // Empty dependency array means this runs once on mount
 
   // Move renderTable inside the component
   const renderTable = (
@@ -1014,7 +922,7 @@ const AdminPanel = () => {
         >
           <TabList height="5vh">
             <Tab py={1} fontSize="lg">Data Management</Tab>
-            <Tab py={1} fontSize="lg">Allocations</Tab>
+            {/* <Tab py={1} fontSize="lg">Allocations</Tab> */}
           </TabList>
           <TabPanels flex="1" overflow="hidden">
             <TabPanel h="100%" p={0}>
@@ -1121,11 +1029,11 @@ const AdminPanel = () => {
                 </TabPanels>
               </Tabs>
             </TabPanel>
-            <TabPanel h="100%">
+            {/* <TabPanel h="100%">
               <Box p={4}>
-                {renderEmployeeAllocations()}
+                <AllocationsTab entities={entities} />
               </Box>
-            </TabPanel>
+            </TabPanel> */}
           </TabPanels>
         </Tabs>
       </Box>

@@ -4,6 +4,7 @@ import { Flex, Box, Text, Select, Divider } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { fetchAllBillingPeriods } from '@/app/utils/supabase-client';
 import { useBillingPeriod } from '../contexts/BillingPeriodContext';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   FiUploadCloud, 
   FiFileText, 
@@ -17,13 +18,16 @@ const NavBar = () => {
   const currentPath = router.pathname;
   const { billingPeriod, setBillingPeriod } = useBillingPeriod();
   const [billingPeriods, setBillingPeriods] = useState([]);
+  const { user, isLoading: authLoading } = useAuth();
 
   const isActive = (path: string) => currentPath === path;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const periods = await fetchAllBillingPeriods();
+        if (!user) return;
+        
+        const periods = await fetchAllBillingPeriods(user.client_id);
         const sortedPeriods = periods.sort((a, b) => new Date(b.enddate).getTime() - new Date(a.enddate).getTime());
         setBillingPeriods(sortedPeriods);
         if (sortedPeriods.length > 0 && !billingPeriod) {
@@ -35,7 +39,7 @@ const NavBar = () => {
     };
 
     fetchData();
-  }, [setBillingPeriod, billingPeriod]);
+  }, [setBillingPeriod, billingPeriod, user]);
 
   const handleBillingPeriodChange = (event) => {
     setBillingPeriod(event.target.value);

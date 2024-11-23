@@ -39,6 +39,7 @@ const BillBack = () => {
   }, [billbackData]);
 
   const loadDependencies = async () => {
+    console.log("LOADING DEPS");
     setIsLoading(true);
     try {
       const accounts = await fetchAllBillingAccountsNoPagination();
@@ -47,9 +48,11 @@ const BillBack = () => {
       setBillingAccounts(accounts);
       setBillingProperties(properties);
       setEmployees(employeeData);
+      console.log("LOADED DEPS");
     } catch (error) {
       console.error("Error fetching initial data", error);
     }
+    console.log("LOADED DEPS dONE");
     setIsLoading(false);
   };
 
@@ -455,11 +458,11 @@ const BillBack = () => {
         mt={2}
         mb={155}
       >
-        {isLoading ? (
+        {/* {isLoading ? (
           <Center height="100vh">
             <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
           </Center>
-        ) : (
+        ) : ( */}
           <Box minWidth="100%" width="fit-content">
             <BillbackDisplay
               tableConfig={tableConfig}
@@ -476,7 +479,7 @@ const BillBack = () => {
               handleDelete={handleDelete}
             />
           </Box>
-        )}
+        {/* )} */}
       </Box>
     </Box>
   );

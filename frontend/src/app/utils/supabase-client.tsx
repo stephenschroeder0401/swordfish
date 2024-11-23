@@ -94,50 +94,35 @@ export const saveJobs = async (entries, billingPeriod) => {
   return insertData;
 };
 
-export const fetchJobsAsBillingJob = async (billingPeriod): Promise<BillingJob[]> => {
+export const fetchJobsAsBillingJob = async (billingPeriod: string, clientId: string): Promise<BillingJob[]> => {
   const { data, error } = await supabase
     .from('billing_job')
     .select("*")
-    .eq('billing_period_id', billingPeriod);
+    .eq('billing_period_id', billingPeriod)
+    .eq('client_id', clientId);
 
-  if (error) {
-    console.error("Error fetching jobs:", error);
-    throw error;
-  }
-
-  //foreach record in data, set the the 
-
+  if (error) throw error;
   return data as BillingJob[];
 };
 
-export const fetchAllBillingAccounts = async (page = 0, pageSize = 10) => {
+export const fetchAllBillingAccounts = async (page = 0, pageSize = 10, clientId: string) => {
   const start = page * pageSize;
   const end = start + pageSize - 1;
-
-  console.log('Fetching accounts with:', { start, end });
 
   const { data, error, count } = await supabase
     .from('billing_account')
     .select('*', { count: 'exact' })
+    .eq('client_id', clientId)
     .range(start, end);
 
-  if (error) {
-    console.error("Error fetching billing accounts:", error);
-    throw error;
-  }
+  if (error) throw error;
 
-  // Make sure boolean values are properly set
   const formattedData = data?.map(account => ({
     ...account,
-    isbilledback: Boolean(account.isbilledback)  // Convert to proper boolean
+    isbilledback: Boolean(account.isbilledback)
   }));
 
-  console.log('Fetched accounts:', formattedData);
-
-  return { 
-    data: formattedData || [],
-    count: count || 0
-  };
+  return { data: formattedData || [], count: count || 0 };
 };
 
 export const fetchAllBillingAccountsNoPagination = async () => {
@@ -154,17 +139,14 @@ export const fetchAllBillingAccountsNoPagination = async () => {
   return data || [];
 };
 
-export const fetchAllEmployees = async () => {
+export const fetchAllEmployees = async (clientId: string) => {
   const { data, error } = await supabase
     .from('employee')
-    .select("*");
+    .select("*")
+    .eq('client_id', clientId);
 
-  if (error) {
-    console.error("Error fetching employees:", error);
-    throw error;
-  }
-
-  return data; // Returns the array of employees
+  if (error) throw error;
+  return data;
 };
 
 export const fetchAllBillingProperties = async (page = 0, pageSize = 10) => {
@@ -219,49 +201,42 @@ export const upsertBillbackUpload = async (uploadData: any, billingPeriodId: str
 };
 
 
-export const fetchBillbackUpload = async (billingPeriodId: string) => {
-  
+export const fetchBillbackUpload = async (billingPeriodId: string, clientId: string) => {
   const { data, error } = await supabase
     .from('billback_upload')
     .select("*")
     .eq('billing_period_id', billingPeriodId)
-    .maybeSingle(); // This will return null if no rows are found
+    .eq('client_id', clientId)
+    .maybeSingle();
 
   if (error) {
     console.error("Error fetching billback upload:", error);
     throw error;
   }
-  console.log("returning: ", data)
-  return data; 
+  return data;
 };
 
 
 
 
-export const fetchAllBillingPeriods = async () => {
+export const fetchAllBillingPeriods = async (clientId: string) => {
   const { data, error } = await supabase
     .from('billing_period')
-    .select("*");
+    .select("*")
+    .eq('client_id', clientId);
 
-  if (error) {
-    console.error("Error fetching billing periods:", error);
-    throw error;
-  }
-
-  return data; // Returns the array of billing periods
+  if (error) throw error;
+  return data;
 };
 
-export const fetchAllEntities = async () => {
+export const fetchAllEntities = async (clientId: string) => {
   const { data, error } = await supabase
     .from('entity')
-    .select("*");
+    .select("*")
+    .eq('client_id', clientId);
 
-  if (error) {
-    console.error("Error fetching entities:", error);
-    throw error;
-  }
-
-  return data; // Returns the array of entities
+  if (error) throw error;
+  return data;
 };
 
 export const saveEmployeeAllocations = async (allocations: Record<string, Array<{billing_account: string, percentage: string}>>) => {
@@ -387,3 +362,180 @@ export const fetchAllBillingPropertiesNoPagination = async () => {
 
   return formattedData || [];
 };
+
+export const fetchProperties = async (
+  searchTerm: string = '', 
+  pageSize: number = 40, 
+  startIndex: number = 0
+) => {
+  try {
+    let query = supabase
+      .from('property')
+      .select(`
+        id,
+        name,
+        code,
+        unit,
+        entityid
+      `, { count: 'exact' });
+
+    if (searchTerm) {
+      query = query.or(`name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
+    }
+
+    return await query.range(startIndex, startIndex + pageSize - 1);
+  } catch (error) {
+    console.error('Error in fetchProperties:', error);
+    throw error;
+  }
+};
+
+export const upsertProperties = async (properties: any[]) => {
+  try {
+    const { data, error } = await supabase
+      .from('property')
+      .upsert(properties);
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error in upsertProperties:', error);
+    throw error;
+  }
+};
+
+// For employee time allocations table
+export const fetchEmployeeTimeAllocationTable = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('employee_time_allocation')
+      .select(`
+        id,
+        employee_id,
+        category_id,
+        percentage
+      `);
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching employee time allocations:', error);
+    throw error;
+  }
+};
+
+// For table operations
+export const fetchTableData = async (tableName: string, selectColumns: string = '*') => {
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select(selectColumns);
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Error fetching data from ${tableName}:`, error);
+    throw error;
+  }
+};
+
+// For saving table changes
+export const upsertTableData = async (tableName: string, data: any[]) => {
+  try {
+    const { data: result, error } = await supabase
+      .from(tableName)
+      .upsert(data, {
+        onConflict: 'id'
+      });
+      
+    if (error) throw error;
+    return result;
+  } catch (error) {
+    console.error(`Error upserting ${tableName} data:`, error);
+    throw error;
+  }
+};
+
+export const fetchTableDataWithPagination = async (
+  tableName: string, 
+  page: number = 0, 
+  pageSize: number = 10,
+  selectColumns: string = '*'
+) => {
+  const start = page * pageSize;
+  const end = start + pageSize - 1;
+
+  try {
+    const { data, error, count } = await supabase
+      .from(tableName)
+      .select(selectColumns, { count: 'exact' })
+      .range(start, end);
+      
+    if (error) throw error;
+    return { data, count };
+  } catch (error) {
+    console.error(`Error fetching data from ${tableName}:`, error);
+    throw error;
+  }
+};
+
+export const deleteTableData = async (tableName: string, conditions: Record<string, any>) => {
+  try {
+    let query = supabase.from(tableName).delete();
+    
+    // Apply all conditions
+    Object.entries(conditions).forEach(([key, value]) => {
+      query = query.eq(key, value);
+    });
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Error deleting from ${tableName}:`, error);
+    throw error;
+  }
+};
+
+export const loginUser = async (email: string, password: string) => {
+  try {
+    // First get the auth session
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({ 
+      email, 
+      password 
+    })
+
+    if (error) throw error;
+
+    // Get user_account info and role name
+    const { data: userData, error: userError } = await supabase
+      .from('user_account')
+      .select(`
+        client_id,
+        first_name,
+        last_name,
+        role!inner (
+          name
+        )
+      `)
+      .eq('user_id', session.user.id)
+      .single()
+
+    if (userError) throw userError;
+
+    // Update user metadata
+    await supabase.auth.updateUser({
+      data: { 
+        client_id: userData.client_id,
+        role: userData.role.name,
+        first_name: userData.first_name,
+        last_name: userData.last_name
+      }
+    })
+
+    return { session, userData }
+  } catch (error) {
+    console.error('Login error:', error)
+    throw error
+  }
+}

@@ -51,6 +51,7 @@ import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import PropertiesTab from '@/components/configuration/properties';
 import { AllocationsTab } from '@/components/configuration/tabs/allocations-tab';
+import { useAuth } from '@/hooks/useAuth'
 
 type ColumnConfig = {
   visible: boolean;
@@ -189,6 +190,7 @@ export const getColumnDisplayName = (tableName: string, columnName: string): str
 const TEMP_CLIENT_ID = 'fc6b5a65-19bd-4419-9c14-5479b3d24f77';  // TODO: Replace with actual client ID from auth
 
 const AdminPanel = () => {
+  const { user, isLoading: authLoading } = useAuth()
   const [billingAccounts, setBillingAccounts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -229,14 +231,13 @@ const AdminPanel = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use the no-pagination version for dropdowns
-        const accountsData = await fetchAllBillingAccountsNoPagination();
+        const accountsData = await fetchAllBillingAccountsNoPagination(user.client_id);
         setBillingAccounts(accountsData);
         
-        const employeeData = await fetchAllEmployees();
+        const employeeData = await fetchAllEmployees(user.client_id);
         setEmployees(employeeData);
 
-        const entityData = await fetchAllEntities();  // Fetch entities
+        const entityData = await fetchAllEntities(user.client_id);
         setEntities(entityData);
       } catch (error) {
         console.error('Error fetching initial data:', error);
@@ -244,8 +245,10 @@ const AdminPanel = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   useEffect(() => {
     console.log(newRow);
@@ -259,15 +262,7 @@ const AdminPanel = () => {
   
     if (tableName === 'employee_time_allocation') {
       try {
-        const { data, error } = await supabase
-          .from('employee_time_allocation')
-          .select(`
-            id,
-            employee_id,
-            category_id,
-            percentage
-          `);
-        if (error) throw error;
+        const data = await fetchEmployeeTimeAllocationTable();
         setTableData(data || []);
         
         // Initialize newRow for employee time allocation
@@ -282,12 +277,9 @@ const AdminPanel = () => {
         setNewRow({});
       }
     } else {
-      // Define which columns to select based on the table name
-      const selectColumns = tableName === 'billing_account' ? 'id, glcode, name' : '*';
-    
       try {
-        const { data, error } = await supabase.from(tableName).select(selectColumns);
-        if (error) throw error;
+        const selectColumns = tableName === 'billing_account' ? 'id, glcode, name' : '*';
+        const data = await fetchTableData(tableName, selectColumns);
         setTableData(data || []);
     
         // Initialize newRow with keys for all columns (excluding 'id' if present)
@@ -298,7 +290,6 @@ const AdminPanel = () => {
           });
           setNewRow(newRowInit);
         } else {
-          // If no data is present, clear newRow
           setNewRow({});
         }
       } catch (error) {
@@ -370,14 +361,10 @@ const AdminPanel = () => {
       const visibleColumns = getVisibleColumns(selectedTable);
       const hasEmptyFields = tableData.some(row => 
         visibleColumns.some(column => {
-          // Skip validation for rate field
           if (column === 'rate') return false;
-          
-          // For boolean fields, false is a valid value
           if (TABLE_CONFIG[selectedTable][column].type === 'boolean') {
             return row[column] === undefined || row[column] === null;
           }
-          // For other fields, empty string or null/undefined is invalid
           return !row[column] || row[column].toString().trim() === '';
         })
       );
@@ -401,7 +388,6 @@ const AdminPanel = () => {
           rate: row.rate ? parseFloat(row.rate.toString().replace(/[^0-9.]/g, '')) : null,
         };
 
-        // Only add isbilledback for billing_account
         if (selectedTable === 'billing_account') {
           cleanedRow.isbilledback = !!row.isbilledback;
         }
@@ -409,10 +395,8 @@ const AdminPanel = () => {
         return cleanedRow;
       });
       
-      const { data, error } = await supabase.from(selectedTable).upsert(dataToSave, {
-        onConflict: 'id'
-      });
-      if (error) throw error;
+      const data = await upsertTableData(selectedTable, dataToSave);
+      
       if (data) {
         setTableData(data);
         toast({
@@ -528,19 +512,13 @@ const AdminPanel = () => {
 
         switch(tableName) {
           case 'billing_account':
-            const accResult = await fetchAllBillingAccounts(currentPage, pageSize);
-            data = accResult.data?.map(({ id, client_id, name, glcode, description, rate, isbilledback }) => ({
-              id,
-              client_id,
-              name,
-              glcode,
-              description,
-              rate: rate ?? '',
-              isbilledback
-            }));
-            count = accResult.count;
-            
-            // Initialize newRow with only visible fields
+            const { data: accData, count: accCount } = await fetchAllBillingAccounts(
+              currentPage,
+              pageSize,
+              user.client_id
+            );
+            data = accData;
+            count = accCount;
             setNewRow({
               name: '',
               glcode: '',
@@ -550,32 +528,13 @@ const AdminPanel = () => {
             });
             break;
           case 'property':
-            const { data: propData, count: propCount } = await supabase
-              .from('property')
-              .select(`
-                id,
-                name,
-                code,
-                unit,
-                entityid
-              `, { count: 'planned' })
-              .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
-              .or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
-
-            console.log('prop data ', propData);
-            
-            data = propData?.map(({ id, name, code, unit, entityid }) => ({
-              id,
-              name,
-              code,
-              unit,
-              entityid
-            }));
+            const { data: propData, count: propCount } = await fetchProperties(
+              debouncedSearchTerm,
+              pageSize,
+              currentPage * pageSize
+            );
+            data = propData;
             count = propCount;
-
-            console.log("property data ",  data);
-            
-            // Initialize newRow with only visible fields
             setNewRow({
               name: '',
               code: '',
@@ -585,35 +544,22 @@ const AdminPanel = () => {
             });
             break;
           case 'employee':
-            // For now, no pagination on employees
-            const empData = await fetchAllEmployees();
-            data = empData;
-            count = empData.length;
+            data = await fetchAllEmployees(user.client_id);
+            count = data.length;
             break;
           case 'billing_period':
-            // For now, no pagination on billing periods
-            const periodData = await fetchAllBillingPeriods();
-            data = periodData;
-            count = periodData.length;
+            data = await fetchAllBillingPeriods(user.client_id);
+            count = data.length;
             break;
           case 'entity':
-            // For now, no pagination on entities
-            const entityData = await fetchAllEntities();
-            data = entityData;
-            count = entityData.length;
+            data = await fetchAllEntities(user.client_id);
+            count = data.length;
             break;
         }
         
         setTableData(data || []);
         setTotalCount(count);
         
-        if (data && data.length > 0) {
-          const newRowInit = {};
-          Object.keys(data[0]).forEach(key => {
-            if (!key.startsWith('_')) newRowInit[key] = '';
-          });
-          setNewRow(newRowInit);
-        }
       } catch (error) {
         console.error(`Error fetching ${tableName}:`, error);
       } finally {
@@ -880,6 +826,15 @@ const AdminPanel = () => {
       setIsLoadingMore(false);
     }
   };
+
+  // Show loading state while auth loads
+  if (authLoading) {
+    return (
+      <Center h="100vh">
+        <Spinner size="xl" />
+      </Center>
+    )
+  }
 
   return (
     <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">

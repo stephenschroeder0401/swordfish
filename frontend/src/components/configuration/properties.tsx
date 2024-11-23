@@ -17,7 +17,7 @@ import {
   Select,
 } from '@chakra-ui/react';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
-import { supabase } from '@/app/utils/supabase-client';
+import { fetchProperties, upsertProperties } from '@/app/utils/supabase-client';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@chakra-ui/react';
 
@@ -105,22 +105,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     const loadData = async () => {
       setIsFilterLoading(true);
       try {
-        let query = supabase
-          .from('property')
-          .select(`
-            id,
-            name,
-            code,
-            unit,
-            entityid
-          `, { count: 'exact' });
-
-        if (debouncedSearchTerm) {
-          query = query.or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
-        }
-
-        const { data, count } = await query.range(0, pageSize - 1);
-        
+        const { data, count } = await fetchProperties(debouncedSearchTerm, pageSize, 0);
         setTableData(data || []);
         setTotalCount(count || 0);
         setHasMore((data?.length || 0) < (count || 0));
@@ -140,22 +125,11 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     setIsLoadingMore(true);
     try {
       const nextPage = Math.ceil(tableData.length / pageSize);
-      let query = supabase
-        .from('property')
-        .select(`
-          id,
-          name,
-          code,
-          unit,
-          entityid
-        `, { count: 'planned' })
-        .range(nextPage * pageSize, (nextPage + 1) * pageSize - 1);
-
-      if (debouncedSearchTerm) {
-        query = query.or(`name.ilike.%${debouncedSearchTerm}%,code.ilike.%${debouncedSearchTerm}%`);
-      }
-
-      const { data: newData, count } = await query;
+      const { data: newData, count } = await fetchProperties(
+        debouncedSearchTerm, 
+        pageSize, 
+        nextPage * pageSize
+      );
 
       if (newData?.length) {
         setTableData(prev => [...prev, ...newData]);
@@ -214,8 +188,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
         return;
       }
 
-      const { error } = await supabase.from('property').upsert(tableData);
-      if (error) throw error;
+      await upsertProperties(tableData);
       
       toast({
         title: 'Success',
@@ -226,12 +199,8 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
         position: 'top'
       });
 
-      // Rest of your existing load data code...
-      const { data, count } = await supabase
-        .from('property')
-        .select('*', { count: 'planned' })
-        .range(0, pageSize - 1);
-      
+      // Reload the current page
+      const { data, count } = await fetchProperties(debouncedSearchTerm, pageSize, 0);
       setTableData(data || []);
       setTotalCount(count || 0);
     } catch (error) {

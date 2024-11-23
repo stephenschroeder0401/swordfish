@@ -2,11 +2,13 @@
 import { extendTheme } from '@chakra-ui/react';
 import '@fontsource/open-sans';
 import '@fontsource/raleway';
+import '@fontsource/russo-one';
 
 const theme = extendTheme({
   fonts: {
     heading: `'Raleway', sans-serif`,
     body: `'Open Sans', sans-serif`,
+    russoOne: `'Russo One', sans-serif`,
   },
   components: {
     Text: {

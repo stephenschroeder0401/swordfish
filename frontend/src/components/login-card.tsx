@@ -23,7 +23,7 @@ import {
 import { useState } from 'react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useRouter } from 'next/router'
-import { createClient } from '@/utils/supabase/component'
+import { loginUser } from '@/lib/auth/user'
 
 import theme from '../../theme'
 
@@ -40,20 +40,19 @@ export default function LoginCard({  }: LoginCardProps) {
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogin = async () => {
     setIsLoading(true)
     setLoginError('') // Clear any previous error
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
+    try {
+      await loginUser(email, password)
+      setIsTransitioning(true)
+      router.push('/billback-upload')
+    } catch (error) {
       console.error(error)
       setLoginError('Invalid email or password. Please try again.')
       setIsLoading(false)
-      return
     }
-    setIsTransitioning(true) // Set transitioning state before navigation
-    router.push('/billback-upload');
   }
 
   if (isTransitioning) {

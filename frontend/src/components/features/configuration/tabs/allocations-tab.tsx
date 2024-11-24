@@ -8,7 +8,7 @@ import {
   Tab,
   TabPanel,
 } from '@chakra-ui/react';
-import { supabase } from '@/app/utils/supabase-client';
+import { supabase } from '@/lib/data-access/supabase-client';
 import { PropertyGroupsPanel } from '../property-groups-panel';
 
 interface AllocationsTabProps {

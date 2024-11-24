@@ -6,7 +6,7 @@ import TopBar from "../src/components/top-bar";
 import theme from '../theme';
 import { BillingPeriodProvider } from "@/contexts/BillingPeriodContext";
 import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/component';
+import { createClient } from '@/lib/supabase/component';
 
 function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageProps: any; }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -67,7 +67,7 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
           )}
           <Flex flex="1" height="100%">
             {isAuthenticated && (
-              <Box width="175px" height="100%" flexShrink={0}>
+              <Box height="100%" flexShrink={0}>
                 <NavBar />
               </Box>
             )}

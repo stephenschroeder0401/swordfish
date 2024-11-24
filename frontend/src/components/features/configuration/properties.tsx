@@ -17,9 +17,9 @@ import {
   Select,
 } from '@chakra-ui/react';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
-import { fetchProperties, upsertProperties } from '@/app/utils/supabase-client';
+import {fetchAllProperties, upsertProperties } from '@/lib/data-access';
 import { v4 as uuidv4 } from 'uuid';
-import { useToast } from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react'; 
 
 const TABLE_CONFIG = {
   id: { visible: false },
@@ -67,6 +67,7 @@ interface PropertiesTabProps {
 }
 
 const PropertiesTab = ({ entities }: PropertiesTabProps) => {
+  console.log('Properties Tab entities:', entities);
   const [tableData, setTableData] = useState([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -105,7 +106,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     const loadData = async () => {
       setIsFilterLoading(true);
       try {
-        const { data, count } = await fetchProperties(debouncedSearchTerm, pageSize, 0);
+        const { data, count } = await fetchAllProperties(debouncedSearchTerm, pageSize, 0);
         setTableData(data || []);
         setTotalCount(count || 0);
         setHasMore((data?.length || 0) < (count || 0));
@@ -125,7 +126,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     setIsLoadingMore(true);
     try {
       const nextPage = Math.ceil(tableData.length / pageSize);
-      const { data: newData, count } = await fetchProperties(
+      const { data: newData, count } = await fetchAllProperties(
         debouncedSearchTerm, 
         pageSize, 
         nextPage * pageSize
@@ -200,7 +201,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
       });
 
       // Reload the current page
-      const { data, count } = await fetchProperties(debouncedSearchTerm, pageSize, 0);
+      const { data, count } = await fetchAllProperties(debouncedSearchTerm, pageSize, 0);
       setTableData(data || []);
       setTotalCount(count || 0);
     } catch (error) {

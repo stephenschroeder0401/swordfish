@@ -13,12 +13,15 @@ import {
   SimpleGrid
 } from "@chakra-ui/react";
 
-import TableDisplay from "@/components/table/table-display";
+import TableDisplay from "@/components/features/table/table-display";
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 
-import { TableConfigItem } from "../src/app/types/table-config";
-import { AppfolioLineItem } from "@/app/types/billing-types";
-import { saveJobs, fetchAllBillingAccounts, fetchAllBillingProperties, fetchJobsAsBillingJob, fetchAllBillingPeriods, fetchAllBillingPropertiesNoPagination, fetchAllBillingAccountsNoPagination } from "@/app/utils/supabase-client";
+import { TableConfigItem } from "../src/types/table-config";
+import { AppfolioLineItem } from "@/types/billing-types";
+import { saveJobs, fetchJobsAsBillingJob} from "@/lib/data-access/supabase-client";
+import { fetchAllBillingAccounts, fetchAllProperties, 
+  fetchAllBillingPeriods, fetchAllPropertiesNoPagination, 
+  fetchAllBillingAccountsNoPagination } from "@/lib/data-access"
 
 const InvoicesDashboard = () => {
   const [data, setData] = useState<AppfolioLineItem[]>([]);
@@ -54,7 +57,7 @@ const InvoicesDashboard = () => {
     const fetchData = async () => {
       try {
         const accounts = await fetchAllBillingAccounts();
-        const billingProperties = await fetchAllBillingProperties();
+        const billingProperties = await fetchAllProperties();
       } catch (error) {
         console.error("Error fetching initial data", error);
       }
@@ -103,7 +106,7 @@ const InvoicesDashboard = () => {
 
       try {
         const jobs = await fetchJobsAsBillingJob(billingPeriod);
-        const billingProperties = await fetchAllBillingPropertiesNoPagination();
+        const billingProperties = await fetchAllPropertiesNoPagination();
         const billbackCategories = await fetchAllBillingAccountsNoPagination();
         
         const appfolioLineItems: AppFolioLineItem[] = jobs.map((job) => {

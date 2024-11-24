@@ -4,7 +4,9 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Select, Icon, Text } from "
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import MemoizedTableRow from "./memoized-table-row";
 
-const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts = [], properties = [], employees = [], handleDelete, entities = [] }) => {
+const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts = [],
+   properties = [], employees = [], handleDelete, entities = [] }) => {
+
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedProperty, setSelectedProperty] = useState("");
@@ -129,6 +131,7 @@ const clearFilters = () => {
         </Thead>
         <Tbody>
           {filteredData.map((item, index) => (
+            
             <MemoizedTableRow
               key={item.rowId}
               rowKey={item.rowId}

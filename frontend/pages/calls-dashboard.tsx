@@ -16,11 +16,11 @@ import {
   Container,
   Heading,
 } from "@chakra-ui/react";
-import { fetchCallHistory } from "../src/app/utils/supabase-client";
-import { Edge } from "../src/app/types/call-history-respose";
-import PaginationControls from "../src/components/table/pagination";
-import TableDisplay from "@/components/table/table-display";
-import { CALL_HISTORY_QUERY } from "@/app/types/queries";
+import { fetchCallHistory } from "../src/lib/data-access/supabase-client";
+import { Edge } from "../src/types/call-history-respose";
+import PaginationControls from "../src/components/features/table/pagination";
+import TableDisplay from "@/components/features/table/table-display";
+import { CALL_HISTORY_QUERY } from "@/types/queries";
 
 const DataTable = () => {
   const [data, setData] = useState<Edge[]>([]);

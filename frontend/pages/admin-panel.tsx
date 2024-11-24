@@ -37,21 +37,23 @@ import {
 import {
   supabase,
   fetchAllBillingAccounts,
-  fetchAllEmployees,
-  fetchAllBillingProperties,
   fetchAllBillingPeriods,
-  fetchAllEntities,
   saveEmployeeAllocations,
   fetchEmployeeAllocations,
-  fetchAllBillingAccountsNoPagination,
   searchProperties,
-} from '@/app/utils/supabase-client';
+} from '@/lib/data-access/supabase-client';
+import {fetchAllEmployees, fetchAllProperties, fetchAllBillingAccountsNoPagination} from '@/lib/data-access';
 import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
-import PropertiesTab from '@/components/configuration/properties';
-import { AllocationsTab } from '@/components/configuration/tabs/allocations-tab';
+import PropertiesTab from '@/components/features/configuration/properties';
+import { AllocationsTab } from '@/components/features/configuration/tabs/allocations-tab';
 import { useAuth } from '@/hooks/useAuth'
+import EmployeesTab from '@/components/features/configuration/employees-tab';
+import BillingAccountTab from '@/components/features/configuration/billing-account-tab';
+import EntitiesTab from '@/components/features/configuration/entities-tab';
+import { fetchAllEntities } from '@/lib/data-access/entities';
+import BillingPeriodTab from '@/components/features/configuration/billing-period-tab';
 
 type ColumnConfig = {
   visible: boolean;
@@ -231,13 +233,14 @@ const AdminPanel = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const accountsData = await fetchAllBillingAccountsNoPagination(user.client_id);
+        const accountsData = await fetchAllBillingAccountsNoPagination();
         setBillingAccounts(accountsData);
         
-        const employeeData = await fetchAllEmployees(user.client_id);
+        const employeeData = await fetchAllEmployees();
         setEmployees(employeeData);
 
-        const entityData = await fetchAllEntities(user.client_id);
+        const entityData = await fetchAllEntities();
+
         setEntities(entityData);
       } catch (error) {
         console.error('Error fetching initial data:', error);
@@ -255,6 +258,13 @@ const AdminPanel = () => {
     const addRowDisabled = Object.keys(newRow).length === 0 || Object.values(newRow).some((value: string) => !value.trim());
     setIsAddRowDisabled(addRowDisabled);
   }, [newRow]);
+
+  // Add this new useEffect to load billing accounts when component mounts
+  useEffect(() => {
+    if (user && selectedSection === 'data') {
+      handleTabChange(0); // Load billing accounts (index 0) by default
+    }
+  }, [user, selectedSection]);
 
   const handleTableChange = async (event) => {
     const tableName = event.target.value;
@@ -501,6 +511,7 @@ const AdminPanel = () => {
 
   console.log('tableData:', tableData);
 
+  // Update handleTabChange to properly handle billing accounts
   const handleTabChange = async (index: number) => {
     const tables = ['billing_account', 'employee', 'property', 'billing_period', 'entity'];
     if (index < tables.length) {
@@ -513,12 +524,12 @@ const AdminPanel = () => {
         switch(tableName) {
           case 'billing_account':
             const { data: accData, count: accCount } = await fetchAllBillingAccounts(
-              currentPage,
+              0, // Start from first page
               pageSize,
               user.client_id
             );
-            data = accData;
-            count = accCount;
+            data = accData || [];
+            count = accCount || 0;
             setNewRow({
               name: '',
               glcode: '',
@@ -528,7 +539,7 @@ const AdminPanel = () => {
             });
             break;
           case 'property':
-            const { data: propData, count: propCount } = await fetchProperties(
+            const { data: propData, count: propCount } = await fetchAllProperties(
               debouncedSearchTerm,
               pageSize,
               currentPage * pageSize
@@ -557,11 +568,14 @@ const AdminPanel = () => {
             break;
         }
         
-        setTableData(data || []);
+        setTableData(data);
         setTotalCount(count);
+        setCurrentPage(0); // Reset to first page when changing tabs
         
       } catch (error) {
         console.error(`Error fetching ${tableName}:`, error);
+        setTableData([]);
+        setTotalCount(0);
       } finally {
         setIsTableLoading(false);
       }
@@ -633,7 +647,7 @@ const AdminPanel = () => {
             </Text>
 
             {/* Right side: Save Button */}
-            <Box width="300px" textAlign="right">
+            {/* <Box width="300px" textAlign="right">
               <Button
                 size="sm"
                 color="white"
@@ -643,7 +657,7 @@ const AdminPanel = () => {
               >
                 Save Changes
               </Button>
-            </Box>
+            </Box> */}
           </Flex>
         </Box>
 
@@ -907,79 +921,19 @@ const AdminPanel = () => {
                 </TabList>
                 <TabPanels flex="1" overflow="hidden">
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    {renderTable('billing_account', {
-                      tableData,
-                      newRow,
-                      handleNewRowInputChange,
-                      handleAddRow,
-                      isAddRowDisabled,
-                      handleInputChange,
-                      handleDeleteRow,
-                      handleSaveChanges,
-                      isLoading,
-                      isTableLoading,
-                      currentPage,
-                      setCurrentPage,
-                      totalCount,
-                      pageSize
-                    })}
+                    <BillingAccountTab />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    {renderTable('employee', {
-                      tableData,
-                      newRow,
-                      handleNewRowInputChange,
-                      handleAddRow,
-                      isAddRowDisabled,
-                      handleInputChange,
-                      handleDeleteRow,
-                      handleSaveChanges,
-                      isLoading,
-                      isTableLoading,
-                      currentPage,
-                      setCurrentPage,
-                      totalCount,
-                      pageSize
-                    })}
+                    <EmployeesTab />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
                     <PropertiesTab entities={entities} />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    {renderTable('billing_period', {
-                      tableData,
-                      newRow,
-                      handleNewRowInputChange,
-                      handleAddRow,
-                      isAddRowDisabled,
-                      handleInputChange,
-                      handleDeleteRow,
-                      handleSaveChanges,
-                      isLoading,
-                      isTableLoading,
-                      currentPage,
-                      setCurrentPage,
-                      totalCount,
-                      pageSize
-                    })}
+                    <BillingPeriodTab />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    {renderTable('entity', {
-                      tableData,
-                      newRow,
-                      handleNewRowInputChange,
-                      handleAddRow,
-                      isAddRowDisabled,
-                      handleInputChange,
-                      handleDeleteRow,
-                      handleSaveChanges,
-                      isLoading,
-                      isTableLoading,
-                      currentPage,
-                      setCurrentPage,
-                      totalCount,
-                      pageSize
-                    })}
+                    <EntitiesTab />
                   </TabPanel>
                 </TabPanels>
               </Tabs>

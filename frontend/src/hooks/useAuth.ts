@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/component'
+import { createClient } from '@/lib/supabase/component'
 
 interface UserMetadata {
   client_id: string

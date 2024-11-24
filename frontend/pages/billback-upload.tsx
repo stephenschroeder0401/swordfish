@@ -1,12 +1,16 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from "react";
 import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center, Text } from "@chakra-ui/react";
-import BillbackDisplay from "@/components/table/billback-table";
-import CSVUpload from "@/components/file-upload/upload";
+import BillbackDisplay from "@/components/features/table/billback-table";
+import CSVUpload from "@/components/ui/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
-import { saveJobs, fetchAllBillingAccountsNoPagination, fetchAllBillingProperties, fetchAllEmployees, upsertBillbackUpload, fetchBillbackUpload, fetchAllBillingPeriods, fetchAllEntities, fetchAllBillingPropertiesNoPagination } from "@/app/utils/supabase-client";
+import { saveJobs, upsertBillbackUpload, fetchBillbackUpload, 
+  fetchAllBillingPeriods, fetchAllEntities,  } 
+from "@/lib/data-access/supabase-client";
+import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination, fetchAllBillingAccountsNoPagination
+} from "@/lib/data-access";
 
 const BillBack = () => {
   
@@ -16,7 +20,7 @@ const BillBack = () => {
   const { billingPeriod } = useBillingPeriod(); 
   const [isLoading, setIsLoading] = useState(false);
   const [billingAccounts, setBillingAccounts] = useState([]);
-  const [billingProperties, setBillingProperties] = useState([]);
+  const [billingProperties, setBillingProperties] = useState([]); 
   const [employees, setEmployees] = useState([]);
   const [billbackData, setBillbackData] = useState([]);
   const toast = useToast();
@@ -39,20 +43,17 @@ const BillBack = () => {
   }, [billbackData]);
 
   const loadDependencies = async () => {
-    console.log("LOADING DEPS");
     setIsLoading(true);
     try {
       const accounts = await fetchAllBillingAccountsNoPagination();
-      const properties = await fetchAllBillingPropertiesNoPagination();
+      const properties = await fetchAllPropertiesNoPagination();
       const employeeData = await fetchAllEmployees();
       setBillingAccounts(accounts);
       setBillingProperties(properties);
-      setEmployees(employeeData);
-      console.log("LOADED DEPS");
+      setEmployees(employeeData); 
     } catch (error) {
       console.error("Error fetching initial data", error);
     }
-    console.log("LOADED DEPS dONE");
     setIsLoading(false);
   };
 
@@ -61,35 +62,34 @@ const BillBack = () => {
     loadDependencies();
   }, []);
 
+  // Add a ref to track initial load
+  const initialLoadComplete = useRef(false);
+
   useEffect(() => {
-    setSelectedFile(null);
-    const fetchBillbackData = async () => {
-      if (!billingPeriod || !billingAccounts.length || !billingProperties.length || !employees.length) {
-        return;  // Ensure all dependencies are loaded
-      }
-
-      setIsLoading(true);
-      setBillbackData([]);
-      try {
-        console.log("GETTING NEW DATA for billing period ", billingPeriod);  
-        const data = await fetchBillbackUpload(billingPeriod);
-        console.log(data);
-        if (!data || data.upload_data.length < 1) {
-          setBillbackData([]);
-        }
-        else{
-          const uploadData = data?.upload_data || [];
-          handleDataProcessed(uploadData);
-        }
-      } catch (error) {
-        console.error("Error fetching billback data for billing period", error);
+    if (!initialLoadComplete.current && billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
+      setSelectedFile(null);
+      const fetchBillbackData = async () => {
+        setIsLoading(true);
         setBillbackData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        try {
+          const data = await fetchBillbackUpload(billingPeriod);
+          if (!data || data.upload_data.length < 1) {
+            setBillbackData([]);
+          } else {
+            const uploadData = data?.upload_data || [];
+            handleDataProcessed(uploadData);
+          }
+        } catch (error) {
+          console.error("Error fetching billback data for billing period", error);
+          setBillbackData([]);
+        } finally {
+          setIsLoading(false);
+          initialLoadComplete.current = true;
+        }
+      };
 
-    fetchBillbackData();
+      fetchBillbackData();
+    }
   }, [billingPeriod, billingAccounts, billingProperties, employees]);
 
   const addRow = () => {
@@ -128,8 +128,6 @@ const BillBack = () => {
     
     setIsLoading(true);
 
-    console.log(newData);
-
     const billingJobs = newData.map((job) => {
       if(!!job){
       
@@ -150,7 +148,7 @@ const BillBack = () => {
       const isError = !(billingAccount && billingProperty);
 
     
-      
+      console.log("Found employee: ", employee);
       return {
         rowId: uuidv4(),
         employeeId: employee ? employee.id : undefined,
@@ -257,9 +255,8 @@ const BillBack = () => {
       }
     }
 
-    console.log("UPDATE ROW");
     const updatedRow = newData[index];
-    console.log(updatedRow);
+  
     const entity = billingProperties.find(property => property.id === updatedRow.propertyId);
     const account = billingAccounts.find(account => account.id === updatedRow.billingAccountId);
 
@@ -374,6 +371,7 @@ const BillBack = () => {
 
   // Add debug log to check entities before passing to component
   console.log('Current entities:', entities);
+  console.log('Current employees:', employees);
 
   return (
     <Box width="100%" overflowX="hidden">
@@ -458,11 +456,11 @@ const BillBack = () => {
         mt={2}
         mb={155}
       >
-        {/* {isLoading ? (
+        {isLoading ? (
           <Center height="100vh">
             <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
           </Center>
-        ) : ( */}
+        ) : (
           <Box minWidth="100%" width="fit-content">
             <BillbackDisplay
               tableConfig={tableConfig}
@@ -479,7 +477,7 @@ const BillBack = () => {
               handleDelete={handleDelete}
             />
           </Box>
-        {/* )} */}
+        )}
       </Box>
     </Box>
   );

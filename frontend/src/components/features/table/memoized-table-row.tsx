@@ -5,6 +5,8 @@ import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
 const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+
+  console.log('employeeId:', item.employeeId);
   
   return (
     <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>

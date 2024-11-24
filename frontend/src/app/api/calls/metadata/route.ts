@@ -1,6 +1,6 @@
 import { VocodeClient } from "@vocode/vocode-api";
-import { saveCallHistoryEntry } from "@/app/utils/supabase-client";
-import { CallHistoryEntry } from "@/app/types/call-history-entry";
+import { saveCallHistoryEntry } from "@/lib/data-access/supabase-client";
+import { CallHistoryEntry } from "@/types/call-history-entry";
 
 const vocode = new VocodeClient({
   token: process.env.VOCODE_API_KEY!,

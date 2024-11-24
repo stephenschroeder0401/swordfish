@@ -2,15 +2,14 @@
 
 import { Box, Flex, Image, Text, Menu, MenuButton, MenuList, MenuItem, IconButton } from "@chakra-ui/react";
 import { FiUser } from "react-icons/fi";
-import { createClient } from '@/utils/supabase/component';
 import { useRouter } from 'next/router';
+import { logoutUser } from '../lib/auth/user';
 
 const TopBar = () => {
-  const supabase = createClient();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logoutUser();
     router.push('/auth');
   };
 

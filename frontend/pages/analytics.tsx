@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Heading, Flex, Text, Box, HStack, Button, Select, Card, CardHeader, CardBody } from "@chakra-ui/react";
-import { fetchBillbackUpload, fetchEmployeeTimeAllocations, fetchAllEmployees } from '../src/app/utils/supabase-client';
+import { fetchBillbackUpload } from '../src/lib/data-access/supabase-client';
+import {fetchAllEmployees} from '../src/lib/data-access';
 import { useBillingPeriod } from '@/contexts/BillingPeriodContext';
 import dynamic from 'next/dynamic';
 import { ChartData, ChartOptions } from 'chart.js';
@@ -646,7 +647,6 @@ const Analytics: React.FC = () => {
     },
     onClick: selectedEmployeeCategory ? undefined : handleEmployeePieChartClick
   };
-
   return (
     <Container maxW='5000px' py={2} height="auto" minHeight="100vh">
       <Flex direction="column" alignItems="stretch" height="100%">

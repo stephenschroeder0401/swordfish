@@ -27,7 +27,7 @@ const NavBar = () => {
       try {
         if (!user) return;
         
-        const periods = await fetchAllBillingPeriods(user.client_id);
+        const periods = await fetchAllBillingPeriods();
         const sortedPeriods = periods.sort((a, b) => new Date(b.enddate).getTime() - new Date(a.enddate).getTime());
         setBillingPeriods(sortedPeriods);
         if (sortedPeriods.length > 0 && !billingPeriod) {

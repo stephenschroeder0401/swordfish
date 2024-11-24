@@ -540,7 +540,6 @@ const AdminPanel = () => {
             break;
           case 'property':
             const { data: propData, count: propCount } = await fetchAllProperties(
-              debouncedSearchTerm,
               pageSize,
               currentPage * pageSize
             );

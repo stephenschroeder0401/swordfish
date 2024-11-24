@@ -1,5 +1,4 @@
 import { VocodeClient } from "@vocode/vocode-api";
-import { saveCallHistoryEntry } from "@/lib/data-access/supabase-client";
 import { CallHistoryEntry } from "@/types/call-history-entry";
 
 const vocode = new VocodeClient({
@@ -22,8 +21,6 @@ export async function POST(request: Request) {
     start_time: callData.startTime,
     end_time: callData.endTime,
   };
-
-  saveCallHistoryEntry(entry);
 
   return new Response();
 }

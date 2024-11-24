@@ -106,7 +106,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     const loadData = async () => {
       setIsFilterLoading(true);
       try {
-        const { data, count } = await fetchAllProperties(debouncedSearchTerm, pageSize, 0);
+        const { data, count } = await fetchAllProperties(pageSize, 0);
         setTableData(data || []);
         setTotalCount(count || 0);
         setHasMore((data?.length || 0) < (count || 0));
@@ -127,7 +127,6 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
     try {
       const nextPage = Math.ceil(tableData.length / pageSize);
       const { data: newData, count } = await fetchAllProperties(
-        debouncedSearchTerm, 
         pageSize, 
         nextPage * pageSize
       );
@@ -201,7 +200,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
       });
 
       // Reload the current page
-      const { data, count } = await fetchAllProperties(debouncedSearchTerm, pageSize, 0);
+      const { data, count } = await fetchAllProperties(pageSize, 0);
       setTableData(data || []);
       setTotalCount(count || 0);
     } catch (error) {

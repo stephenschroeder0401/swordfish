@@ -32,6 +32,9 @@ interface LoginCardProps {
 }
 
 export default function LoginCard({  }: LoginCardProps) {
+  const bgColor = useColorModeValue('gray.50', 'gray.800')
+  const boxBgColor = useColorModeValue('white', 'gray.700')
+
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -74,13 +77,13 @@ export default function LoginCard({  }: LoginCardProps) {
       minH={'100vh'}
       align={'center'}
       justify={'center'}
-      bg={useColorModeValue('gray.50', 'gray.800')}>
+      bg={bgColor}>
       <Box
         rounded={'lg'}
-        bg={useColorModeValue('white', 'gray.700')}
+        bg={boxBgColor}
         boxShadow={'lg'}
         p={8}
-        pt={12} // Reduced top padding
+        pt={12}
         width={'70%'}
         maxWidth={'700px'}
         minWidth={'300px'}
@@ -88,9 +91,9 @@ export default function LoginCard({  }: LoginCardProps) {
         maxHeight={'700px'}
         minHeight={'600px'}
         overflowY={'auto'}>
-          <Stack spacing={2} width="100%" height="100%" justify="space-between"> // Reduced spacing
-            <Stack spacing={2} width="100%"> // Reduced spacing
-              <Stack align={'center'} spacing={2} mt={2}> // Reduced spacing and top margin
+          <Stack spacing={2} width="100%" height="100%" justify="space-between">
+            <Stack spacing={2} width="100%">
+              <Stack align={'center'} spacing={2} mt={2}>
                 <Flex align="center" justify="center" width="100%">
                   <Flex alignItems="center" height="100%" ml="-10vw">
                     <Box width="20vw" height="20vh" overflow="visible" mr="-6.5vw">
@@ -112,7 +115,7 @@ export default function LoginCard({  }: LoginCardProps) {
                   </Flex>
                 </Flex>
               </Stack>
-              <Stack spacing={4} width="100%" maxWidth="450px" mx="auto"> {/* Add this wrapper */}
+              <Stack spacing={4} width="100%" maxWidth="450px" mx="auto">
                 {loginError && (
                   <Alert status="error">
                     <AlertIcon />
@@ -146,7 +149,7 @@ export default function LoginCard({  }: LoginCardProps) {
                     </InputRightElement>
                   </InputGroup>
                 </FormControl>
-              </Stack> {/* Close the wrapper */}
+              </Stack>
               <Stack mt={30} spacing={6} align="center">
                 <Button
                   isLoading={isLoading}
@@ -159,8 +162,8 @@ export default function LoginCard({  }: LoginCardProps) {
                   }}
                   onClick={handleLogin}
                   width="40%"
-                  maxWidth="200px" // Add this line to limit the button width
-                  mx="auto" // Add this line to center the button
+                  maxWidth="200px"
+                  mx="auto"
                 >
                   Log in
                 </Button>

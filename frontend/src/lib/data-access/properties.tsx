@@ -94,11 +94,11 @@ export const searchProperties = async (
   
   if (error) throw error;
   return { 
-    data: data.map(item => ({
+    data: data?.map(item => ({
       ...item,
-      entityName: item.entity?.name
-    })), 
-    count 
+      entityName: item.entity[0]?.name
+    })) ?? [],
+    count: count ?? 0
   };
 };
 

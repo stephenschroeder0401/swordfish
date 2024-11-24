@@ -386,10 +386,10 @@ const Analytics: React.FC = () => {
         // Find the employee ID from our stored employeesWithIds
         const employee = employeesWithIds.find(emp => emp.name === employeeName);
         if (employee) {
-          console.log("Found employee:", employee);
-          const allocations = await fetchEmployeeTimeAllocations(employee.id);
-          console.log("Fetched allocations:", allocations);
-          setEmployeeAllocations(allocations);
+          // console.log("Found employee:", employee);
+          // //const allocations = await fetchEmployeeTimeAllocations(employee.id);
+          // console.log("Fetched allocations:", allocations);
+          // setEmployeeAllocations(allocations);
         } else {
           console.log("Could not find employee with name:", employeeName);
         }

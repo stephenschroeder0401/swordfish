@@ -11,8 +11,6 @@ import {
   Container,
 } from "@chakra-ui/react";
 
-import PhoneNumberInput from "../src/components/phone-number-input";
-
 export default function FormComponent() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [voice, setVoice] = useState("");
@@ -68,10 +66,6 @@ export default function FormComponent() {
           <Text fontSize="lg">
             1. Enter the phone number of the person you want to prank
           </Text>
-          <PhoneNumberInput
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-          />
           <Text fontSize="lg">2. Choose your voice</Text>
           <Select
             width="75%"

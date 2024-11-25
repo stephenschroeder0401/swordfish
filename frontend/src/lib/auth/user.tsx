@@ -10,6 +10,16 @@ interface UserSessionData {
     email: string;
   }
   
+  interface UserAccountResponse {
+    client_id: string;
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: {
+      name: string;
+    };
+  }
+  
   const authClient = createAuthClient();
   
   export const setUserSession = (data: UserSessionData) => {
@@ -47,12 +57,12 @@ interface UserSessionData {
           user_id,
           first_name,
           last_name,
-          role!inner (
+          role:role_id (
             name
           )
         `)
         .eq('user_id', session.user.id)
-        .single();
+        .single() as { data: UserAccountResponse, error: any };
 
       if (userError) throw userError;
 
@@ -61,7 +71,7 @@ interface UserSessionData {
         userId: session.user.id,
         firstName: userData.first_name,
         lastName: userData.last_name,
-        role: userData.role[0].name,
+        role: userData.role.name,
         email: session.user.email
       };
 
@@ -70,7 +80,7 @@ interface UserSessionData {
       await authClient.auth.updateUser({
         data: { 
           client_id: userData.client_id,
-          role: userData.role[0].name,
+          role: userData.role.name,
           first_name: userData.first_name,
           last_name: userData.last_name
         }

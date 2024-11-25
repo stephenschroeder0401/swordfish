@@ -13,30 +13,33 @@ interface Property {
   };
 }
 
-export const fetchAllProperties = async (page = 0, pageSize = 10) => {
-  const session = getUserSession();
-  if (!session) throw new Error('No active session');
-
-  const { data, error, count } = await supabase
+export const fetchAllProperties = async (
+  limit: number = 40, 
+  offset: number = 0,
+  searchTerm: string = ''
+) => {
+  let query = supabase
     .from('property')
     .select(`
       *,
-      entity:entityid!inner (   
-        name,
-        client_id
+      entity:entityid (
+        id,
+        name
       )
-    `, { count: 'exact' })
-    .eq('entity.client_id', session.clientId)
-    .range(page * pageSize, (page * pageSize) + pageSize - 1);
+    `, { count: 'exact' });
+
+  // Add search filter if searchTerm exists
+  if (searchTerm) {
+    query = query.or(`name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
+  }
+
+  const { data, error, count } = await query
+    .order('name', { ascending: true })
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
 
-  const formattedData = data.map(item => ({
-    ...item,
-    entityName: item.entity?.name
-  }));
-
-  return { data: formattedData, count: count || 0 };
+  return { data, count };
 };
 
 export const fetchAllPropertiesNoPagination = async () => {

@@ -3,7 +3,7 @@ DO $$
 DECLARE 
     v_email text := 'stephen.o.schroeder@gmail.com';  -- user's email
     v_client_name text := 'WSPM';  -- client name
-    v_role_name text := 'admin';      -- role name (superuser, admin, or employee)
+    v_role_name text := 'superuser';      -- role name (superuser, admin, or employee)
     v_first_name text := 'Steve';          -- first name
     v_last_name text := 'Schroeder';            -- last name
 BEGIN
@@ -23,7 +23,6 @@ select * from employee
 1f693839-777c-4eb8-9462-0b0d900ef244
 
 select * from billing_account
-
 select * from user_account
 select * from client
 select * from 

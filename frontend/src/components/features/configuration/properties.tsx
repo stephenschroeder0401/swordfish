@@ -224,7 +224,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
   };
 
   return (
-    <Box h="100%" display="flex" flexDirection="column" overflow="hidden">
+    <Box h="100%" display="flex" flexDirection="column" overflow="hidden" pb="100px">
       <Flex justify="space-between" align="center" px={4} py={2}>
         <Flex gap={4} align="center" width="300px">
           <IconButton
@@ -266,6 +266,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
         overflowY="auto" 
         flex="1" 
         position="relative"
+        pb="200px"
         onScroll={(e) => {
           const target = e.target as HTMLDivElement;
           if (
@@ -347,7 +348,7 @@ const PropertiesTab = ({ entities }: PropertiesTabProps) => {
         )}
 
         {(isLoadingMore || hasMore) && (
-          <Box height="200px" />
+          <Box height="300px" />
         )}
       </Box>
     </Box>

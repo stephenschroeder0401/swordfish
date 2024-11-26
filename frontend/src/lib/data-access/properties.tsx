@@ -18,15 +18,21 @@ export const fetchAllProperties = async (
   offset: number = 0,
   searchTerm: string = ''
 ) => {
+  const session = getUserSession();
+  const clientId = session?.clientId;
+
+  console.log("properties for: ", clientId);
   let query = supabase
     .from('property')
     .select(`
       *,
-      entity:entityid (
+      entity:entityid!inner(
         id,
-        name
+        name, 
+        client_id
       )
-    `, { count: 'exact' });
+    `, { count: 'exact' })
+    .eq('entity.client_id', clientId);
 
   // Add search filter if searchTerm exists
   if (searchTerm) {

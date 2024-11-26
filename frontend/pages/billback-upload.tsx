@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Spinner, Card, FormControl, FormLabel, SimpleGrid,IconButton, Center, Text } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/features/table/billback-table";
 import CSVUpload from "@/components/ui/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
@@ -25,6 +25,7 @@ const BillBack = () => {
   const [billbackData, setBillbackData] = useState([]);
   const toast = useToast();
   const [entities, setEntities] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const calculateTotals = (hours, rate, mileage) => {
     const laborTotal = (hours * rate).toFixed(2);
@@ -458,7 +459,12 @@ const BillBack = () => {
       >
         {isLoading ? (
           <Center height="100vh">
-            <Spinner thickness="4px" speed="0.65s" emptyColor="gray.200" color="blue.500" size="xl" />
+            <Image
+              src="/loading.gif"
+              alt="Loading..."
+              width="100px"
+              height="100px"
+            />
           </Center>
         ) : (
           <Box minWidth="100%" width="fit-content">
@@ -479,6 +485,24 @@ const BillBack = () => {
           </Box>
         )}
       </Box>
+      {isUploading && (
+        <Center
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="blackAlpha.300"
+          zIndex={999}
+        >
+          <Image
+            src="/loading.gif"
+            alt="Loading..."
+            width="100px"
+            height="100px"
+          />
+        </Center>
+      )}
     </Box>
   );
 };

@@ -912,11 +912,11 @@ const AdminPanel = () => {
                 }}
               >
                 <TabList height="5vh">
-                  <Tab py={1} fontSize="sm">Billing Accounts</Tab>
+                  <Tab py={1} fontSize="sm">Hourly Billing</Tab>
                   <Tab py={1} fontSize="sm">Employees</Tab>
                   <Tab py={1} fontSize="sm">Properties</Tab>
-                  <Tab py={1} fontSize="sm">Billing Periods</Tab>
                   <Tab py={1} fontSize="sm">Entities</Tab>
+                  <Tab py={1} fontSize="sm">Billing Periods</Tab>
                 </TabList>
                 <TabPanels flex="1" overflow="hidden">
                   <TabPanel h="100%" overflowY="auto" padding={0}>
@@ -929,10 +929,10 @@ const AdminPanel = () => {
                     <PropertiesTab entities={entities} />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    <BillingPeriodTab />
+                    <EntitiesTab />
                   </TabPanel>
                   <TabPanel h="100%" overflowY="auto" padding={0}>
-                    <EntitiesTab />
+                    <BillingPeriodTab />
                   </TabPanel>
                 </TabPanels>
               </Tabs>

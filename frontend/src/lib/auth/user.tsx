@@ -102,3 +102,22 @@ interface UserSessionData {
       throw error;
     }
   };
+  
+  export const updateUserPassword = async (password: string) => {
+    try {
+      const { data, error } = await authClient.auth.updateUser({
+        password: password
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Password update error:', error);
+      throw error;
+    }
+  };
+  
+
+
+
+  

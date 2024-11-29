@@ -7,11 +7,17 @@ import theme from '../theme';
 import { BillingPeriodProvider } from "@/contexts/BillingPeriodContext";
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/component';
+import { useRouter } from 'next/router';
+
+const noNavPaths = ['/set-password', '/auth']
 
 function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageProps: any; }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
   const supabase = createClient();
+
+  const shouldShowNav = isAuthenticated && !noNavPaths.includes(router.pathname);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -48,8 +54,8 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
         <Image
           src="/loading.gif"
           alt="Loading..."
-          width="100px"
-          height="100px"
+          width="300px"
+          height="300px"
         />
       </Center>
     );
@@ -59,18 +65,18 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
     <ChakraProvider theme={theme} cssVarsRoot="body">
       <BillingPeriodProvider>
         <Flex height="100vh" width="100vw" flexDirection="column" overflow="hidden">
-          {isAuthenticated && (
+          {shouldShowNav && (
             <Box width="100%" position="sticky" top="0" zIndex="sticky">
               <TopBar />
             </Box>
           )}
           <Flex flex="1" height="100%">
-            {isAuthenticated && (
+            {shouldShowNav && (
               <Box height="100%" flexShrink={0}>
                 <NavBar />
               </Box>
             )}
-            <Box flex="1" overflowY="auto" p={isAuthenticated ? "4" : "0"}>
+            <Box flex="1" overflowY="auto" p={shouldShowNav ? "4" : "0"}>
               <Providers>
                 <Component {...pageProps} />
               </Providers>

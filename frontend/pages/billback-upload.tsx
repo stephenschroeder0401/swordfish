@@ -462,8 +462,8 @@ const BillBack = () => {
             <Image
               src="/loading.gif"
               alt="Loading..."
-              width="100px"
-              height="100px"
+              width="300px"
+              height="300px"
             />
           </Center>
         ) : (

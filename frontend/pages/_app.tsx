@@ -1,4 +1,4 @@
-import { ChakraProvider, Box, Flex, Center, Spinner } from "@chakra-ui/react";
+import { ChakraProvider, Box, Flex, Center, Image } from "@chakra-ui/react";
 import "../src/app/globals.css";
 import { Providers } from "../src/app/providers";
 import NavBar from "../src/components/nav-bar";
@@ -45,12 +45,11 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
   if (isLoading) {
     return (
       <Center height="100vh">
-        <Spinner 
-          thickness="4px" 
-          speed="0.65s" 
-          emptyColor="gray.200" 
-          color="blue.500" 
-          size="xl" 
+        <Image
+          src="/loading.gif"
+          alt="Loading..."
+          width="100px"
+          height="100px"
         />
       </Center>
     );

@@ -61,12 +61,11 @@ export default function LoginCard({  }: LoginCardProps) {
   if (isTransitioning) {
     return (
       <Center height="100vh">
-        <Spinner
-          thickness='4px'
-          speed='0.65s'
-          emptyColor='gray.200'
-          color='#097564'
-          size='xl'
+        <Image
+          src="/loading.gif"
+          alt="Loading..."
+          width="100px"
+          height="100px"
         />
       </Center>
     )

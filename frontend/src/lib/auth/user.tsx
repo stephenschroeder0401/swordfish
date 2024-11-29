@@ -20,7 +20,7 @@ interface UserSessionData {
     };
   }
   
-  const authClient = createAuthClient();
+  export const authClient = createAuthClient();
   
   export const setUserSession = (data: UserSessionData) => {
     if (typeof window !== 'undefined') {

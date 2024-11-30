@@ -22,23 +22,26 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
   useEffect(() => {
     let mounted = true;
 
-    const checkAuth = async () => {
+    // Initial session check
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log("Initial session check:", session);
-
+      
       if (!mounted) return;
 
       if (session) {
         setIsAuthenticated(true);
         setIsLoading(false);
       } else {
+        setIsAuthenticated(false);
         if (!noNavPaths.includes(router.pathname)) {
           router.push('/auth');
         }
-        setIsAuthenticated(false);
         setIsLoading(false);
       }
     };
+
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state change:", event, session);
@@ -47,36 +50,24 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
 
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
+        if (window.location.href.includes('type=invite')) {
+          await router.push('/set-password');
+        }
         setIsLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
-        setIsLoading(false);
         if (!noNavPaths.includes(router.pathname)) {
           router.push('/auth');
         }
-      } else {
         setIsLoading(false);
       }
     });
-
-    checkAuth();
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, [router.pathname]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log("Forcing loading state to false after timeout");
-        setIsLoading(false);
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [isLoading]);
 
   if (isLoading) {
     return (

@@ -10,6 +10,11 @@ const AuthPage: React.FC = () => {
   const supabase = createClient()
 
   useEffect(() => {
+    console.log('Full URL:', window.location.href)
+    console.log('Search params:', window.location.search)
+    console.log('Hash:', window.location.hash)
+    console.log('Router query:', router.query)
+
     // Check for tokens in URL fragment
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
     const access_token = hashParams.get('access_token')

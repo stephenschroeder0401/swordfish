@@ -119,6 +119,8 @@ interface UserSessionData {
   
   export const loginWithToken = async (accessToken: string, refreshToken: string) => {
     try {
+
+      console.log("")
       const { data: { session }, error } = await authClient.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken

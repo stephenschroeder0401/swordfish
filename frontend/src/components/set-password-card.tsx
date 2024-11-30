@@ -20,7 +20,7 @@ import {
 import { useState } from 'react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useRouter } from 'next/router'
-import { updateUserPassword } from '@/lib/auth/user'
+import { updateUserPassword, authClient} from '@/lib/auth/user'
 import theme from '../../theme'
 
 
@@ -36,6 +36,7 @@ export default function SetPasswordCard() {
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   const router = useRouter()
+  
 
   const handleSetPassword = async () => {
     if (password !== confirmPassword) {

@@ -22,19 +22,25 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
   useEffect(() => {
     let mounted = true;
 
-    // Initial session check
     const checkSession = async () => {
+      console.log('Checking initial session...')
       const { data: { session } } = await supabase.auth.getSession();
       console.log("Initial session check:", session);
       
-      if (!mounted) return;
+      if (!mounted) {
+        console.log('Component unmounted, skipping state updates')
+        return;
+      }
 
       if (session) {
+        console.log('Session found, setting authenticated')
         setIsAuthenticated(true);
         setIsLoading(false);
       } else {
+        console.log('No session found')
         setIsAuthenticated(false);
         if (!noNavPaths.includes(router.pathname)) {
+          console.log('Redirecting to auth')
           router.push('/auth');
         }
         setIsLoading(false);
@@ -44,7 +50,8 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state change:", event, session);
+      console.log("Auth state change event:", event);
+      console.log("Auth state change session:", session);
       
       if (!mounted) return;
 

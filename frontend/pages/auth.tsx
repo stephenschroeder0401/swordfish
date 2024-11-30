@@ -14,14 +14,21 @@ const AuthPage: React.FC = () => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
     const access_token = hashParams.get('access_token')
     const refresh_token = hashParams.get('refresh_token')
+    
+    console.log('URL Hash:', window.location.hash)
+    console.log('Access Token:', access_token)
+    console.log('Refresh Token:', refresh_token)
 
     const handleSession = async () => {
       if (access_token && refresh_token) {
+        console.log('Setting session with tokens...')
         // Set the session with the tokens
         const { data, error } = await supabase.auth.setSession({
           access_token,
           refresh_token
         })
+        
+        console.log('setSession result:', { data, error })
         
         if (error) {
           console.error('Error setting session:', error)
@@ -31,11 +38,13 @@ const AuthPage: React.FC = () => {
 
         // If we're coming from an invite, go to set-password
         if (window.location.href.includes('type=invite')) {
+          console.log('Invite flow detected, redirecting to set-password')
           router.push('/set-password')
         } else {
           router.push('/billback-upload')
         }
       } else {
+        console.log('No tokens found in URL')
         setIsLoading(false)
       }
     }

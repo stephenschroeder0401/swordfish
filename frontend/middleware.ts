@@ -35,6 +35,14 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { session } } = await supabase.auth.getSession()
+  const { searchParams } = new URL(request.url)
+  const setPassword = searchParams.get('setPassword')
+
+  // If has session and setPassword=true, redirect to set-password
+  if (session && setPassword === 'true') {
+    const redirectUrl = new URL('/set-password', request.url)
+    return NextResponse.redirect(redirectUrl)
+  }
 
   // If no session and trying to access protected route
   if (!session && !request.nextUrl.pathname.startsWith('/auth')) {
@@ -44,7 +52,7 @@ export async function middleware(request: NextRequest) {
 
   // If has session and trying to access auth
   if (session && request.nextUrl.pathname.startsWith('/auth')) {
-    const redirectUrl = new URL('/', request.url)
+    const redirectUrl = new URL('/billback-upload', request.url)
     return NextResponse.redirect(redirectUrl)
   }
 

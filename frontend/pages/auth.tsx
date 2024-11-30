@@ -10,27 +10,38 @@ const AuthPage: React.FC = () => {
   const supabase = createClient()
 
   useEffect(() => {
-    console.log('Full URL:', window.location.href)
-    console.log('Search params:', window.location.search)
-    console.log('Hash:', window.location.hash)
-    console.log('Router query:', router.query)
-
-    // Check for tokens in URL fragment
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const access_token = hashParams.get('access_token')
-    const refresh_token = hashParams.get('refresh_token')
-    
-    console.log('URL Hash:', window.location.hash)
-    console.log('Access Token:', access_token)
-    console.log('Refresh Token:', refresh_token)
-
     const handleSession = async () => {
-      if (access_token && refresh_token) {
-        console.log('Setting session with tokens...')
-        // Set the session with the tokens
+      try {
+        // Log all localStorage keys to find the Supabase session
+        console.log('All localStorage keys:', Object.keys(localStorage))
+        
+        // Find the Supabase auth token key
+        const supabaseKey = Object.keys(localStorage).find(key => 
+          key.startsWith('sb-') && key.endsWith('-auth-token')
+        )
+        
+        console.log('Found Supabase key:', supabaseKey)
+
+        if (!supabaseKey) {
+          console.log('No Supabase session key found')
+          setIsLoading(false)
+          return
+        }
+
+        const storedSession = localStorage.getItem(supabaseKey)
+        if (!storedSession) {
+          console.log('No stored session found')
+          setIsLoading(false)
+          return
+        }
+
+        const session = JSON.parse(storedSession)
+        console.log('Found stored session:', session)
+
+        // Set the session with the stored tokens
         const { data, error } = await supabase.auth.setSession({
-          access_token,
-          refresh_token
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
         })
         
         console.log('setSession result:', { data, error })
@@ -43,13 +54,12 @@ const AuthPage: React.FC = () => {
 
         // If we're coming from an invite, go to set-password
         if (window.location.href.includes('type=invite')) {
-          console.log('Invite flow detected, redirecting to set-password')
           router.push('/set-password')
         } else {
           router.push('/billback-upload')
         }
-      } else {
-        console.log('No tokens found in URL')
+      } catch (error) {
+        console.error('Error handling session:', error)
         setIsLoading(false)
       }
     }

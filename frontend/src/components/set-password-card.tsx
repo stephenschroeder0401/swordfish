@@ -20,7 +20,7 @@ import {
 import { useState } from 'react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useRouter } from 'next/router'
-import { updateUserPassword, authClient} from '@/lib/auth/user'
+import { updateUserPassword, authClient, loginUser} from '@/lib/auth/user'
 import theme from '../../theme'
 
 
@@ -48,7 +48,17 @@ export default function SetPasswordCard() {
     setError('')
     
     try {
-      await updateUserPassword(password)
+      await updateUserPassword(password);
+      
+      // Get the current user's email
+      const { data: { user } } = await authClient.auth.getUser()
+      if (!user?.email) {
+        throw new Error('No user email found')
+      }
+
+      // Login with new credentials
+      await loginUser(user.email, password)
+      
       setIsTransitioning(true)
       router.push('/billback-upload')
     } catch (error) {

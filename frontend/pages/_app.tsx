@@ -23,30 +23,40 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log("Initial session check:", session);
+
       if (session) {
         setIsAuthenticated(true);
         setIsLoading(false);
       } else {
+        if (!noNavPaths.includes(router.pathname) && !isAuthenticated) {
+          router.push('/auth');
+        }
         setIsAuthenticated(false);
         setIsLoading(false);
       }
     };
 
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state change:", event, session);
+      
       if (event === 'SIGNED_IN') {
-        setIsAuthenticated(true);
-        setIsLoading(false);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setIsAuthenticated(true);
+          setIsLoading(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setIsLoading(false);
+        if (!noNavPaths.includes(router.pathname)) {
+          router.push('/auth');
+        }
       }
     });
 
+    checkAuth();
     return () => subscription.unsubscribe();
-  }, []);
+  }, [router.pathname]);
 
   if (isLoading) {
     return (

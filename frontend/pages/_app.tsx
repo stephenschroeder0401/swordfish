@@ -20,15 +20,19 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
   const shouldShowNav = isAuthenticated && !noNavPaths.includes(router.pathname);
 
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log("Initial session check:", session);
+
+      if (!mounted) return;
 
       if (session) {
         setIsAuthenticated(true);
         setIsLoading(false);
       } else {
-        if (!noNavPaths.includes(router.pathname) && !isAuthenticated) {
+        if (!noNavPaths.includes(router.pathname)) {
           router.push('/auth');
         }
         setIsAuthenticated(false);
@@ -39,24 +43,40 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state change:", event, session);
       
-      if (event === 'SIGNED_IN') {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (currentSession) {
-          setIsAuthenticated(true);
-          setIsLoading(false);
-        }
+      if (!mounted) return;
+
+      if (event === 'SIGNED_IN' && session) {
+        setIsAuthenticated(true);
+        setIsLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setIsLoading(false);
         if (!noNavPaths.includes(router.pathname)) {
           router.push('/auth');
         }
+      } else {
+        setIsLoading(false);
       }
     });
 
     checkAuth();
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [router.pathname]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("Forcing loading state to false after timeout");
+        setIsLoading(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   if (isLoading) {
     return (

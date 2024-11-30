@@ -12,9 +12,6 @@ const AuthPage: React.FC = () => {
   useEffect(() => {
     const handleSession = async () => {
       try {
-        // Log all localStorage keys to find the Supabase session
-        console.log('All localStorage keys:', Object.keys(localStorage))
-        
         // Find the Supabase auth token key
         const supabaseKey = Object.keys(localStorage).find(key => 
           key.startsWith('sb-') && key.endsWith('-auth-token')
@@ -38,7 +35,6 @@ const AuthPage: React.FC = () => {
         const session = JSON.parse(storedSession)
         console.log('Found stored session:', session)
 
-        // Set the session with the stored tokens
         const { data, error } = await supabase.auth.setSession({
           access_token: session.access_token,
           refresh_token: session.refresh_token
@@ -52,8 +48,8 @@ const AuthPage: React.FC = () => {
           return
         }
 
-        // If we're coming from an invite, go to set-password
-        if (window.location.href.includes('type=invite')) {
+        // Check for setPassword parameter in URL
+        if (router.query.setPassword === 'true') {
           router.push('/set-password')
         } else {
           router.push('/billback-upload')
@@ -65,7 +61,7 @@ const AuthPage: React.FC = () => {
     }
 
     handleSession()
-  }, [])
+  }, [router.isReady])
 
   if (isLoading) {
     return (

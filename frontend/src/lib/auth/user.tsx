@@ -117,6 +117,49 @@ interface UserSessionData {
     }
   };
   
+  export const loginWithToken = async (accessToken: string, refreshToken: string) => {
+    try {
+      const { data: { session }, error } = await authClient.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+
+      if (error) throw error;
+
+      const { data: userData, error: userError } = await supabase
+        .from('user_account')
+        .select(`
+          client_id,
+          user_id,
+          first_name,
+          last_name,
+          role:role_id (
+            name
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .single() as { data: UserAccountResponse, error: any };
+
+      if (userError) throw userError;
+
+      const sessionData = {
+        clientId: userData.client_id,
+        userId: session.user.id,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        role: userData.role.name,
+        email: session.user.email
+      };
+
+      setUserSession(sessionData);
+
+      return { session, userData };
+    } catch (error) {
+      console.error('Token login error:', error);
+      throw error;
+    }
+  };
+  
 
 
 

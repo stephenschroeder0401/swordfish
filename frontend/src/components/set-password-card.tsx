@@ -23,11 +23,8 @@ import { useRouter } from 'next/router'
 import { updateUserPassword } from '@/lib/auth/user'
 import theme from '../../theme'
 
-interface SetPasswordCardProps {
-  accessToken: string;
-}
 
-export default function SetPasswordCard({ accessToken }: SetPasswordCardProps) {
+export default function SetPasswordCard() {
   const bgColor = useColorModeValue('gray.50', 'gray.800')
   const boxBgColor = useColorModeValue('white', 'gray.700')
 

@@ -15,6 +15,7 @@ const getCurrentClientId = async () => {
   if (!clientId) throw new Error('No active session');
 
   console.log("Returning clientId: ", clientId);
+  //
   return clientId;
 };
 

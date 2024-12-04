@@ -62,11 +62,9 @@ const BillBack = () => {
     loadDependencies();
   }, []);
 
-  // Add a ref to track initial load
-  const initialLoadComplete = useRef(false);
-
   useEffect(() => {
-    if (!initialLoadComplete.current && billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
+    console.log("billing period changed! lets get shit", billingPeriod)
+    if (billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
       setSelectedFile(null);
       const fetchBillbackData = async () => {
         setIsLoading(true);
@@ -84,7 +82,6 @@ const BillBack = () => {
           setBillbackData([]);
         } finally {
           setIsLoading(false);
-          initialLoadComplete.current = true;
         }
       };
 

@@ -11,37 +11,15 @@ export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "");
 
 // Replace the direct access with a function to safely get clientId
 const getCurrentClientId = async () => {
-  const session = await getUserSession();
-  if (!session) throw new Error('No active session');
-  return session.clientId;
+  const {clientId} = await getUserSession();
+  if (!clientId) throw new Error('No active session');
+
+  console.log("Returning clientId: ", clientId);
+  return clientId;
 };
-
-
-export const fetchCallHistory = async (
-  query: string,
-  variables: Record<string, any>,
-) => {
-  const response = await fetch(`${supabaseUrl}/graphql/v1`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${supabaseAnonKey}`,
-    } as HeadersInit,
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
-  });
-
-  const data = await response.json();
-  return data;
-};
-
 
 export const saveJobs = async (entries, billingPeriod) => {
-
-
+  console.log('💾 Executing: saveJobs', { entriesCount: entries.length, billingPeriod });
   // Helper function to validate and format date/time fields
   const validateDate = (date) => {
     return date && !isNaN(Date.parse(date)) ? date : null;
@@ -90,6 +68,7 @@ export const saveJobs = async (entries, billingPeriod) => {
 };
 
 export const fetchJobsAsBillingJob = async (billingPeriod: string, clientId: string): Promise<BillingJob[]> => {
+  console.log('📊 Executing: fetchJobsAsBillingJob', { billingPeriod, clientId });
   const { data, error } = await supabase
     .from('billing_job')
     .select("*")
@@ -100,6 +79,7 @@ export const fetchJobsAsBillingJob = async (billingPeriod: string, clientId: str
 };
 
 export const saveEmployeeAllocations = async (allocations: Record<string, Array<{billing_account: string, percentage: string}>>) => {
+  console.log('💾 Executing: saveEmployeeAllocations', { employeeCount: Object.keys(allocations).length });
   console.log("Saving employee allocations:", allocations);
   
   // Get all employee IDs from the allocations object
@@ -143,6 +123,7 @@ export const saveEmployeeAllocations = async (allocations: Record<string, Array<
 };
 
 export const fetchAllEmployeeGlAllocations = async () => {
+  const clientId = await getCurrentClientId();
   const { data, error } = await supabase
     .from('employee_gl_allocation')
     .select(`
@@ -150,7 +131,7 @@ export const fetchAllEmployeeGlAllocations = async () => {
       employee:employee_id (id, name),
       billing_account:billing_account_id (id, name)
     `)
-    .eq('employee.client_id', getCurrentClientId());
+    .eq('employee.client_id', clientId);
 
   if (error) {
     console.error("Error fetching employee GL allocations:", error);
@@ -161,6 +142,7 @@ export const fetchAllEmployeeGlAllocations = async () => {
 };
 
 export const fetchTableData = async (tableName: string, selectColumns: string = '*') => {
+  console.log('📊 Executing: fetchTableData', { tableName, selectColumns });
   try {
     const { data, error } = await supabase
       .from(tableName)
@@ -176,6 +158,7 @@ export const fetchTableData = async (tableName: string, selectColumns: string = 
 
 // For saving table changes
 export const upsertTableData = async (tableName: string, data: any[]) => {
+  console.log('💾 Executing: upsertTableData', { tableName, dataCount: data.length });
   try {
     const { data: result, error } = await supabase
       .from(tableName)
@@ -197,6 +180,7 @@ export const fetchTableDataWithPagination = async (
   pageSize: number = 10,
   selectColumns: string = '*'
 ) => {
+  console.log('📊 Executing: fetchTableDataWithPagination', { tableName, page, pageSize, selectColumns });
   const start = page * pageSize;
   const end = start + pageSize - 1;
 
@@ -215,6 +199,7 @@ export const fetchTableDataWithPagination = async (
 };
 
 export const deleteTableData = async (tableName: string, conditions: Record<string, any>) => {
+  console.log('🗑️ Executing: deleteTableData', { tableName, conditions });
   try {
     let query = supabase.from(tableName).delete();
     
@@ -232,18 +217,21 @@ export const deleteTableData = async (tableName: string, conditions: Record<stri
   }
 };
 
-
 export const upsertBillbackUpload = async (uploadData: any, billingPeriodId: string) => {
+  console.log('💾 Executing: upsertBillbackUpload', { billingPeriodId });
+  
+  const clientId = await getCurrentClientId();
+  
   const { data, error } = await supabase
     .from('billback_upload')
     .upsert([
-      {
+      { 
         billing_period_id: billingPeriodId,
         upload_data: uploadData,
-        client_id: getCurrentClientId()
+        client_id: clientId
       }
     ], {
-      onConflict: ['billing_period_id'] // Specify the column for conflict resolution
+      onConflict: ['billing_period_id']
     });
 
   if (error) {
@@ -254,21 +242,25 @@ export const upsertBillbackUpload = async (uploadData: any, billingPeriodId: str
   return data;
 };
 
-
 export const fetchBillbackUpload = async (billingPeriodId: string) => {
+  console.log('📊 Executing: fetchBillbackUpload', { billingPeriodId });
+  
+  const clientId = await getCurrentClientId();
+
   const { data, error } = await supabase
     .from('billback_upload')
-    .select("*")
+    .select('*')
     .eq('billing_period_id', billingPeriodId)
-    .eq('client_id', getCurrentClientId())
-    .maybeSingle();
+    .eq('client_id', clientId)
+    .single();
 
-  if (error) {
+  if (error && error.code !== 'PGRST116') {
     console.error("Error fetching billback upload:", error);
     throw error;
   }
+
   return data;
 };
 
-export * from './billing-periods';
+
 

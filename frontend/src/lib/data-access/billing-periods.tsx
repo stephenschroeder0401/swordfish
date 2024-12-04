@@ -27,12 +27,11 @@ export const fetchAllBillingPeriods = async (): Promise<BillingPeriod[]> => {
 };
 
 export const upsertBillingPeriods = async (billingPeriods: Partial<BillingPeriod>[]): Promise<BillingPeriod[]> => {
-  const session = getUserSession();
+  const { clientId } = await getUserSession();
   
-  // Add client_id to each billing period
   const periodsWithClientId = billingPeriods.map(period => ({
     ...period,
-    client_id: session.clientId
+    client_id: clientId
   }));
 
   const { data, error } = await supabase
@@ -50,7 +49,7 @@ export const upsertBillingPeriods = async (billingPeriods: Partial<BillingPeriod
 };
 
 export const deleteBillingPeriod = async (id: string): Promise<void> => {
-  const session = getUserSession();
+  const session = await getUserSession();
 
   const { error } = await supabase
     .from('billing_period')

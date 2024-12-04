@@ -10,8 +10,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "");
 
 // Replace the direct access with a function to safely get clientId
-const getCurrentClientId = () => {
-  const session = getUserSession();
+const getCurrentClientId = async () => {
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
   return session.clientId;
 };
@@ -157,19 +157,6 @@ export const fetchAllEmployeeGlAllocations = async () => {
     throw error;
   }
 
-  return data;
-};
-
-export const fetchAllBillingPeriods = async () => {
-
-  const session = getUserSession();
-
-  const { data, error } = await supabase
-    .from('billing_period')
-    .select("*")
-    .eq('client_id', session.clientId)
-
-  if (error) throw error;
   return data;
 };
 

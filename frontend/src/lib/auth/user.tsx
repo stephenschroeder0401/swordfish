@@ -28,11 +28,55 @@ interface UserSessionData {
     }
   };
   
-  export const getUserSession = (): UserSessionData | null => {
-    if (typeof window === 'undefined') return null;
-    
-    const session = sessionStorage.getItem('userSession');
-    return session ? JSON.parse(session) : null;
+  export const getUserSession = async (): Promise<UserSessionData | null> => {
+    try {
+      // First check sessionStorage
+      const storedSession = sessionStorage.getItem('userSession');
+      if (storedSession) {
+        return JSON.parse(storedSession);
+      }
+
+      // If no stored session, check Supabase session
+      const { data: { session } } = await authClient.auth.getSession();
+      console.log("found supabase session: ", session);
+      if (!session) {
+        return null;
+      }
+
+      // Get user data and set up session
+      const { data: userData, error: userError } = await supabase
+        .from('user_account')
+        .select(`
+          client_id,
+          user_id,
+          first_name,
+          last_name,
+          role:role_id (
+            name
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .single() as { data: UserAccountResponse, error: any };
+
+      if (userError) throw userError;
+
+      const sessionData = {
+        clientId: userData.client_id,
+        userId: session.user.id,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        role: userData.role.name,
+        email: session.user.email
+      };
+
+      // Store the session data
+      setUserSession(sessionData);
+
+      return sessionData;
+    } catch (error) {
+      console.error('Error getting user session:', error);
+      return null;
+    }
   };
   
   export const clearUserSession = () => {

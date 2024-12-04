@@ -37,12 +37,11 @@ import {
 import {
   supabase,
   fetchAllBillingAccounts,
-  fetchAllBillingPeriods,
   saveEmployeeAllocations,
   fetchEmployeeAllocations,
   searchProperties,
 } from '@/lib/data-access/supabase-client';
-import {fetchAllEmployees, fetchAllProperties, fetchAllBillingAccountsNoPagination} from '@/lib/data-access';
+import {fetchAllEmployees, fetchAllProperties, fetchAllBillingAccountsNoPagination, fetchAllBillingPeriods,} from '@/lib/data-access';
 import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';

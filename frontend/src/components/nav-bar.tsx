@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Flex, Box, Text, Select, Divider } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
-import { fetchAllBillingPeriods } from '@/lib/data-access/supabase-client';
+import { fetchAllBillingPeriods } from '@/lib/data-access';
 import { useBillingPeriod } from '../contexts/BillingPeriodContext';
 import { useAuth } from '@/hooks/useAuth';
 import { 

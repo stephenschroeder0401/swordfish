@@ -11,7 +11,7 @@ interface Employee {
 }
 
 export const fetchAllEmployees = async () => {
-  const session = getUserSession();
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
   const { data, error } = await supabase
@@ -24,7 +24,7 @@ export const fetchAllEmployees = async () => {
 };
 
 export const upsertEmployees = async (employees: Employee[]) => {
-  const session = getUserSession();
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
   // Ensure client_id is set for all employees

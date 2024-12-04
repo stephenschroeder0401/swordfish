@@ -6,10 +6,9 @@ import CSVUpload from "@/components/ui/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 import { AddIcon } from "@chakra-ui/icons"
-import { saveJobs, upsertBillbackUpload, fetchBillbackUpload, 
-  fetchAllBillingPeriods, fetchAllEntities,  } 
+import { saveJobs, upsertBillbackUpload, fetchBillbackUpload, fetchAllEntities,  } 
 from "@/lib/data-access/supabase-client";
-import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination, fetchAllBillingAccountsNoPagination
+import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination, fetchAllBillingPeriods, fetchAllBillingAccountsNoPagination
 } from "@/lib/data-access";
 
 const BillBack = () => {

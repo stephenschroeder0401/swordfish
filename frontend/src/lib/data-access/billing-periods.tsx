@@ -9,7 +9,9 @@ export interface BillingPeriod {
 }
 
 export const fetchAllBillingPeriods = async (): Promise<BillingPeriod[]> => {
-  const session = getUserSession();
+  const session = await getUserSession();
+
+  console.log("getting session billing periods: ", session);
   
   const { data, error } = await supabase
     .from('billing_period')

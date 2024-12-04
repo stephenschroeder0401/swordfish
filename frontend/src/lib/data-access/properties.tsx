@@ -18,7 +18,7 @@ export const fetchAllProperties = async (
   offset: number = 0,
   searchTerm: string = ''
 ) => {
-  const session = getUserSession();
+  const session = await getUserSession();
   const clientId = session?.clientId;
 
   console.log("properties for: ", clientId);
@@ -49,7 +49,7 @@ export const fetchAllProperties = async (
 };
 
 export const fetchAllPropertiesNoPagination = async () => {
-  const session = getUserSession();
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
   const { data, error } = await supabase
@@ -77,7 +77,7 @@ export const searchProperties = async (
   pageSize: number = 40, 
   startIndex: number = 0
 ) => {
-  const session = getUserSession();
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
   let query = supabase
@@ -112,7 +112,7 @@ export const searchProperties = async (
 };
 
 export const upsertProperties = async (properties: Property[]) => {
-  const session = getUserSession();
+  const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
   console.log('Original properties data:', properties); // Debug log

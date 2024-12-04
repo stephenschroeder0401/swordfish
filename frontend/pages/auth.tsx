@@ -49,6 +49,8 @@ const AuthPage: React.FC = () => {
         }
 
         // Check for setPassword parameter in URL
+        console.log("routerQuery: ", router.query);
+
         if (router.query.setPassword === 'true') {
           router.push('/set-password')
         } else {

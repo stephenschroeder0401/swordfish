@@ -34,42 +34,25 @@ export default function SetPasswordCard() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [user, setUser] = useState(null)
   const [firstName, setFirstName] = useState('')
 
   const router = useRouter()
   
 
   useEffect(() => {
-    const getUserName = async () => {
-      try {
-        // First try to get user directly
-        const { data: { user } } = await authClient.auth.getUser()
-        const userFirstName = user?.user_metadata?.first_name || ''
-        if (userFirstName) {
-          setFirstName(userFirstName)
-          return
-        }
-
-        // If no user found, set up auth state listener
-        const { data: { subscription } } = authClient.auth.onAuthStateChange(
-          async (event, session) => {
-            if (session?.user) {
-              const firstName = session.user.user_metadata?.first_name || ''
-              setFirstName(firstName)
-            }
-          }
-        )
-
-        // Cleanup subscription on unmount
-        return () => {
-          subscription.unsubscribe()
-        }
-      } catch (error) {
-        console.error('Error fetching user name:', error)
-      }
+    const getUser = async () => {
+      const { data: { user } } = await authClient.auth.getUser()
+      setUser(user)
     }
-    getUserName()
+    getUser()
   }, [])
+
+  useEffect(() => {
+    if (user?.user_metadata?.first_name) {
+      setFirstName(user.user_metadata.first_name)
+    }
+  }, [user])
 
   const handleSetPassword = async () => {
     if (password !== confirmPassword) {

@@ -143,7 +143,7 @@ export default function SetPasswordCard() {
                 Hi, {firstName}!
               </Text>
               <Text fontSize="md" color="gray.600">
-                Welcome to SwordFish! Let's set your password to get started.
+                Welcome to SwordFish! Let&apos;s set your password to get started.
               </Text>
             </Stack>
             <Stack spacing={2} width="100%" maxWidth="450px" mx="auto">

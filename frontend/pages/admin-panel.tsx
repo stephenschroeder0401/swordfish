@@ -36,12 +36,12 @@ import {
 } from '@chakra-ui/react';
 import {
   supabase,
-  fetchAllBillingAccounts,
   saveEmployeeAllocations,
-  fetchEmployeeAllocations,
   searchProperties,
 } from '@/lib/data-access/supabase-client';
-import {fetchAllEmployees, fetchAllProperties, fetchAllBillingAccountsNoPagination, fetchAllBillingPeriods,} from '@/lib/data-access';
+import {fetchAllEmployees, fetchAllProperties, 
+  fetchAllBillingAccountsNoPagination, fetchAllBillingPeriods, 
+  fetchAllBillingAccounts} from '@/lib/data-access';
 import { FiDatabase, FiPieChart } from 'react-icons/fi';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
@@ -434,22 +434,22 @@ const AdminPanel = () => {
     const employeeId = event.target.value;
     setSelectedEmployee(employeeId);
     
-    try {
-      const employeeAllocations = await fetchEmployeeAllocations(employeeId);
-      setAllocations({
-        ...allocations,
-        [employeeId]: employeeAllocations
-      });
-    } catch (error) {
-      console.error('Error fetching employee allocations:', error);
-      toast({
-        title: "Error fetching allocations",
-        description: error.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    }
+    // try {
+    //   const employeeAllocations = await fetchEmployeeAllocations(employeeId);
+    //   setAllocations({
+    //     ...allocations,
+    //     [employeeId]: employeeAllocations
+    //   });
+    // } catch (error) {
+    //   console.error('Error fetching employee allocations:', error);
+    //   toast({
+    //     title: "Error fetching allocations",
+    //     description: error.message,
+    //     status: "error",
+    //     duration: 5000,
+    //     isClosable: true,
+    //   });
+    // }
   };
 
   const handleAddAllocation = (employeeId) => {

@@ -22,6 +22,7 @@ import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useRouter } from 'next/router'
 import { updateUserPassword, authClient, loginUser} from '@/lib/auth/user'
 import theme from '../../theme'
+import { supabase } from '@/lib/data-access/supabase-client'
 
 
 export default function SetPasswordCard() {
@@ -31,7 +32,7 @@ export default function SetPasswordCard() {
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [user, setUser] = useState(null)
@@ -41,18 +42,36 @@ export default function SetPasswordCard() {
   
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await authClient.auth.getUser()
-      setUser(user)
-    }
-    getUser()
-  }, [])
+    const initializeUser = async () => {
+      try {
+        const { data: { user } } = await authClient.auth.getUser()
+        setUser(user)
+        
+        if (user?.id) {
+          const { data: userData, error: userError } = await supabase
+            .from('user_account')
+            .select('first_name')
+            .eq('user_id', user.id)
+            .single()
 
-  useEffect(() => {
-    if (user?.user_metadata?.first_name) {
-      setFirstName(user.user_metadata.first_name)
+          if (userError) {
+            console.error('Error fetching user account:', userError)
+            return
+          }
+
+          if (userData?.first_name) {
+            setFirstName(userData.first_name)
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing user:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [user])
+
+    initializeUser()
+  }, [])
 
   const handleSetPassword = async () => {
     if (password !== confirmPassword) {

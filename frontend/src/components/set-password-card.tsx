@@ -42,9 +42,28 @@ export default function SetPasswordCard() {
   useEffect(() => {
     const getUserName = async () => {
       try {
+        // First try to get user directly
         const { data: { user } } = await authClient.auth.getUser()
         const userFirstName = user?.user_metadata?.first_name || ''
-        setFirstName(userFirstName)
+        if (userFirstName) {
+          setFirstName(userFirstName)
+          return
+        }
+
+        // If no user found, set up auth state listener
+        const { data: { subscription } } = authClient.auth.onAuthStateChange(
+          async (event, session) => {
+            if (session?.user) {
+              const firstName = session.user.user_metadata?.first_name || ''
+              setFirstName(firstName)
+            }
+          }
+        )
+
+        // Cleanup subscription on unmount
+        return () => {
+          subscription.unsubscribe()
+        }
       } catch (error) {
         console.error('Error fetching user name:', error)
       }

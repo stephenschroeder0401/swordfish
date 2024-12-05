@@ -17,7 +17,7 @@ import {
   AlertIcon,
   Center,
 } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useRouter } from 'next/router'
 import { updateUserPassword, authClient, loginUser} from '@/lib/auth/user'
@@ -34,9 +34,23 @@ export default function SetPasswordCard() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [firstName, setFirstName] = useState('')
 
   const router = useRouter()
   
+
+  useEffect(() => {
+    const getUserName = async () => {
+      try {
+        const { data: { user } } = await authClient.auth.getUser()
+        const userFirstName = user?.user_metadata?.first_name || ''
+        setFirstName(userFirstName)
+      } catch (error) {
+        console.error('Error fetching user name:', error)
+      }
+    }
+    getUserName()
+  }, [])
 
   const handleSetPassword = async () => {
     if (password !== confirmPassword) {
@@ -92,7 +106,7 @@ export default function SetPasswordCard() {
         bg={boxBgColor}
         boxShadow={'lg'}
         p={8}
-        pt={12}
+        pt={4}
         width={'70%'}
         maxWidth={'700px'}
         minWidth={'300px'}
@@ -102,29 +116,37 @@ export default function SetPasswordCard() {
         overflowY={'auto'}>
         <Stack spacing={2} width="100%" height="100%" justify="space-between">
           <Stack spacing={2} width="100%">
-            <Stack align={'center'} spacing={2} mt={2}>
-              <Flex align="center" justify="center" width="100%">
-                <Flex alignItems="center" height="100%" ml="-10vw">
-                  <Box width="20vw" height="20vh" overflow="visible" mr="-6.5vw">
-                    <Image 
-                      src="/swordfish.png" 
-                      alt="SwordFish Logo" 
-                      width="100%" 
-                      height="100%" 
-                      objectFit="contain" 
-                    />
-                  </Box>
-                  <Text
-                    fontSize={'5xl'} 
-                    fontFamily={theme.fonts.russoOne}
-                    fontWeight="medium"
-                  >
-                    SwordFish
-                  </Text>
-                </Flex>
-              </Flex>
+            <Flex align="center" width="100%" mb={0}>
+              <Box width="110px" height="110px" overflow="visible" mr={-4} mt={-2} ml={-4}>
+                <Image 
+                  src="/swordfish.png" 
+                  alt="SwordFish Logo" 
+                  width="100%" 
+                  height="100%" 
+                  objectFit="contain" 
+                />
+              </Box>
+              <Text
+                fontSize={'2xl'} 
+                fontFamily={theme.fonts.russoOne}
+                fontWeight="medium"
+              >
+                SwordFish
+              </Text>
+            </Flex>
+            <Stack align={'center'} spacing={2} mb={8}>
+              <Text
+                fontSize={'4xl'} 
+                fontWeight="bold"
+                color="black"
+              >
+                Hi, {firstName}!
+              </Text>
+              <Text fontSize="md" color="gray.600">
+                Welcome to SwordFish! Let's set your password to get started.
+              </Text>
             </Stack>
-            <Stack spacing={4} width="100%" maxWidth="450px" mx="auto">
+            <Stack spacing={2} width="100%" maxWidth="450px" mx="auto">
               {error && (
                 <Alert status="error">
                   <AlertIcon />

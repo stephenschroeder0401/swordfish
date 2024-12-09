@@ -40,7 +40,7 @@ export default function SetPasswordCard() {
 
   const router = useRouter()
   
-
+//THIS WHOLE useEffect needs to go. Shit is super super JANK
   useEffect(() => {
     const initializeUser = async () => {
       try {

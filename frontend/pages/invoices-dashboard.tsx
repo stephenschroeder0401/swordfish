@@ -119,7 +119,7 @@ const InvoicesDashboard = () => {
             billUnitName: property?.unit,
             entity: property ? property.entityName : '',
             payeeName: payeeName,
-            amount: job.total,
+            amount: job.total + job.mileage_total,
             billAccountCode: billbackCategory?.glcode,
             billDescription: account?.description,
             billDate: billDate,

@@ -38,7 +38,6 @@ interface UserSessionData {
 
       // If no stored session, check Supabase session
       const { data: { session } } = await authClient.auth.getSession();
-      console.log("found supabase session: ", session);
       if (!session) {
         return null;
       }

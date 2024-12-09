@@ -64,19 +64,78 @@ const BillBack = () => {
   }, []);
 
   useEffect(() => {
-    console.log("billing period changed! lets get shit", billingPeriod)
+    console.log("=== Data Loading Flow ===");
+    console.log("Dependencies:", {
+        billingPeriod,
+        billingAccountsLength: billingAccounts.length,
+        billingPropertiesLength: billingProperties.length,
+        employeesLength: employees.length
+    });
+
     if (billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
       setSelectedFile(null);
       const fetchBillbackData = async () => {
         setIsLoading(true);
         setBillbackData([]);
         try {
+          console.log("Fetching data from fetchBillbackUpload...");
           const data = await fetchBillbackUpload(billingPeriod);
+          console.log("Raw data received:", data);
+          
           if (!data || data.upload_data.length < 1) {
+            console.log("No data found, setting empty array");
             setBillbackData([]);
           } else {
+            console.log("Processing upload_data:", data.upload_data);
             const uploadData = data?.upload_data || [];
-            handleDataProcessed(uploadData);
+            setBillbackData(uploadData.map(job => {
+                if(!!job){
+                    console.log("Processing job:", job);
+                    const billingAccount = billingAccounts.find((account) => account.name === job.category);
+                    const billingProperty = billingProperties.find((property) => property.name === job.property);
+
+                    const employee = employees.find((employee) => employee.name === job.employee);
+
+                    const rate = employee ? employee.rate : 0;
+
+                    const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
+                                : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
+                                : 0;
+
+
+                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
+
+                    const isError = !(billingAccount && billingProperty);
+
+                    console.log("Found employee: ", employee);
+                    const result = {
+                        rowId: uuidv4(),
+                        employeeId: employee ? employee.id : undefined,
+                        employee: employee ? employee.name : job.employee,
+                        job_date: job.date ? job.date : job.job_date,
+                        propertyId: billingProperty ? billingProperty.id : undefined,
+                        property: billingProperty ? billingProperty.name : job.property,
+                        entityId: billingProperty ? billingProperty.entityid : undefined,
+                        entity: billingProperty ? billingProperty.entityName : "Not Found",
+                        billingAccountId: billingAccount ? billingAccount.id : undefined,
+                        category: billingAccount ? billingAccount.name : job.category,
+                        startTime: job.clockedInAt,
+                        endTime: job.clockedOutAt,
+                        hours: job.hours,
+                        rate: rate,
+                        total: laborTotal,
+                        billedmiles: milage,
+                        mileageTotal: mileageTotal,
+                        jobTotal: jobTotal,
+                        notes: job.notes,
+                        isError: isError,
+                        isManual: false
+                    };
+                    console.log("Processed job result:", result);
+                    return result;
+                }
+                return null;
+            }).filter(Boolean));
           }
         } catch (error) {
           console.error("Error fetching billback data for billing period", error);
@@ -91,7 +150,9 @@ const BillBack = () => {
   }, [billingPeriod, billingAccounts, billingProperties, employees]);
 
   const addRow = () => {
+    console.log("=== Adding New Row ===");
     const newRow = {
+        rowId: uuidv4(),
         employeeId: "",
         employee: "",
         job_date: new Date().toISOString().split('T')[0],
@@ -113,8 +174,9 @@ const BillBack = () => {
         isError: false,
         isManual: true
     };
+    console.log("New row data:", newRow);
     setBillbackData([newRow, ...billbackData]);
-    console.log(billbackData);
+    console.log("Updated billbackData after add:", billbackData);
   };
 
   const handleClearData =() =>{
@@ -123,59 +185,66 @@ const BillBack = () => {
   }
 
   const handleDataProcessed = (newData) => {
-    
+    console.log("=== Processing New Data ===");
+    console.log("Incoming newData:", newData);
     setIsLoading(true);
 
     const billingJobs = newData.map((job) => {
-      if(!!job){
-      
-      const billingAccount = billingAccounts.find((account) => account.name === job.category);
-      const billingProperty = billingProperties.find((property) => property.name === job.property);
+        if(!!job){
+            console.log("Processing job:", job);
+            const billingAccount = billingAccounts.find((account) => account.name === job.category);
+            const billingProperty = billingProperties.find((property) => property.name === job.property);
 
-      const employee = employees.find((employee) => employee.name === job.employee);
+            const employee = employees.find((employee) => employee.name === job.employee);
 
-      const rate = employee ? employee.rate : 0;
+            const rate = employee ? employee.rate : 0;
 
-      const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
-                : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
-                : 0;
+            const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
+                        : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
+                        : 0;
 
 
-      const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
+            const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
 
-      const isError = !(billingAccount && billingProperty);
+            const isError = !(billingAccount && billingProperty);
 
-    
-      console.log("Found employee: ", employee);
-      return {
-        rowId: uuidv4(),
-        employeeId: employee ? employee.id : undefined,
-        employee: employee ? employee.name : job.employee,
-        job_date: job.date ? job.date : job.job_date,
-        propertyId: billingProperty ? billingProperty.id : undefined,
-        property: billingProperty ? billingProperty.name : job.property,
-        entityId: billingProperty ? billingProperty.entityid : undefined,
-        entity: billingProperty ? billingProperty.entityName : "Not Found",
-        billingAccountId: billingAccount ? billingAccount.id : undefined,
-        category: billingAccount ? billingAccount.name : job.category,
-        startTime: job.clockedInAt,
-        endTime: job.clockedOutAt,
-        hours: job.hours,
-        rate: rate,
-        total: laborTotal,
-        billedmiles: milage,
-        mileageTotal: mileageTotal,
-        jobTotal: jobTotal,
-        notes: job.notes,
-        isError: isError,
-        isManual: false
-      };
-    }
+            console.log("Found employee: ", employee);
+            const result = {
+                rowId: uuidv4(),
+                employeeId: employee ? employee.id : undefined,
+                employee: employee ? employee.name : job.employee,
+                job_date: job.date ? job.date : job.job_date,
+                propertyId: billingProperty ? billingProperty.id : undefined,
+                property: billingProperty ? billingProperty.name : job.property,
+                entityId: billingProperty ? billingProperty.entityid : undefined,
+                entity: billingProperty ? billingProperty.entityName : "Not Found",
+                billingAccountId: billingAccount ? billingAccount.id : undefined,
+                category: billingAccount ? billingAccount.name : job.category,
+                startTime: job.clockedInAt,
+                endTime: job.clockedOutAt,
+                hours: job.hours,
+                rate: rate,
+                total: laborTotal,
+                billedmiles: milage,
+                mileageTotal: mileageTotal,
+                jobTotal: jobTotal,
+                notes: job.notes,
+                isError: isError,
+                isManual: false
+            };
+            console.log("Processed job result:", result);
+            return result;
+        }
     });
 
-    setBillbackData((prevBillbackData) => [...prevBillbackData, ...billingJobs]);
+    console.log("All processed billingJobs:", billingJobs);
+    console.log("Previous billbackData:", billbackData);
+    setBillbackData((prevBillbackData) => {
+        const newState = [...prevBillbackData, ...billingJobs];
+        console.log("New combined billbackData:", newState);
+        return newState;
+    });
     setIsLoading(false);
-
   };
   const handleDelete = (e, key) => {
     console.log(key);
@@ -291,32 +360,36 @@ const BillBack = () => {
   ];
 
   const handleSaveProgress = async (notify:boolean) => {
+    console.log("=== Saving Progress ===");
+    console.log("Current billbackData being saved:", billbackData);
     setIsLoading(true);
     try {
-      await upsertBillbackUpload(billbackData, billingPeriod);
-      setIsLoading(false);
-      if(notify){
-      toast({
-        title: "Success",
-        description: "Progress has been saved",
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-    }
+        const result = await upsertBillbackUpload(billbackData, billingPeriod);
+        console.log("Save result:", result);
+        setIsLoading(false);
+        if(notify){
+            toast({
+                title: "Success",
+                description: "Progress has been saved",
+                status: "success",
+                duration: 5000,
+                isClosable: true,
+                position: "bottom-right"
+            });
+        }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save jobs. Please try again.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-      console.error("Error saving jobs:", error);
+        console.error("Detailed save error:", error);
+        toast({
+            title: "Error",
+            description: "Failed to save jobs. Please try again.",
+            status: "error",
+            duration: 5000,
+            isClosable: true,
+            position: "bottom-right"
+        });
+        console.error("Error saving jobs:", error);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 

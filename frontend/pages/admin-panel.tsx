@@ -5,6 +5,10 @@ import { AllocationsTab } from '@/components/features/configuration/tabs/allocat
 import { useAuth } from '@/hooks/useAuth';
 import { fetchAllEntities } from '@/lib/data-access/entities';
 
+interface TabProps {
+  entities: any[]; // You should replace 'any[]' with your actual entity type
+}
+
 const AdminPanel = () => {
   const { isLoading: authLoading } = useAuth();
   const [entities, setEntities] = useState([]);

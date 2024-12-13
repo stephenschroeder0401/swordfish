@@ -5,7 +5,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import MemoizedTableRow from "./memoized-table-row";
 
 const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts = [],
-   properties = [], employees = [], handleDelete, entities = [] }) => {
+   properties = [], employees = [], handleDelete, entities = [], propertyGroups = [] }) => {
 
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -144,6 +144,7 @@ const clearFilters = () => {
               accounts={accounts}
               employees={employees}
               tableType={tableType}
+              propertyGroups={propertyGroups}
             />
           ))}
         </Tbody>

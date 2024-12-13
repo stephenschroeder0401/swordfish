@@ -19,11 +19,11 @@ interface Property {
   code: string;
 }
 
-interface AllocationsTabProps {
+interface TabProps {
   entities: any[];
 }
 
-export const AllocationsTab = ({ entities }: AllocationsTabProps) => {
+export const AllocationsTab: React.FC<TabProps> = ({ entities }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [billingAccounts, setBillingAccounts] = useState([]);

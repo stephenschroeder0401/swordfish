@@ -14,22 +14,11 @@ import EntitiesTab from '@/components/features/configuration/entities-tab';
 import BillingPeriodTab from '@/components/features/configuration/billing-period-tab';
 import { fetchAllEntities } from '@/lib/data-access/entities';
 
-const DataManagementTab = () => {
-  const [entities, setEntities] = useState([]);
+interface TabProps {
+  entities: any[]; // Replace 'any[]' with your actual entity type
+}
 
-  useEffect(() => {
-    const fetchEntities = async () => {
-      try {
-        const entityData = await fetchAllEntities();
-        setEntities(entityData);
-      } catch (error) {
-        console.error('Error fetching entities:', error);
-      }
-    };
-
-    fetchEntities();
-  }, []);
-
+const DataManagementTab: React.FC<TabProps> = ({ entities }) => {
   return (
     <Tabs
       variant="line"

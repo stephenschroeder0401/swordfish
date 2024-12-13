@@ -70,7 +70,12 @@ const InvoicesDashboard = () => {
     const tableConfig: TableConfigItem[] = [
       { column: "billPropertyCode", label: "Bill Property Code", canSort: false },
       { column: "entity", label: "Entity", canSort: false },
-      { column: "amount", label: "Amount", canSort: false },
+      { 
+        column: "amount", 
+        label: "Amount", 
+        canSort: false,
+        format: (value) => `$ ${Number(value).toFixed(2)}`
+      },
       { column: "billAccountCode", label: "Bill Account", canSort: false },
       { column: "billDescription", label: "Bill Description", canSort: false },
       { column: "billDate", label: "Bill Date", canSort: false },
@@ -109,19 +114,17 @@ const InvoicesDashboard = () => {
         const billingProperties = await fetchAllPropertiesNoPagination();
         const billbackCategories = await fetchAllBillingAccountsNoPagination();
         
-        const appfolioLineItems: AppFolioLineItem[] = jobs.map((job) => {
+        const appfolioLineItems: AppFolioLineItem[] = jobs.flatMap((job) => {
           const account = billbackCategories.find((account) => account.id == job.billing_account_id);
           const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
           const property = billingProperties.find((property) => property.id == job.property_id);
 
-          const lineItem = {
+          const baseLineItem = {
             billPropertyCode: property?.code,
             billUnitName: property?.unit,
             entity: property ? property.entityName : '',
             payeeName: payeeName,
-            amount: job.total + job.mileage_total,
             billAccountCode: billbackCategory?.glcode,
-            billDescription: account?.description,
             billDate: billDate,
             dueDate: billDate,
             billReference: billbackName,
@@ -130,7 +133,29 @@ const InvoicesDashboard = () => {
             billingAccountCategory: account ? account.name : ""
           };
 
-          return lineItem;
+          const items = [];
+
+          // Add regular amount line item if it exists
+          if (Number(job.total)) {
+            items.push({
+              ...baseLineItem,
+              amount: Number(job.total),
+              billDescription: account?.description,
+            });
+          }
+
+          console.log("check for mileage", job);
+          // Add mileage line item if it exists
+          if (Number(job.milage_total)) {
+            console.log("milage_total");
+            items.push({
+              ...baseLineItem,
+              amount: Number(job.milage_total),
+              billDescription: `Mileage: ${account?.description}`,
+            });
+          }
+
+          return items;
         });
 
         setData(appfolioLineItems);

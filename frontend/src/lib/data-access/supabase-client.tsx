@@ -19,30 +19,63 @@ const getCurrentClientId = async () => {
   return clientId;
 };
 
-export const saveJobs = async (entries, billingPeriod) => {
+export const saveJobs = async (entries, billingPeriod, propertyGroups) => {
   console.log('💾 Executing: saveJobs', { entriesCount: entries.length, billingPeriod });
-  // Helper function to validate and format date/time fields
+  
   const validateDate = (date) => {
     return date && !isNaN(Date.parse(date)) ? date : null;
   };
 
-  const formattedEntries = entries.map(entry => ({
-    employee_id: entry.employeeId,
-    entity_id: entry.entityId || null, // Set to null if empty
-    property_id: entry.propertyId,
-    billing_account_id: entry.billingAccountId,
-    billing_period_id: billingPeriod,
-    job_date: validateDate(entry.job_date), // Validate job_date
-    start_time: validateDate(entry.startTime), // Validate start_time
-    end_time: validateDate(entry.endTime), // Validate end_time
-    billed_miles: entry.billedmiles,
-    milage_rate: entry.mileageRate, // Ensure this key is spelled correctly
-    milage_total: entry.mileageTotal,
-    billed_hours: parseFloat(entry.hours), // Convert string to float if necessary
-    hourly_rate: entry.rate,
-    hourly_total: entry.total,
-    total: entry.total
-  }));
+  // Expand entries that use property groups
+  const expandedEntries = entries.flatMap(entry => {
+    // Check if this entry uses a property group
+    if (entry.propertyId?.startsWith('group-')) {
+      const groupId = entry.propertyId.replace('group-', '');
+      const group = propertyGroups.find(g => g.id === groupId);
+      
+      if (group && group.properties) {
+        // Create an entry for each property in the group
+        return group.properties.map(prop => ({
+          employee_id: entry.employeeId,
+          entity_id: entry.entityId || null,
+          property_id: prop.id,
+          billing_account_id: entry.billingAccountId,
+          billing_period_id: billingPeriod,
+          job_date: validateDate(entry.job_date),
+          start_time: validateDate(entry.startTime),
+          end_time: validateDate(entry.endTime),
+          billed_miles: entry.billedmiles,
+          milage_rate: entry.mileageRate,
+          milage_total: (parseFloat(entry.mileageTotal) * (prop.percentage / 100)).toFixed(2),
+          billed_hours: (parseFloat(entry.hours) * (prop.percentage / 100)).toFixed(2),
+          hourly_rate: entry.rate,
+          hourly_total: (parseFloat(entry.total) * (prop.percentage / 100)).toFixed(2),
+          total: (parseFloat(entry.jobTotal) * (prop.percentage / 100)).toFixed(2)
+        }));
+      }
+      console.warn(`Property group ${groupId} not found or has no properties`);
+      return [];
+    }
+    
+    // If not a property group, return the entry as is
+    return [{
+      employee_id: entry.employeeId,
+      entity_id: entry.entityId || null,
+      property_id: entry.propertyId,
+      billing_account_id: entry.billingAccountId,
+      billing_period_id: billingPeriod,
+      job_date: validateDate(entry.job_date),
+      start_time: validateDate(entry.startTime),
+      end_time: validateDate(entry.endTime),
+      billed_miles: entry.billedmiles,
+      milage_rate: entry.mileageRate,
+      milage_total: entry.mileageTotal,
+      billed_hours: parseFloat(entry.hours),
+      hourly_rate: entry.rate,
+      hourly_total: entry.total,
+      total: entry.jobTotal
+    }];
+  });
 
   // Begin transaction
   const { data: deleteData, error: deleteError } = await supabase
@@ -55,10 +88,10 @@ export const saveJobs = async (entries, billingPeriod) => {
     throw deleteError;
   }
 
-  // Insert new entries
+  // Insert expanded entries
   const { data: insertData, error: insertError } = await supabase
     .from("billing_job")
-    .insert(formattedEntries);
+    .insert(expandedEntries);
 
   if (insertError) {
     console.error("Error inserting billing job entries:", insertError);

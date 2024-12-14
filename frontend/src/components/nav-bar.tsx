@@ -10,7 +10,7 @@ import {
   FiFileText, 
   FiPieChart, 
   FiSettings,
-  FiCalendar 
+  FiClock 
 } from 'react-icons/fi';
 
 const NavBar = () => {
@@ -73,11 +73,12 @@ const NavBar = () => {
       <Box width="100%" bg={isActive('/billback-upload') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/billback-upload" passHref>
           <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/billback-upload') ? 'green.700' : 'black'} display="flex" alignItems="center">
-            <FiUploadCloud style={{ marginRight: '4px' }} />
-            Upload Billback
+            <FiClock style={{ marginRight: '4px' }} />
+            Timesheet
           </Text>
         </Link>
       </Box>
+      
       <Box width="100%" bg={isActive('/invoices-dashboard') ? 'gray.100' : 'transparent'} py="2" px="1" borderRadius="md">
         <Link href="/invoices-dashboard" passHref>
           <Text m="1" fontSize="sm" cursor="pointer" color={isActive('/invoices-dashboard') ? 'green.700' : 'black'} display="flex" alignItems="center">

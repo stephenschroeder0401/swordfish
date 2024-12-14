@@ -38,11 +38,13 @@ const TableDisplay = ({
       <Tbody>
         {data.map((item: any, index: number) => (
           <Tr key={index}>
-            {tableConfig.map(({ column }: { column: string }) => (
+            {tableConfig.map(({ column, format }: { column: string, format?: (value: any) => string }) => (
               <Td key={column}>
-                {column.includes("time") && item.node[column]
-                  ? new Date(item[column]).toLocaleString()
-                  : item[column]}
+                {format ? format(item[column]) : (
+                  column.includes("time") && item.node[column]
+                    ? new Date(item[column]).toLocaleString()
+                    : item[column]
+                )}
               </Td>
             ))}
           </Tr>

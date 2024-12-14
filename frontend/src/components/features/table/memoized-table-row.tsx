@@ -4,10 +4,25 @@ import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, Icon
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
-const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType }) => {
+const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType, propertyGroups }) => {
 
   console.log('employeeId:', item.employeeId);
   
+  // Function to get available billing accounts based on property selection
+  const getAvailableBillingAccounts = () => {
+    if (item.propertyId?.startsWith('group-')) {
+      const groupId = item.propertyId.replace('group-', '');
+      const selectedGroup = propertyGroups.find(group => group.id === groupId);
+      if (selectedGroup) {
+        // Filter accounts to only those in the group's billingAccounts array
+        return accounts.filter(account => 
+          selectedGroup.billingAccounts.includes(account.id)
+        );
+      }
+    }
+    return accounts; // Return all accounts if no group selected or group not found
+  };
+
   return (
     <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
@@ -28,11 +43,23 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 size="sm"
                 placeholder={item.property ? `NOT FOUND ${item.property}` : 'Select property'}
               >
-                {properties.map((property, idx) => (
-                  <option key={idx} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
+                {propertyGroups && propertyGroups.length > 0 && (
+                  <optgroup label="Property Groups">
+                    {propertyGroups.map((group, idx) => (
+                      <option key={`group-${idx}`} value={`group-${group.id}`}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                
+                <optgroup label="Properties">
+                  {properties.map((property, idx) => (
+                    <option key={idx} value={property.id}>
+                      {property.name}
+                    </option>
+                  ))}
+                </optgroup>
               </Select>
             ) : column === 'category' ? (
               <Select
@@ -44,7 +71,7 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 minWidth={'165px'}
                 placeholder={item.category ? `NOT FOUND ${item.category}` : 'Select category'}
               >
-                {accounts.map((account, idx) => (
+                {getAvailableBillingAccounts().map((account, idx) => (
                   <option key={idx} value={account.id}>
                     {account.name}
                   </option>

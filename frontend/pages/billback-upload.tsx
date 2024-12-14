@@ -9,7 +9,8 @@ import { AddIcon } from "@chakra-ui/icons"
 import { saveJobs, upsertBillbackUpload, fetchBillbackUpload } 
 from "@/lib/data-access/supabase-client";
 import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
-   fetchAllBillingPeriods, fetchAllBillingAccountsNoPagination, fetchAllEntities
+   fetchAllBillingPeriods, fetchAllBillingAccountsNoPagination, fetchAllEntities,
+   fetchAllPropertyGroups
 } from "@/lib/data-access";
 
 const BillBack = () => {
@@ -26,8 +27,10 @@ const BillBack = () => {
   const toast = useToast();
   const [entities, setEntities] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [propertyGroups, setPropertyGroups] = useState([]);
 
   const calculateTotals = (hours, rate, mileage) => {
+    console.log('mileage total: ', mileage);
     const laborTotal = (hours * rate).toFixed(2);
     const mileageTotal = (mileage * mileageRate).toFixed(2);
     const jobTotal = ((parseFloat(laborTotal) + parseFloat(mileageTotal)).toFixed(2));
@@ -46,12 +49,16 @@ const BillBack = () => {
   const loadDependencies = async () => {
     setIsLoading(true);
     try {
-      const accounts = await fetchAllBillingAccountsNoPagination();
-      const properties = await fetchAllPropertiesNoPagination();
-      const employeeData = await fetchAllEmployees();
+      const [accounts, properties, employeeData, groupsData] = await Promise.all([
+        fetchAllBillingAccountsNoPagination(),
+        fetchAllPropertiesNoPagination(),
+        fetchAllEmployees(),
+        fetchAllPropertyGroups()
+      ]);
       setBillingAccounts(accounts);
       setBillingProperties(properties);
-      setEmployees(employeeData); 
+      setEmployees(employeeData);
+      setPropertyGroups(groupsData);
     } catch (error) {
       console.error("Error fetching initial data", error);
     }
@@ -255,91 +262,122 @@ const BillBack = () => {
   
 
 
-  const handleEdit = (event, key, column, tableType) => {
-    console.log('handling edit..');
-    const newData = [...billbackData];
-    let editedValue = event.target.value;
-
-    // Find the index of the item using the key
-    const index = newData.findIndex(item => item.rowId === key);
-    if (index === -1) {
-        console.error('Item not found');
-        return; // Exit if item not found
-    }
-
-    if ((column === 'hours' || column === 'rate') && editedValue !== '') {
-      editedValue = Number(editedValue);
-    }
-
-    newData[index] = {
-      ...newData[index],
-      [column]: editedValue
-    };
-
-    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(newData[index].hours, newData[index].rate, newData[index].billedmiles);
-    newData[index] = {
-      ...newData[index],
-      total: laborTotal,
-      jobTotal: jobTotal,
-      mileageTotal: mileageTotal
-    };
-
-    if (column === 'property') {
-      const updatedRow = newData[index];
-      const property = billingProperties.find(property => property.id === editedValue);
-      if (property) {
-        newData[index] = {
-          ...updatedRow,
-          propertyId: property.id,
-          property: property.name,
-          entity: property.entityName
-        };
-      }
-    }
-
-    if (column === 'category') {
-      const updatedRow = newData[index];
-      const billingAccount = billingAccounts.find(account => account.id === editedValue);
-      if (billingAccount) {
-        newData[index] = {
-          ...updatedRow,
-          billingAccountId: billingAccount.id,
-          category: billingAccount.name
-        };
-      }
-    }
-
-    if (column === 'employee') {
-      const updatedRow = newData[index];
-      const employee = employees.find(employee => employee.id === editedValue);
-      if (employee) {
-        newData[index] = {
-          ...updatedRow,
-          employeeId: employee.id,
-          employee: employee.name,
-          rate: employee.rate
-        };
-      }
-    }
-
-    const updatedRow = newData[index];
-  
-    const entity = billingProperties.find(property => property.id === updatedRow.propertyId);
-    const account = billingAccounts.find(account => account.id === updatedRow.billingAccountId);
-
-    const inError = !(account && entity);
-
-    console.log("IS ERROR", inError);
-
-    newData[index] = {
-      ...updatedRow,
-      isError: inError
-    };
-
-    setBillbackData(newData);
+  const handleEdit = async (e: any, rowId: string, field: string, tableType: string) => {
+    console.log("Editing:", { value: e.target.value, rowId, field, tableType });
     
-    console.log('edit handled');
-};
+    if (field === 'property') {
+        const value = e.target.value;
+        if (!value.startsWith('group-')) {
+            const selectedProperty = billingProperties.find(prop => prop.id === value);
+            setBillbackData(prevData =>
+                prevData.map(row =>
+                    row.rowId === rowId
+                        ? { 
+                            ...row, 
+                            propertyId: value,
+                            property: selectedProperty ? selectedProperty.name : '',
+                            entityId: selectedProperty ? selectedProperty.entityid : '',
+                            entity: selectedProperty ? selectedProperty.entityName : '',
+                            isError: !selectedProperty || !row.billingAccountId
+                        }
+                        : row
+                )
+            );
+        } else {
+            setBillbackData(prevData =>
+                prevData.map(row =>
+                    row.rowId === rowId
+                        ? { 
+                            ...row, 
+                            propertyId: value,
+                            property: '',
+                            entityId: '',
+                            entity: '',
+                            isError: !row.billingAccountId
+                        }
+                        : row
+                )
+            );
+        }
+    } else if (field === 'category') {
+        const selectedAccountId = e.target.value;
+        const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
+        
+        setBillbackData(prevData =>
+            prevData.map(row => {
+                if (row.rowId === rowId) {
+                    const isPropertyGroup = row.propertyId?.startsWith('group-');
+                    return { 
+                        ...row, 
+                        billingAccountId: selectedAccountId,
+                        category: selectedAccount ? selectedAccount.name : '',
+                        isError: isPropertyGroup ? !selectedAccountId : (!selectedAccountId || !row.propertyId)
+                    };
+                }
+                return row;
+            })
+        );
+    } else if (field === 'employee') {
+        const selectedEmployeeId = e.target.value;
+        const selectedEmployee = employees.find(emp => emp.id === selectedEmployeeId);
+        
+        setBillbackData(prevData =>
+            prevData.map(row => {
+                if (row.rowId === rowId) {
+                    const newRow = { 
+                        ...row, 
+                        employeeId: selectedEmployeeId,
+                        employee: selectedEmployee ? selectedEmployee.name : '',
+                        rate: selectedEmployee ? selectedEmployee.rate : 0
+                    };
+                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(
+                        newRow.hours, 
+                        newRow.rate, 
+                        newRow.billedmiles
+                    );
+                    return {
+                        ...newRow,
+                        total: laborTotal,
+                        mileageTotal,
+                        jobTotal
+                    };
+                }
+                return row;
+            })
+        );
+    } else if (field === 'hours' || field === 'rate' || field === 'billedmiles') {
+        setBillbackData(prevData =>
+            prevData.map(row => {
+                if (row.rowId === rowId) {
+                    const newRow = { 
+                        ...row,
+                        [field]: e.target.value
+                    };
+                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(
+                        field === 'hours' ? parseFloat(e.target.value) : newRow.hours,
+                        field === 'rate' ? parseFloat(e.target.value) : newRow.rate,
+                        field === 'billedmiles' ? parseFloat(e.target.value) : newRow.billedmiles
+                    );
+                    return {
+                        ...newRow,
+                        total: laborTotal,
+                        mileageTotal,
+                        jobTotal
+                    };
+                }
+                return row;
+            })
+        );
+    } else {
+        setBillbackData(prevData =>
+            prevData.map(row =>
+                row.rowId === rowId
+                    ? { ...row, [field]: e.target.value }
+                    : row
+            )
+        );
+    }
+  };
 
 
 
@@ -394,32 +432,27 @@ const BillBack = () => {
   };
 
   const handleSubmit = async () => {
-    setIsLoading(true);
+    setIsUploading(true);
     try {
-      await saveJobs(billbackData, billingPeriod);
-      setIsLoading(false);
-      await handleSaveProgress(false);
-      toast({
-        title: "Success",
-        description: "Jobs saved for billing period",
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom-right"
-      });
+        console.log("Submitting jobs:", billbackData);
+        await saveJobs(billbackData, billingPeriod, propertyGroups);
+        toast({
+            title: "Jobs saved successfully",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+        });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save jobs. Please try again.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom-right"
-      });
-      console.error("Error saving jobs:", error);
-    } finally {
-      setIsLoading(false);
+        console.error("Error saving jobs:", error);
+        toast({
+            title: "Error saving jobs",
+            description: error.message,
+            status: "error",
+            duration: 5000,
+            isClosable: true,
+        });
     }
+    setIsUploading(false);
   };
 
   useEffect(() => {
@@ -465,7 +498,7 @@ const BillBack = () => {
           </Flex>
           <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
           <Heading color="gray.700" mt={4} ml={1} mr={5}>
-            Billback Upload
+            Time Management
           </Heading>
           </Flex>
         </SimpleGrid>
@@ -550,6 +583,7 @@ const BillBack = () => {
               properties={billingProperties || []}
               employees={employees || []}
               entities={entities}
+              propertyGroups={propertyGroups}
               handleDelete={handleDelete}
             />
           </Box>

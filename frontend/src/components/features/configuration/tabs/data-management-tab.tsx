@@ -13,6 +13,7 @@ import PropertiesTab from '@/components/features/configuration/properties';
 import EntitiesTab from '@/components/features/configuration/entities-tab';
 import BillingPeriodTab from '@/components/features/configuration/billing-period-tab';
 import { fetchAllEntities } from '@/lib/data-access/entities';
+import { PropertyUnitTab } from '../property-unit-tab';
 
 interface TabProps {
   entities: any[]; // Replace 'any[]' with your actual entity type
@@ -41,6 +42,7 @@ const DataManagementTab: React.FC<TabProps> = ({ entities }) => {
         <Tab py={1} fontSize="sm">Properties</Tab>
         <Tab py={1} fontSize="sm">Entities</Tab>
         <Tab py={1} fontSize="sm">Billing Periods</Tab>
+        <Tab py={1} fontSize="sm">Property Units</Tab>
       </TabList>
       <TabPanels flex="1" overflow="hidden">
         <TabPanel h="100%" overflowY="auto" padding={0}>
@@ -57,6 +59,9 @@ const DataManagementTab: React.FC<TabProps> = ({ entities }) => {
         </TabPanel>
         <TabPanel h="100%" overflowY="auto" padding={0}>
           <BillingPeriodTab />
+        </TabPanel>
+        <TabPanel h="100%" overflowY="auto" padding={0}>
+          <PropertyUnitTab />
         </TabPanel>
       </TabPanels>
     </Tabs>

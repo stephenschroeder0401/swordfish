@@ -28,6 +28,7 @@ import { BillingAccountSelect } from '@/components/shared/billing-account-select
 import { fetchAllBillingAccounts, saveAllPropertyGroups, fetchAllPropertyGroups } from '@/lib/data-access/';
 import { useToast } from '@chakra-ui/react';
 import { v4 as uuidv4 } from 'uuid';
+import { getRevenueAllocation } from '@/lib/utils/revenue-calculations';
 
 interface Property {
   id: string;
@@ -39,6 +40,7 @@ interface PropertyGroupRow {
   id: string;
   name: string;
   isExpanded: boolean;
+  allocationType: 'custom' | 'revenue';
   properties: Array<{
     id: string;
     percentage: number;
@@ -56,7 +58,10 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
     const loadPropertyGroups = async () => {
       try {
         const groups = await fetchAllPropertyGroups();
-        setRows(groups);
+        setRows(groups.map(group => ({
+          ...group,
+          allocationType: 'custom' as const
+        })));
       } catch (error) {
         console.error('Error loading property groups:', error);
         toast({
@@ -80,6 +85,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
       id: uuidv4(),
       name: '',
       isExpanded: false,
+      allocationType: 'custom',
       properties: [],
       billingAccounts: []
     };
@@ -181,6 +187,42 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
     ));
   };
 
+  const handlePropertySelection = async (ids: string[], rowId: string) => {
+    const row = rows.find(r => r.id === rowId);
+    
+    setRows(rows.map(r => {
+      if (r.id === rowId) {
+        const updatedProperties = ids.map(id => ({
+          id,
+          percentage: 0
+        }));
+
+        // If revenue-based allocation, calculate percentages
+        if (r.allocationType === 'revenue') {
+          getRevenueAllocation(ids).then(allocations => {
+            const updatedPropertiesWithRevenue = updatedProperties.map(prop => ({
+              ...prop,
+              percentage: allocations.find(a => a.propertyId === prop.id)?.percentage || 0
+            }));
+
+            setRows(rows.map(row => 
+              row.id === rowId 
+                ? { ...row, properties: updatedPropertiesWithRevenue }
+                : row
+            ));
+          });
+        }
+
+        return {
+          ...r,
+          properties: updatedProperties,
+          isExpanded: true
+        };
+      }
+      return r;
+    }));
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -221,8 +263,9 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
           <Tr>
             <Th width="40px"></Th>
             <Th width="25%">Property Group Name</Th>
-            <Th width="35%">Properties</Th>
-            <Th width="35%">Billing Accounts</Th>
+            <Th width="15%">Allocation Type</Th>
+            <Th width="30%">Properties</Th>
+            <Th width="30%">Billing Accounts</Th>
             <Th width="40px"></Th>
           </Tr>
         </Thead>
@@ -257,46 +300,45 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                   />
                 </Td>
                 <Td>
+                  <Select
+                    size="md"
+                    value={row.allocationType || 'custom'}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'custom' | 'revenue';
+                      if (newType === 'revenue' && row.properties.length > 0) {
+                        getRevenueAllocation(row.properties.map(p => p.id))
+                          .then(allocations => {
+                            setRows(rows.map(r => {
+                              if (r.id === row.id) {
+                                return {
+                                  ...r,
+                                  allocationType: newType,
+                                  properties: r.properties.map(prop => ({
+                                    ...prop,
+                                    percentage: allocations.find(a => a.propertyId === prop.id)?.percentage || 0
+                                  }))
+                                };
+                              }
+                              return r;
+                            }));
+                          });
+                      }
+                      setRows(rows.map(r => 
+                        r.id === row.id 
+                          ? { ...r, allocationType: newType }
+                          : r
+                      ));
+                    }}
+                  >
+                    <option value="custom">Custom Allocation</option>
+                    <option value="revenue">Revenue-Based</option>
+                  </Select>
+                </Td>
+                <Td>
                   <PropertySelect
                     selectedProperties={row.properties.map(p => p.id)}
                     properties={properties}
-                    onChange={(ids) => {
-                      console.log('Selected property IDs:', ids);
-                      console.log('All available properties:', properties);
-                      console.log('Properties for this row:', row.properties);
-                      
-                      // Update the row's properties based on the new selection
-                      setRows(rows.map(r => {
-                        if (r.id === row.id) {
-                          // Keep existing properties that are still selected
-                          const updatedProperties = r.properties.filter(p => 
-                            ids.includes(p.id)
-                          );
-                          
-                          // Add new properties with 0 percentage
-                          const newProperties = ids
-                            .filter(id => !r.properties.find(p => p.id === id))
-                            .map(id => {
-                              const property = properties.find(p => p.id === id);
-                              console.log('Adding new property:', property);
-                              return { id, percentage: 0 };
-                            });
-
-                          const finalProperties = [...updatedProperties, ...newProperties];
-                          console.log('Final properties array:', finalProperties);
-                          
-                          // If we're adding the first property, expand the row
-                          const shouldExpand = r.properties.length === 0 && finalProperties.length > 0;
-                          
-                          return {
-                            ...r,
-                            properties: finalProperties,
-                            isExpanded: shouldExpand ? true : r.isExpanded
-                          };
-                        }
-                        return r;
-                      }));
-                    }}
+                    onChange={(ids) => handlePropertySelection(ids, row.id)}
                     placeholder="Add properties"
                     isMulti
                     size="md"

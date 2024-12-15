@@ -5,6 +5,7 @@ export * from './entities';
 export * from './billing-accounts';
 export * from './billing-periods';
 export * from './property-group';
+export * from './property-units';
 
 // Export supabase client if needed by other modules
 export { supabase } from './supabase-client';

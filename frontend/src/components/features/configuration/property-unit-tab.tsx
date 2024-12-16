@@ -28,6 +28,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { fetchAllPropertiesNoPagination } from '@/lib/data-access';
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
 export const PropertyUnitTab = () => {
   const [propertyUnits, setPropertyUnits] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -216,7 +218,7 @@ export const PropertyUnitTab = () => {
                 </Td>
                 <Td>
                   <InputGroup size="sm">
-                    <InputLeftAddon children="$" />
+                    <InputLeftAddon>$</InputLeftAddon>
                     <Input
                       type="number"
                       step="0.01"

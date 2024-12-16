@@ -79,6 +79,41 @@ export const PropertySelect = ({
     return `${selectedIds.length} properties selected`;
   };
 
+  const allOption = {
+    label: "Select All",
+    value: "all"
+  };
+
+  const handleChange = (selected) => {
+    if (selected?.find(option => option.value === "all")) {
+      // If "Select All" is chosen, select all items
+      onChange(properties.map(property => property.id));
+    } else {
+      // Normal selection
+      onChange(selected.map(option => option.value));
+    }
+  };
+
+  const options = [
+    allOption,
+    ...properties.map(property => ({
+      label: property.name,
+      value: property.id
+    }))
+  ];
+
+  const handleSelectAll = () => {
+    const allPropertyIds = properties
+      .filter(prop => !excludeIds.includes(prop.id))
+      .map(prop => prop.id);
+    
+    setSelectedIds(allPropertyIds);
+    onChange(allPropertyIds);
+    if (!isMulti) {
+      onClose();
+    }
+  };
+
   return (
     <Box position="relative" width={width} minWidth={minWidth}>
       <Button
@@ -123,6 +158,21 @@ export const PropertySelect = ({
 
               <Box overflowY="auto" maxHeight="60vh">
                 <VStack align="stretch" spacing={0}>
+                  {isMulti && (
+                    <HStack
+                      p={2}
+                      spacing={3}
+                      cursor="pointer"
+                      _hover={{ bg: 'gray.50' }}
+                      onClick={handleSelectAll}
+                    >
+                      <Checkbox
+                        isChecked={selectedIds.length === properties.length}
+                        pointerEvents="none"
+                      />
+                      <Text>Select All</Text>
+                    </HStack>
+                  )}
                   {filteredProperties.map(property => (
                     <HStack
                       key={property.id}

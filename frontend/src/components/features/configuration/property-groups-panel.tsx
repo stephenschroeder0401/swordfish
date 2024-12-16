@@ -233,7 +233,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
   }
 
   return (
-    <Box p={4} width="100%">
+    <Box p={4} width="100%" height="100%" overflowY="auto">
       <Flex justify="space-between" align="center" px={4} py={2}>
         <Flex gap={4} align="center" width="300px">
           <IconButton
@@ -262,8 +262,8 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
         <Thead>
           <Tr>
             <Th width="40px"></Th>
-            <Th width="25%">Property Group Name</Th>
-            <Th width="15%">Allocation Type</Th>
+            <Th width="20%">Property Group Name</Th>
+            <Th width="20%">Allocation Type</Th>
             <Th width="30%">Properties</Th>
             <Th width="30%">Billing Accounts</Th>
             <Th width="40px"></Th>
@@ -351,6 +351,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                     onChange={(ids) => updateBillingAccounts(row.id, ids)}
                     billingAccounts={billingAccounts}
                     isMulti
+                    showSelectAll={true}
                     size="md"
                     placeholder="Add billing accounts"
                     width="100%"
@@ -377,6 +378,8 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                       borderColor="green.100"
                       borderBottomRadius="md"
                       backgroundColor="white"
+                      maxHeight="400px"
+                      overflowY="auto"
                     >
                       <HStack align="stretch" spacing={4} height="100%" py={1}>
                         {/* Property Allocations Section */}

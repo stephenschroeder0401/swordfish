@@ -4,6 +4,7 @@ import {
   Button,
   Flex,
   Input,
+  Select,
   Table,
   Tbody,
   Td,
@@ -40,9 +41,15 @@ const TABLE_CONFIG = {
     width: '300px',
     type: 'text'
   },
+  billing_type: {
+    visible: true,
+    displayName: 'Billing Type',
+    type: 'select',
+    options: ['Hourly', 'Monthly']
+  },
   rate: {
     visible: true,
-    displayName: 'Hourly Rate ($)',
+    displayName: 'Rate ($)',
     type: 'decimal'
   },
   isbilledback: {
@@ -73,7 +80,8 @@ const BillingAccountTab = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const { data } = await fetchAllBillingAccounts(0, 1000); // Adjust page size as needed
+        const { data } = await fetchAllBillingAccounts(0, 1000);
+        console.log('Received billing accounts:', data);
         setTableData(data || []);
       } catch (error) {
         console.error('Error loading billing accounts:', error);
@@ -98,7 +106,8 @@ const BillingAccountTab = () => {
       glcode: '',
       description: '',
       rate: '',
-      isbilledback: false
+      isbilledback: false,
+      billing_type: ''
     };
     setTableData([emptyRow, ...tableData]);
   };
@@ -114,13 +123,14 @@ const BillingAccountTab = () => {
       const invalidRows = tableData.filter(row => 
         !row.name?.trim() || 
         !row.glcode?.trim() || 
-        !row.description?.trim()
+        !row.description?.trim() ||
+        !row.billing_type?.trim()
       );
 
       if (invalidRows.length > 0) {
         toast({
           title: 'Validation Error',
-          description: 'All fields except Hourly Rate are required',
+          description: 'All fields except Rate are required',
           status: 'error',
           duration: 5000,
           isClosable: true,
@@ -230,6 +240,19 @@ const BillingAccountTab = () => {
                             column
                           )}
                         />
+                      ) : TABLE_CONFIG[column].type === 'select' ? (
+                        <Select
+                          size="sm"
+                          value={row[column] || ''}
+                          onChange={(e) => handleInputChange(e, index, column)}
+                        >
+                          <option value="">Select...</option>
+                          {TABLE_CONFIG[column].options.map(option => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </Select>
                       ) : (
                         <Input
                           size="sm"

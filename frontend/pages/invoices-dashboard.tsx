@@ -12,7 +12,7 @@ import {
   Select,
   SimpleGrid
 } from "@chakra-ui/react";
-
+import { supabase } from '@/lib/data-access/supabase-client';
 import TableDisplay from "@/components/features/table/table-display";
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
 
@@ -103,18 +103,44 @@ const InvoicesDashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Only fetch if we have a valid billing period
       if (!billingPeriod) {
-        setData([]); // Clear data if no billing period
+        setData([]); 
         return;
       }
 
       try {
+        // Fetch hourly jobs
         const jobs = await fetchJobsAsBillingJob(billingPeriod);
         const billingProperties = await fetchAllPropertiesNoPagination();
         const billbackCategories = await fetchAllBillingAccountsNoPagination();
         
-        const appfolioLineItems: AppFolioLineItem[] = jobs.flatMap((job) => {
+        // Fetch monthly billing items
+        const { data: monthlyItems } = await supabase
+          .from('billing_account')
+          .select(`
+            id,
+            glcode,
+            description,
+            rate,
+            property_group_gl!inner (
+              property_group:property_group_id (
+                property_group_property!inner (
+                  percentage,
+                  property:property_id (
+                    code,
+                    entity:entityid (
+                      name
+                    )
+                  )
+                )
+              )
+            )
+          `)
+          .eq('billing_type', 'Monthly')
+          .throwOnError();
+
+        // Process hourly items
+        const hourlyLineItems = jobs.flatMap((job) => {
           const account = billbackCategories.find((account) => account.id == job.billing_account_id);
           const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
           const property = billingProperties.find((property) => property.id == job.property_id);
@@ -135,7 +161,6 @@ const InvoicesDashboard = () => {
 
           const items = [];
 
-          // Add regular amount line item if it exists
           if (Number(job.total)) {
             items.push({
               ...baseLineItem,
@@ -144,10 +169,7 @@ const InvoicesDashboard = () => {
             });
           }
 
-          console.log("check for mileage", job);
-          // Add mileage line item if it exists
           if (Number(job.milage_total)) {
-            console.log("milage_total");
             items.push({
               ...baseLineItem,
               amount: Number(job.milage_total),
@@ -158,14 +180,36 @@ const InvoicesDashboard = () => {
           return items;
         });
 
-        setData(appfolioLineItems);
+        // Process monthly items
+        const monthlyLineItems = monthlyItems.flatMap(item => 
+          item.property_group_gl.flatMap(groupGl => 
+            groupGl.property_group.property_group_property.map(propertyAllocation => ({
+              billPropertyCode: propertyAllocation.property.code,
+              billUnitName: '',
+              entity: propertyAllocation.property.entity.name,
+              payeeName: payeeName,
+              amount: (propertyAllocation.percentage * 0.01) * item.rate,
+              billAccountCode: item.glcode,
+              billDescription: `Monthly: ${item.description}`,
+              billDate: billDate,
+              dueDate: billDate,
+              billReference: billbackName,
+              billRemarks: billbackName,
+              memoForCheck: billbackName,
+              billingAccountCategory: item.description
+            }))
+          )
+        );
+
+        // Combine both types of line items
+        setData([...hourlyLineItems, ...monthlyLineItems]);
       } catch (error) {
-        console.error("Error fetching jobs:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
     fetchData();
-  }, [billingPeriod]); // Only run when billingPeriod changes
+  }, [billingPeriod, billbackName, payeeName, billDate]);
 
   const convertToCSV = (objArray: AppFolioLineItem[]) => {
     if (!objArray.length) return '';

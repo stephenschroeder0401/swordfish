@@ -31,6 +31,7 @@ interface BillingAccountSelectProps {
   width?: string;
   minWidth?: string;
   billingAccounts: BillingAccount[];
+  showSelectAll?: boolean;
 }
 
 export const BillingAccountSelect = ({
@@ -43,6 +44,7 @@ export const BillingAccountSelect = ({
   width,
   minWidth,
   billingAccounts,
+  showSelectAll = false,
 }: BillingAccountSelectProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedAccounts);
@@ -84,6 +86,29 @@ export const BillingAccountSelect = ({
     setSelectedIds(newSelectedIds);
     onChange(newSelectedIds);
   };
+
+  const handleSelectAll = () => {
+    const allAccountIds = billingAccounts
+      .filter(account => !excludeIds.includes(account.id))
+      .map(account => account.id);
+    
+    setSelectedIds(allAccountIds);
+    onChange(allAccountIds);
+    if (!isMulti) {
+      onClose();
+    }
+  };
+
+  const options = [
+    {
+      label: "Select All",
+      value: "all"
+    },
+    ...billingAccounts.map(account => ({
+      label: account.name,
+      value: account.id
+    }))
+  ];
 
   return (
     <Box position="relative" width={width} minWidth={minWidth}>
@@ -129,6 +154,21 @@ export const BillingAccountSelect = ({
 
               <Box overflowY="auto" maxHeight="60vh">
                 <VStack align="stretch" spacing={0}>
+                  {showSelectAll && isMulti && (
+                    <HStack
+                      p={2}
+                      spacing={3}
+                      cursor="pointer"
+                      _hover={{ bg: 'gray.50' }}
+                      onClick={handleSelectAll}
+                    >
+                      <Checkbox
+                        isChecked={selectedIds.length === billingAccounts.length}
+                        pointerEvents="none"
+                      />
+                      <Text>Select All</Text>
+                    </HStack>
+                  )}
                   {filteredAccounts.map(account => (
                     <HStack
                       key={account.id}
@@ -145,7 +185,7 @@ export const BillingAccountSelect = ({
                         />
                       )}
                       <Text>
-                        {account.name} ({account.glcode})
+                        {account.name}
                       </Text>
                     </HStack>
                   ))}

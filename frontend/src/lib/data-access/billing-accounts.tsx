@@ -7,6 +7,7 @@ interface BillingAccount {
   code: string;
   isbilledback: boolean;
   client_id?: string;
+  billing_type: 'hourly' | 'monthly';
 }
 
 const getAuthenticatedSession = async () => {
@@ -15,18 +16,27 @@ const getAuthenticatedSession = async () => {
   return session;
 };
 
-export const fetchAllBillingAccounts = async (page = 0, pageSize = 10) => {
+export const fetchAllBillingAccounts = async (
+  page = 0, 
+  pageSize = 10, 
+  billingType?: 'hourly' | 'monthly'
+) => {
   try {
     const session = await getAuthenticatedSession();
     
     const start = page * pageSize;
     const end = start + pageSize - 1;
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from('billing_account')
       .select('*', { count: 'exact' })
-      .eq('client_id', session.clientId)
-      .range(start, end);
+      .eq('client_id', session.clientId);
+
+    if (billingType) {
+      query = query.eq('billing_type', billingType);
+    }
+
+    const { data, error, count } = await query.range(start, end);
 
     if (error) throw error;
 
@@ -37,29 +47,33 @@ export const fetchAllBillingAccounts = async (page = 0, pageSize = 10) => {
 
     return { data: formattedData || [], count: count || 0 };
   } catch (error) {
-    console.error("Error fetching all billing accounts:", error);
+    console.error("Error fetching billing accounts:", error);
     throw error;
   }
 };
 
-export const fetchAllBillingAccountsNoPagination = async () => {
+export const fetchAllBillingAccountsNoPagination = async (
+  billingType?: 'hourly' | 'monthly'
+) => {
   try {
     const session = await getAuthenticatedSession();
     
-    const { data, error } = await supabase
+    let query = supabase
       .from('billing_account')
       .select('*')
-      .eq('client_id', session.clientId)
-      .order('name');
+      .eq('client_id', session.clientId);
 
-    if (error) {
-      console.error("Error fetching all billing accounts:", error);
-      throw error;
+    if (billingType) {
+      query = query.eq('billing_type', billingType);
     }
+
+    const { data, error } = await query.order('name');
+
+    if (error) throw error;
 
     return data || [];
   } catch (error) {
-    console.error("Error fetching all billing accounts:", error);
+    console.error("Error fetching billing accounts:", error);
     throw error;
   }
 };

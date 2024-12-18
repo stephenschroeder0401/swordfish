@@ -1,4 +1,11 @@
 import { supabase } from './supabase-client';
+import { getUserSession } from '@/lib/auth/user';
+
+const getAuthenticatedSession = async () => {
+  const session = await getUserSession();
+  if (!session) throw new Error('No active session');
+  return session;
+};
 
 export const upsertPropertyGroup = async (group: {
   id: string;
@@ -10,19 +17,21 @@ export const upsertPropertyGroup = async (group: {
   billingAccounts: string[];
 }) => {
   try {
-    console.log('Starting upsert for group:', group);
+    const session = await getAuthenticatedSession();
+    
+    // Remove UI-only fields and add client_id
+    const groupToSave = {
+      id: group.id,
+      name: group.name,
+      client_id: session.clientId
+    };
 
-    // 1. Upsert the property group
     const { data: groupData, error: groupError } = await supabase
       .from('property_group')
-      .upsert({
-        id: group.id,
-        name: group.name
-      })
+      .upsert(groupToSave)
       .select()
       .single();
 
-    console.log('After property group upsert:', { groupData, groupError });
     if (groupError) throw groupError;
 
     // 2. Delete existing property allocations
@@ -86,6 +95,7 @@ export const upsertPropertyGroup = async (group: {
 export const saveAllPropertyGroups = async (groups: Array<{
   id: string;
   name: string;
+  client_id: string;
   properties: Array<{
     id: string;
     percentage: number;
@@ -93,7 +103,6 @@ export const saveAllPropertyGroups = async (groups: Array<{
   billingAccounts: string[];
 }>) => {
   try {
-    console.log("groups: ", groups);
     // Save each group sequentially to maintain data consistency
     for (const group of groups) {
       await upsertPropertyGroup(group);
@@ -107,11 +116,14 @@ export const saveAllPropertyGroups = async (groups: Array<{
 
 export const fetchAllPropertyGroups = async () => {
   try {
+    const session = await getAuthenticatedSession();
+
     const { data: groups, error: groupError } = await supabase
       .from('property_group')
       .select(`
         id,
         name,
+        client_id,
         property_group_property (
           property_id,
           percentage
@@ -119,28 +131,22 @@ export const fetchAllPropertyGroups = async () => {
         property_group_gl (
           billing_account_id
         )
-      `);
-
-    console.log('Raw groups data:', groups);
+      `)
+      .eq('client_id', session.clientId);
 
     if (groupError) throw groupError;
 
-    const formattedGroups = groups?.map(group => {
-      console.log('Formatting group:', group);
-      return {
-        id: group.id,
-        name: group.name,
-        properties: group.property_group_property.map(prop => ({
-          id: prop.property_id,
-          percentage: prop.percentage
-        })),
-        billingAccounts: group.property_group_gl.map(gl => gl.billing_account_id),
-        isExpanded: false
-      };
-    }) || [];
-
-    console.log('Formatted groups:', formattedGroups);
-    return formattedGroups;
+    return groups?.map(group => ({
+      id: group.id,
+      name: group.name,
+      client_id: group.client_id,
+      properties: group.property_group_property.map(prop => ({
+        id: prop.property_id,
+        percentage: prop.percentage
+      })),
+      billingAccounts: group.property_group_gl.map(gl => gl.billing_account_id),
+      isExpanded: false
+    })) || [];
   } catch (error) {
     console.error('Error fetching property groups:', error);
     throw error;

@@ -95,7 +95,7 @@ export const upsertPropertyGroup = async (group: {
 export const saveAllPropertyGroups = async (groups: Array<{
   id: string;
   name: string;
-  client_id: string;
+  //client_id: string;
   properties: Array<{
     id: string;
     percentage: number;

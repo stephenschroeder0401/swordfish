@@ -1,9 +1,14 @@
 import { supabase } from './supabase-client';
+import { getUserSession } from '@/lib/auth/user';
 
 export const getPropertyUnits = async () => {
+  const session = await getUserSession();
+  if (!session) throw new Error('No active session');
+
   const { data, error } = await supabase
     .from('property_unit')
-    .select('*');
+    .select('*, property!inner(*, entity!inner(*))')
+    .eq('property.entity.client_id', session.clientId);
   
   if (error) throw error;
   return data;
@@ -49,11 +54,17 @@ export const upsertPropertyUnits = async (propertyUnits) => {
   return data;
 };
 
-export const getPropertyRevenue = async (propertyId: string) => {
+export const getPropertyRevenue = async (propertyId: string, clientId: string) => {
   const { data, error } = await supabase
     .from('property_unit')
-    .select('rent')
-    .eq('property_id', propertyId);
+    .select(`
+      rent,
+      property!inner (
+        client_id
+      )
+    `)
+    .eq('property_id', propertyId)
+    .eq('property.client_id', clientId);
 
   if (error) throw error;
 

@@ -54,17 +54,21 @@ export const upsertPropertyUnits = async (propertyUnits) => {
   return data;
 };
 
-export const getPropertyRevenue = async (propertyId: string, clientId: string) => {
+export const getPropertyRevenue = async (propertyId: string) => {
+  const session = await getUserSession();
+  if (!session) throw new Error('No active session');
+
   const { data, error } = await supabase
     .from('property_unit')
     .select(`
       rent,
       property!inner (
-        client_id
+        *, 
+        entity!inner(*)
       )
     `)
     .eq('property_id', propertyId)
-    .eq('property.client_id', clientId);
+    .eq('property.entity.client_id', session.clientId);
 
   if (error) throw error;
 

@@ -56,7 +56,6 @@ export const upsertPropertyUnits = async (propertyUnits) => {
 
 export const getPropertyRevenue = async (propertyId: string) => {
   const session = await getUserSession();
-  if (!session) throw new Error('No active session');
 
   const { data, error } = await supabase
     .from('property_unit')

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useEffect, useState, useRef } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text } from "@chakra-ui/react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text, Tooltip } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/features/table/billback-table";
 import CSVUpload from "@/components/ui/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
@@ -12,6 +12,30 @@ import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
    fetchAllBillingPeriods, fetchAllBillingAccountsNoPagination, fetchAllEntities,
    fetchAllPropertyGroups
 } from "@/lib/data-access";
+import { FaExclamationTriangle } from 'react-icons/fa';
+
+// Add a new type for clarity
+type FileFormat = 'timero' | 'manual';
+
+// Add format detection function
+const detectFileFormat = (firstRow: any): FileFormat => {
+  // Check object keys instead of trying to join array
+  const headers = Object.keys(firstRow);
+  
+  if (headers.includes('Clocked In At') && headers.includes('Clocked Out At')) {
+    return 'timero';
+  }
+  if (headers.includes('Minutes') && headers.includes('Task')) {
+    return 'manual';
+  }
+  
+  // If data is already transformed (from upload.tsx)
+  if (firstRow.format === 'timero' || firstRow.format === 'manual') {
+    return firstRow.format;
+  }
+  
+  throw new Error('Unrecognized file format');
+};
 
 const BillBack = () => {
   
@@ -28,6 +52,7 @@ const BillBack = () => {
   const [entities, setEntities] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [propertyGroups, setPropertyGroups] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const calculateTotals = (hours, rate, mileage) => {
     console.log('mileage total: ', mileage);
@@ -105,12 +130,18 @@ const BillBack = () => {
 
                     const rate = employee ? employee.rate : 0;
 
-                    const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
-                                : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
-                                : 0;
+                    const mileage = (() => {
+                      if (!job) return 0;
+                      
+                      // Try to get mileage from different possible fields
+                      const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
+                      
+                      // Convert to number, default to 0 if NaN
+                      const parsedMileage = Number(mileageValue);
+                      return isNaN(parsedMileage) ? 0 : parsedMileage;
+                    })();
 
-
-                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
+                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
 
                     const isError = !(billingAccount && billingProperty);
 
@@ -131,7 +162,7 @@ const BillBack = () => {
                         hours: job.hours,
                         rate: rate,
                         total: laborTotal,
-                        billedmiles: milage,
+                        billedmiles: mileage,
                         mileageTotal: mileageTotal,
                         jobTotal: jobTotal,
                         notes: job.notes,
@@ -183,6 +214,7 @@ const BillBack = () => {
     };
     console.log("New row data:", newRow);
     setBillbackData([newRow, ...billbackData]);
+    setHasUnsavedChanges(true);
     console.log("Updated billbackData after add:", billbackData);
   };
 
@@ -193,76 +225,151 @@ const BillBack = () => {
 
   const handleDataProcessed = (newData) => {
     console.log("=== Processing New Data ===");
-    console.log("Incoming newData:", newData);
+    console.log("First row:", newData[0]);
     setIsLoading(true);
 
-    const billingJobs = newData.map((job) => {
-        if(!!job){
-            console.log("Processing job:", job);
-            const billingAccount = billingAccounts.find((account) => account.name === job.category);
-            const billingProperty = billingProperties.find((property) => property.name === job.property);
+    try {
+      // Get first row to detect format
+      const fileFormat = detectFileFormat(newData[0]);
+      console.log("Detected format:", fileFormat);
 
-            const employee = employees.find((employee) => employee.name === job.employee);
+      const billingJobs = newData.map((job) => {
+        if (!job) return null;
 
-            const rate = employee ? employee.rate : 0;
-
-            const milage = (job.mileage && !isNaN(Number(job.mileage))) ? Number(job.mileage) 
-                        : (job.billedmiles && !isNaN(Number(job.billedmiles))) ? Number(job.billedmiles) 
-                        : 0;
-
-
-            const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, milage);
-
-            const isError = !(billingAccount && billingProperty);
-
-            console.log("Found employee: ", employee);
-            const result = {
-                rowId: uuidv4(),
-                employeeId: employee ? employee.id : undefined,
-                employee: employee ? employee.name : job.employee,
-                job_date: job.date ? job.date : job.job_date,
-                propertyId: billingProperty ? billingProperty.id : undefined,
-                property: billingProperty ? billingProperty.name : job.property,
-                entityId: billingProperty ? billingProperty.entityid : undefined,
-                entity: billingProperty ? billingProperty.entityName : "Not Found",
-                billingAccountId: billingAccount ? billingAccount.id : undefined,
-                category: billingAccount ? billingAccount.name : job.category,
-                startTime: job.clockedInAt,
-                endTime: job.clockedOutAt,
-                hours: job.hours,
-                rate: rate,
-                total: laborTotal,
-                billedmiles: milage,
-                mileageTotal: mileageTotal,
-                jobTotal: jobTotal,
-                notes: job.notes,
-                isError: isError,
-                isManual: false
-            };
-            console.log("Processed job result:", result);
-            return result;
+        // Process based on format
+        if (fileFormat === 'timero') {
+          return processTimeroJob(job);
+        } else {
+          return processManualJob(job);
         }
-    });
+      });
 
-    console.log("All processed billingJobs:", billingJobs);
-    console.log("Previous billbackData:", billbackData);
-    setBillbackData((prevBillbackData) => {
+      console.log("All processed billingJobs:", billingJobs);
+      setBillbackData((prevBillbackData) => {
         const newState = [...prevBillbackData, ...billingJobs];
+        setHasUnsavedChanges(true);
         console.log("New combined billbackData:", newState);
         return newState;
-    });
+      });
+    } catch (error) {
+      console.error("CSV Upload Error:", {
+        error,
+        data: newData[0]
+      });
+      // ... error handling ...
+    }
     setIsLoading(false);
   };
+
+  // Split processing logic
+  const processTimeroJob = (job) => {
+    const billingAccount = billingAccounts.find((account) => account.name === job.category);
+    const billingProperty = billingProperties.find((property) => property.name === job.property);
+    const employee = employees.find((employee) => employee.name === job.employee);
+    
+    const rate = employee ? employee.rate : 0;
+    
+    // Safer mileage handling
+    const mileage = (() => {
+      if (!job) return 0;
+      
+      // Try to get mileage from different possible fields
+      const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
+      
+      // Convert to number, default to 0 if NaN
+      const parsedMileage = Number(mileageValue);
+      return isNaN(parsedMileage) ? 0 : parsedMileage;
+    })();
+
+    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
+
+    return {
+      rowId: uuidv4(),
+      employeeId: employee?.id,
+      employee: employee?.name || job.employee,
+      job_date: job.date || job.job_date,
+      propertyId: billingProperty?.id,
+      property: billingProperty?.name || job.property,
+      entityId: billingProperty?.entityid,
+      entity: billingProperty?.entityName || "Not Found",
+      billingAccountId: billingAccount?.id,
+      category: billingAccount?.name || job.category,
+      startTime: job.clockedInAt,
+      endTime: job.clockedOutAt,
+      hours: job.hours,
+      rate,
+      total: laborTotal,
+      billedmiles: mileage,
+      mileageTotal,
+      jobTotal,
+      notes: job.notes,
+      isError: !(billingAccount && billingProperty),
+      isManual: false
+    };
+  };
+
+  const processManualJob = (job) => {
+    const hours = Number(job.hours) || 0;
+    
+    // Find matching records
+    const billingAccount = billingAccounts.find((account) => 
+      account.name.toLowerCase() === job.category.toLowerCase()
+    );
+    const billingProperty = billingProperties.find((property) => 
+      property.name.toLowerCase() === job.property.toLowerCase()
+    );
+    const employee = employees.find((employee) => 
+      employee.name.toLowerCase() === job.employee.toLowerCase()
+    );
+    
+    // Validation
+    if (!billingProperty) {
+      console.error(`Property not found: ${job.property}`);
+    }
+    if (!billingAccount) {
+      console.error(`Billing account not found: ${job.category}`);
+    }
+    
+    const rate = employee ? employee.rate : 0;
+    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(hours, rate, 0);
+
+    return {
+      rowId: uuidv4(),
+      employeeId: employee?.id,
+      employee: employee?.name || job.employee,
+      job_date: job.date,
+      propertyId: billingProperty?.id || '',
+      property: job.property,
+      entityId: billingProperty?.entityid,
+      entity: billingProperty?.entityName || "Not Found",
+      billingAccountId: billingAccount?.id || '',
+      category: job.category,
+      startTime: null,
+      endTime: null,
+      hours,
+      rate,
+      total: laborTotal,
+      billedmiles: 0,
+      mileageTotal: 0,
+      jobTotal,
+      notes: job.notes || '',
+      isError: !billingProperty || !billingAccount,
+      isManual: true
+    };
+  };
+
   const handleDelete = (e, key) => {
     console.log(key);
     console.log(billbackData);
     const newData = billbackData.filter(item => item.rowId !== key);
     setBillbackData(newData);
+    setHasUnsavedChanges(true);
   };
   
 
 
   const handleEdit = async (e: any, rowId: string, field: string, tableType: string) => {
+    setHasUnsavedChanges(true);
     console.log("Editing:", { value: e.target.value, rowId, field, tableType });
     
     if (field === 'property') {
@@ -404,7 +511,7 @@ const BillBack = () => {
     try {
         const result = await upsertBillbackUpload(billbackData, billingPeriod);
         console.log("Save result:", result);
-        setIsLoading(false);
+        setHasUnsavedChanges(false);
         if(notify){
             toast({
                 title: "Success",
@@ -477,6 +584,41 @@ const BillBack = () => {
   console.log('Current entities:', entities);
   console.log('Current employees:', employees);
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Create a callback for the save function
+  const handleSave = useCallback((e?: KeyboardEvent) => {
+    if (e) {
+      e.preventDefault(); // Prevent browser's default save dialog
+    }
+    
+    if (hasUnsavedChanges && billingPeriod) {
+      handleSaveProgress(true);
+    }
+  }, [hasUnsavedChanges, billingPeriod]);
+
+  // Add keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        handleSave(e);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
+
   return (
     <Box width="100%" overflowX="hidden">
       <Container maxW='100%' px={0} py={2}>
@@ -484,7 +626,7 @@ const BillBack = () => {
           <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
           <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
             <FormControl>
-              <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
+              <FormLabel color="gray.800" fontWeight={600} mb={1}>Timesheet Upload:</FormLabel>
               <CSVUpload
                 style={{ width: '180px' }}
                 disabled={!billingPeriod}
@@ -515,33 +657,65 @@ const BillBack = () => {
           mb={-2}
           
         />
-        <Text color={'red.400'} _hover={{
-                color: 'red.700',
-                transform: 'scale(1.1)',
-                cursor: 'pointer'
-              }}
-              onClick={handleClearData}>
-         CLEAR FILTERS
+        <Text 
+          color={'red.400'} 
+          _hover={{
+            color: 'red.700',
+            transform: 'scale(1.1)',
+            cursor: 'pointer'
+          }}
+          onClick={handleClearData}
+          ml={2}
+        >
+          CLEAR
         </Text>
         </Flex>
         <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
-          <Button
-            onClick={handleSaveProgress}
-            size="md"
-            colorScheme="gray"
-            isDisabled={!billingPeriod}
-            mr={4}  
-            minWidth='9vw'
-          >
-            Save Progress
-          </Button>
+          <Flex direction="column" alignItems="flex-end">
+            {hasUnsavedChanges && (
+              <Text
+                color="orange.500"
+                fontSize="sm"
+                mb={2}
+                fontWeight="medium"
+                display="flex"
+                alignItems="center"
+              >
+                <FaExclamationTriangle style={{ marginRight: '8px' }} />
+                You have unsaved changes
+              </Text>
+            )}
+            <Tooltip 
+              label={`Save changes (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+S)`}
+              isDisabled={!hasUnsavedChanges || !billingPeriod}
+            >
+              <Button
+                onClick={() => handleSave()}
+                size="md"
+                bg={hasUnsavedChanges ? "orange.400" : "gray.100"}
+                color={hasUnsavedChanges ? "white" : "gray.800"}
+                isDisabled={!billingPeriod || !hasUnsavedChanges}
+                mr={4}  
+                minWidth='9vw'
+                transition="all 0.2s ease"
+                _hover={hasUnsavedChanges ? {
+                  transform: 'scale(1.05)',
+                  bg: 'orange.500'
+                } : {
+                  bg: 'gray.200'
+                }}
+              >
+                {hasUnsavedChanges ? "Save Changes" : "Save Progress"}
+              </Button>
+            </Tooltip>
+          </Flex>
           <Button
             onClick={handleSubmit}
             size="md"
             colorScheme="green"
             bg={'green.500'}
             isLoading={false}
-            isDisabled={!isValid}
+            isDisabled={!isValid || hasUnsavedChanges}
             mt={2}
             minWidth='9vw'
           >

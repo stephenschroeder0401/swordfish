@@ -12,6 +12,20 @@ interface CSVUploadProps {
   setSelectedFile: (file: File | null) => void;
 }
 
+const validateHeaders = (headers: string[]) => {
+  const timeroFormat = ['Employee Name', 'Clocked In At', 'Clocked Out At', 'Job Name', 'Mileage', 'Notes'];
+  const manualFormat = ['Date', 'Employee Name', 'Property', 'Category', 'Task', 'Minutes', 'Comments'];
+
+  const isTimero = timeroFormat.every(header => headers.includes(header));
+  const isManual = manualFormat.every(header => headers.includes(header));
+
+  if (!isTimero && !isManual) {
+    throw new Error('Invalid file format. Please use either Timero or Manual template.');
+  }
+
+  return true;
+};
+
 const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, selectedFile, setSelectedFile, disabled = false }) => {
 
   useEffect(() => {
@@ -39,63 +53,120 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
   const parseCSV = (file: File) => {
     Papa.parse(file, {
       complete: (result) => {
-        console.log('Parsed: ', result);
-        const transformedData = transformData(result.data);
-        onDataProcessed(transformedData);
+        try {
+          // Log the raw data for debugging
+          console.log('Raw CSV data:', result.data[0]);
+          
+          // Validate headers before processing
+          validateHeaders(Object.keys(result.data[0]));
+          
+          console.log('Parsed: ', result);
+          const transformedData = transformData(result.data);
+          onDataProcessed(transformedData);
+          toast({
+            title: "File Uploaded",
+            description: `File ${file.name} uploaded`,
+            status: "success",
+            duration: 2000,
+            isClosable: true,
+            position: "bottom-right"
+          });
+        } catch (error) {
+          // Log the full error
+          console.error("CSV Upload Error:", {
+            error,
+            stack: error.stack,
+            data: result.data[0]
+          });
+
+          toast({
+            title: "Upload Error",
+            // Include more error details in the toast
+            description: `Error: ${error.message}\n\nHeaders found: ${Object.keys(result.data[0]).join(', ')}`,
+            status: "error",
+            duration: 6000, // Increased duration to read longer message
+            isClosable: true,
+            position: "bottom-right"
+          });
+        } finally {
+          setLoading(false);
+        }
+      },
+      header: true,
+      error: (error) => {
+        console.error("Papa Parse Error:", error);
         toast({
-          title: "File Uploaded",
-          description: `File ${file.name} uploaded`,
-          status: "success",
-          duration: 2000,
+          title: "CSV Parsing Error",
+          description: error.message,
+          status: "error",
+          duration: 4000,
           isClosable: true,
           position: "bottom-right"
         });
-        setLoading(false); // Set loading to false when parsing is complete
-      },
-      header: true,
+        setLoading(false);
+      }
     });
   };
 
+  const detectFileFormat = (row: any): 'timero' | 'manual' => {
+    const headers = Object.keys(row);
+    if (headers.includes('Clocked In At') && headers.includes('Clocked Out At')) {
+      return 'timero';
+    }
+    if (headers.includes('Date') && headers.includes('Minutes')) {
+      return 'manual';
+    }
+    throw new Error('Unrecognized file format');
+  };
+
   const transformData = (csvData: any[]) => {
-    console.log("Transforming data");
+    if (!csvData.length) return [];
+    
+    const format = detectFileFormat(csvData[0]);
+    
     return csvData
-      .filter((row: Record<string, string>) => Object.values(row).some((value) => value && value.trim() !== '')) // Filter out empty rows
+      .filter((row) => Object.values(row).some((value) => value && value.trim() !== ''))
       .map((row) => {
-        const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
-        const category = categoryParts.join('/');
-
-  
-        // Parse the clock-in and clock-out times
-        const clockedInAt = new Date(row['Clocked In At']);
-        const clockedOutAt = new Date(row['Clocked Out At']);
-  
-        const formattedDate = clockedInAt.getFullYear() + '-' +
-          ('0' + (clockedInAt.getMonth() + 1)).slice(-2) + '-' +
-          ('0' + clockedInAt.getDate()).slice(-2);
-  
-        // Calculate the duration in hours
-        const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
-        let mileage = row['Mileage'] ? Number(row['Mileage']) : 0;
-        if (isNaN(mileage) || row['Mileage'].trim() === '') {
-          mileage = 0;
+        if (format === 'timero') {
+          // Handle Timero format
+          const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
+          const category = categoryParts.join('/');
+          
+          const clockedInAt = new Date(row['Clocked In At']);
+          const clockedOutAt = new Date(row['Clocked Out At']);
+          const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
+          
+          return {
+            employee: row['Employee Name']?.trim() || '',
+            date: clockedInAt.toISOString().split('T')[0],
+            property: property?.trim() || '',
+            category: category?.trim() || '',
+            clockedInAt: clockedInAt.toISOString(),
+            clockedOutAt: clockedOutAt.toISOString(),
+            hours: duration.toFixed(2),
+            mileage: row['Mileage'] || 0,
+            notes: row['Notes'] || '',
+            format: 'timero' as const
+          };
+        } else {
+          console.log("ROW!! :", row);
+          // Updated Manual format handling
+          const minutes = Number(row['Minutes']) || 0;
+          const hours = (minutes / 60).toFixed(2);
+          
+          return {
+            employee: row['Employee Name']?.trim() || '',
+            date: row['Date']?.trim() || '',
+            property: row['Property']?.trim() || '', // Maps to property
+            category: row['Category']?.trim() || '', // Maps to billing category
+            clockedInAt: null,
+            clockedOutAt: null,
+            hours: hours,
+            mileage: 0,
+            notes: row['Comments'] || row['Task'] || '', // Include Task in notes if no Comments
+            format: 'manual' as const
+          };
         }
-
-        console.log("mileage: ", mileage);
-  
-        return {
-          employee: row['Employee Name'].trim(), // Trim whitespace
-          date: formattedDate.trim(), // Trim is not necessarily needed here since this is constructed, but included for consistency
-          property: property.trim(), // Already trimmed above
-          category: category?.trim(), // Already trimmed above
-          clockedInAt: clockedInAt.toISOString(), // Convert to ISO string
-          clockedOutAt: clockedOutAt.toISOString(), // Convert to ISO string
-          hours: duration.toFixed(2), // This results in a string, no whitespace to trim
-          rate: 0, // Implement this function based on your logic
-          total: 0,
-          mileage: mileage,
-          notes: row['Notes'] // Assuming 'total' maps to 'Mileage', adjust as needed
-          // Add any additional transformations here
-        };
       });
   };
   

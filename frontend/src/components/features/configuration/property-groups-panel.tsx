@@ -168,7 +168,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
       });
     } catch (error) {
       console.error('Error saving property groups:', error);
-      toast({
+      toast({ 
         title: 'Error',
         description: 'Failed to save changes. Please try again.',
         status: 'error',
@@ -190,37 +190,52 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
   const handlePropertySelection = async (ids: string[], rowId: string) => {
     const row = rows.find(r => r.id === rowId);
     
-    setRows(rows.map(r => {
-      if (r.id === rowId) {
-        const updatedProperties = ids.map(id => ({
-          id,
-          percentage: 0
-        }));
+    if (row?.allocationType === 'revenue') {
+      try {
+        // Get allocations first
+        const allocations = await getRevenueAllocation(ids);
+        
+        // Filter out zero allocations
+        const nonZeroAllocations = allocations.filter(a => a.percentage > 0);
+        const nonZeroIds = nonZeroAllocations.map(a => a.propertyId);
+        
+        // Update rows with filtered properties
+        setRows(rows.map(r => 
+          r.id === rowId 
+            ? {
+                ...r,
+                properties: nonZeroAllocations.map(allocation => ({
+                  id: allocation.propertyId,
+                  percentage: allocation.percentage
+                })),
+                isExpanded: true
+              }
+            : r
+        ));
 
-        // If revenue-based allocation, calculate percentages
-        if (r.allocationType === 'revenue') {
-          getRevenueAllocation(ids).then(allocations => {
-            const updatedPropertiesWithRevenue = updatedProperties.map(prop => ({
-              ...prop,
-              percentage: allocations.find(a => a.propertyId === prop.id)?.percentage || 0
-            }));
-
-            setRows(rows.map(row => 
-              row.id === rowId 
-                ? { ...row, properties: updatedPropertiesWithRevenue }
-                : row
-            ));
-          });
+        // If any properties were filtered out, trigger a new selection with only non-zero properties
+        if (nonZeroIds.length !== ids.length) {
+          // This will update the PropertySelect component's selected values
+          handlePropertySelection(nonZeroIds, rowId);
         }
-
-        return {
-          ...r,
-          properties: updatedProperties,
-          isExpanded: true
-        };
+      } catch (error) {
+        console.error('Error calculating revenue allocations:', error);
       }
-      return r;
-    }));
+    } else {
+      // Handle custom allocation
+      setRows(rows.map(r => 
+        r.id === rowId 
+          ? {
+              ...r,
+              properties: ids.map(id => ({
+                id,
+                percentage: 0
+              })),
+              isExpanded: true
+            }
+          : r
+      ));
+    }
   };
 
   // Show loading state
@@ -409,30 +424,32 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                                 Percent Allocated
                               </Text>
                             </HStack>
-                            {row.properties.map(prop => {
-                              const propertyDetails = properties.find(p => p.id === prop.id);
-                              return (
-                                <HStack key={prop.id} spacing={4}>
-                                  <Text fontSize="sm" ml={10} width="20vw">
-                                    {propertyDetails?.name} 
-                                  </Text>
-                                  <HStack width="10vw" spacing={2}>
-                                    <NumberInput
-                                      value={prop.percentage}
-                                      onChange={(_, value) => 
-                                        updatePropertyPercentage(row.id, prop.id, value)
-                                      }
-                                      min={0}
-                                      max={100}
-                                      width="5vw"
-                                    >
-                                      <NumberInputField />
-                                    </NumberInput>
-                                    <Text>%</Text>
+                            {row.properties
+                              .filter(prop => prop.percentage > 0)
+                              .map(prop => {
+                                const propertyDetails = properties.find(p => p.id === prop.id);
+                                return (
+                                  <HStack key={prop.id} spacing={4}>
+                                    <Text fontSize="sm" ml={10} width="20vw">
+                                      {propertyDetails?.name} 
+                                    </Text>
+                                    <HStack width="10vw" spacing={2}>
+                                      <NumberInput
+                                        value={prop.percentage}
+                                        onChange={(_, value) => 
+                                          updatePropertyPercentage(row.id, prop.id, value)
+                                        }
+                                        min={0}
+                                        max={100}
+                                        width="5vw"
+                                      >
+                                        <NumberInputField />
+                                      </NumberInput>
+                                      <Text>%</Text>
+                                    </HStack>
                                   </HStack>
-                                </HStack>
-                              );
-                            })}
+                                );
+                              })}
                           </VStack>
                         </Box>
 

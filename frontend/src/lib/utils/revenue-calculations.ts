@@ -15,11 +15,13 @@ export const getRevenueAllocation = async (propertyIds: string[]): Promise<Reven
     // Calculate total revenue
     const totalRevenue = revenues.reduce((sum, rev) => sum + rev, 0);
     
-    // Calculate percentage for each property
+    // Calculate percentage for each property and round to nearest 0.05 (5%)
     const allocations = propertyIds.map((id, index) => ({
       propertyId: id,
       revenue: revenues[index],
-      percentage: totalRevenue > 0 ? (revenues[index] / totalRevenue) * 100 : 0
+      percentage: totalRevenue > 0 
+        ? Number((Math.round((revenues[index] / totalRevenue * 100) * 20) / 20).toFixed(2))
+        : 0
     }));
 
     return allocations;

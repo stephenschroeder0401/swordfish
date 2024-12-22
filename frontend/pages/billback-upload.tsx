@@ -124,37 +124,62 @@ const BillBack = () => {
                 if(!!job){
                     console.log("Processing job:", job);
                     const billingAccount = billingAccounts.find((account) => account.name === job.category);
-                    const billingProperty = billingProperties.find((property) => property.name === job.property);
+                    
+                    // Check if propertyId starts with 'group-'
+                    const isPropertyGroup = job.propertyId?.startsWith('group-');
+                    let propertyGroup, billingProperty;
+                    
+                    if (isPropertyGroup) {
+                        const groupId = job.propertyId.replace('group-', '');
+                        propertyGroup = propertyGroups.find(group => group.id === groupId);
+                        // If we found a property group, use its name for the property field
+                        if (propertyGroup) {
+                            job.property = propertyGroup.name;
+                        }
+                    } else {
+                        // Try to find as individual property first
+                        billingProperty = billingProperties.find((property) => 
+                            property.name.toLowerCase() === job.property?.toLowerCase()
+                        );
+                        
+                        // If not found as individual property, try to find as property group by name
+                        if (!billingProperty) {
+                            propertyGroup = propertyGroups.find(group => 
+                                group.name.toLowerCase() === job.property?.toLowerCase()
+                            );
+                            
+                            // If found as property group, update propertyId to match group format
+                            if (propertyGroup) {
+                                job.propertyId = `group-${propertyGroup.id}`;
+                                job.property = propertyGroup.name;
+                            }
+                        }
+                    }
 
                     const employee = employees.find((employee) => employee.name === job.employee);
-
-                    const rate = employee ? employee.rate : 0;
+                    const rate = employee ? (Number(employee.rate) || 0) : 0;
 
                     const mileage = (() => {
-                      if (!job) return 0;
-                      
-                      // Try to get mileage from different possible fields
-                      const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
-                      
-                      // Convert to number, default to 0 if NaN
-                      const parsedMileage = Number(mileageValue);
-                      return isNaN(parsedMileage) ? 0 : parsedMileage;
+                        if (!job) return 0;
+                        const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
+                        const parsedMileage = Number(mileageValue);
+                        return isNaN(parsedMileage) ? 0 : parsedMileage;
                     })();
 
                     const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
 
-                    const isError = !(billingAccount && billingProperty);
+                    // Only mark as error if we have neither a valid property group nor a valid property
+                    const isError = (isPropertyGroup ? !propertyGroup : !billingProperty) || !billingAccount;
 
-                    console.log("Found employee: ", employee);
-                    const result = {
+                    return {
                         rowId: uuidv4(),
                         employeeId: employee ? employee.id : undefined,
                         employee: employee ? employee.name : job.employee,
                         job_date: job.date ? job.date : job.job_date,
-                        propertyId: billingProperty ? billingProperty.id : undefined,
-                        property: billingProperty ? billingProperty.name : job.property,
-                        entityId: billingProperty ? billingProperty.entityid : undefined,
-                        entity: billingProperty ? billingProperty.entityName : "Not Found",
+                        propertyId: job.propertyId,
+                        property: job.property,
+                        entityId: !isPropertyGroup ? (billingProperty?.entityid || undefined) : '',
+                        entity: !isPropertyGroup ? (billingProperty?.entityName || "Not Found") : '',
                         billingAccountId: billingAccount ? billingAccount.id : undefined,
                         category: billingAccount ? billingAccount.name : job.category,
                         startTime: job.clockedInAt,
@@ -169,8 +194,6 @@ const BillBack = () => {
                         isError: isError,
                         isManual: false
                     };
-                    console.log("Processed job result:", result);
-                    return result;
                 }
                 return null;
             }).filter(Boolean));
@@ -263,98 +286,113 @@ const BillBack = () => {
 
   // Split processing logic
   const processTimeroJob = (job) => {
-    const billingAccount = billingAccounts.find((account) => account.name === job.category);
-    const billingProperty = billingProperties.find((property) => property.name === job.property);
-    const employee = employees.find((employee) => employee.name === job.employee);
+    // First check if the property name matches a property group
+    const propertyGroup = propertyGroups.find(group => 
+        group.name.toLowerCase() === job.property.toLowerCase()
+    );
     
-    const rate = employee ? employee.rate : 0;
+    const billingAccount = billingAccounts.find((account) => 
+        account.name.toLowerCase() === job.category.toLowerCase()
+    );
     
-    // Safer mileage handling
+    // Only look for individual property if no matching group found
+    const billingProperty = !propertyGroup ? billingProperties.find((property) => 
+        property.name.toLowerCase() === job.property.toLowerCase()
+    ) : null;
+    
+    const employee = employees.find((employee) => 
+        employee.name.toLowerCase() === job.employee.toLowerCase()
+    );
+    
+    const rate = employee ? (Number(employee.rate) || 0) : 0;
     const mileage = (() => {
-      if (!job) return 0;
-      
-      // Try to get mileage from different possible fields
-      const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
-      
-      // Convert to number, default to 0 if NaN
-      const parsedMileage = Number(mileageValue);
-      return isNaN(parsedMileage) ? 0 : parsedMileage;
+        if (!job) return 0;
+        const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
+        const parsedMileage = Number(mileageValue);
+        return isNaN(parsedMileage) ? 0 : parsedMileage;
     })();
 
     const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
 
+    // If we found a property group, use its ID with 'group-' prefix
+    const propertyId = propertyGroup 
+        ? `group-${propertyGroup.id}`
+        : (billingProperty?.id || '');
+
     return {
-      rowId: uuidv4(),
-      employeeId: employee?.id,
-      employee: employee?.name || job.employee,
-      job_date: job.date || job.job_date,
-      propertyId: billingProperty?.id,
-      property: billingProperty?.name || job.property,
-      entityId: billingProperty?.entityid,
-      entity: billingProperty?.entityName || "Not Found",
-      billingAccountId: billingAccount?.id,
-      category: billingAccount?.name || job.category,
-      startTime: job.clockedInAt,
-      endTime: job.clockedOutAt,
-      hours: job.hours,
-      rate,
-      total: laborTotal,
-      billedmiles: mileage,
-      mileageTotal,
-      jobTotal,
-      notes: job.notes,
-      isError: !(billingAccount && billingProperty),
-      isManual: false
+        rowId: uuidv4(),
+        employeeId: employee?.id,
+        employee: employee?.name || job.employee,
+        job_date: job.date || job.job_date,
+        propertyId: propertyId,
+        property: propertyGroup?.name || billingProperty?.name || job.property,
+        entityId: billingProperty?.entityid || '',
+        entity: billingProperty?.entityName || "Not Found",
+        billingAccountId: billingAccount?.id,
+        category: billingAccount?.name || job.category,
+        startTime: job.clockedInAt,
+        endTime: job.clockedOutAt,
+        hours: job.hours,
+        rate,
+        total: laborTotal,
+        billedmiles: mileage,
+        mileageTotal,
+        jobTotal,
+        notes: job.notes,
+        // Only mark as error if we have neither a property group nor a valid property
+        isError: (!propertyGroup && !billingProperty) || !billingAccount,
+        isManual: false
     };
   };
 
   const processManualJob = (job) => {
     const hours = Number(job.hours) || 0;
     
-    // Find matching records
+    const propertyGroup = propertyGroups.find(group => 
+        group.name.toLowerCase() === job.property.toLowerCase()
+    );
+    
     const billingAccount = billingAccounts.find((account) => 
-      account.name.toLowerCase() === job.category.toLowerCase()
+        account.name.toLowerCase() === job.category.toLowerCase()
     );
-    const billingProperty = billingProperties.find((property) => 
-      property.name.toLowerCase() === job.property.toLowerCase()
-    );
+    
+    const billingProperty = !propertyGroup ? billingProperties.find((property) => 
+        property.name.toLowerCase() === job.property.toLowerCase()
+    ) : null;
+    
     const employee = employees.find((employee) => 
-      employee.name.toLowerCase() === job.employee.toLowerCase()
+        employee.name.toLowerCase() === job.employee.toLowerCase()
     );
     
-    // Validation
-    if (!billingProperty) {
-      console.error(`Property not found: ${job.property}`);
-    }
-    if (!billingAccount) {
-      console.error(`Billing account not found: ${job.category}`);
-    }
-    
-    const rate = employee ? employee.rate : 0;
+    const rate = employee ? (Number(employee.rate) || 0) : 0;
     const { laborTotal, mileageTotal, jobTotal } = calculateTotals(hours, rate, 0);
 
+    const propertyId = propertyGroup 
+        ? `group-${propertyGroup.id}`
+        : (billingProperty?.id || '');
+
     return {
-      rowId: uuidv4(),
-      employeeId: employee?.id,
-      employee: employee?.name || job.employee,
-      job_date: job.date,
-      propertyId: billingProperty?.id || '',
-      property: job.property,
-      entityId: billingProperty?.entityid,
-      entity: billingProperty?.entityName || "Not Found",
-      billingAccountId: billingAccount?.id || '',
-      category: job.category,
-      startTime: null,
-      endTime: null,
-      hours,
-      rate,
-      total: laborTotal,
-      billedmiles: 0,
-      mileageTotal: 0,
-      jobTotal,
-      notes: job.notes || '',
-      isError: !billingProperty || !billingAccount,
-      isManual: true
+        rowId: uuidv4(),
+        employeeId: employee?.id,
+        employee: employee?.name || job.employee,
+        job_date: job.date,
+        propertyId: propertyId,
+        property: propertyGroup?.name || billingProperty?.name || job.property,
+        entityId: billingProperty?.entityid || '',
+        entity: billingProperty?.entityName || "Not Found",
+        billingAccountId: billingAccount?.id || '',
+        category: job.category,
+        startTime: null,
+        endTime: null,
+        hours,
+        rate,
+        total: laborTotal,
+        billedmiles: 0,
+        mileageTotal: 0,
+        jobTotal,
+        notes: job.notes || '',
+        isError: (!propertyGroup && !billingProperty) || !billingAccount,
+        isManual: true
     };
   };
 

@@ -37,31 +37,31 @@ const DataManagementTab: React.FC<TabProps> = ({ entities }) => {
       }}
     >
       <TabList height="5vh">
-        <Tab py={1} fontSize="sm">Hourly Billing</Tab>
-        <Tab py={1} fontSize="sm">Employees</Tab>
-        <Tab py={1} fontSize="sm">Properties</Tab>
+        <Tab py={1} fontSize="sm">Billing Categories</Tab>
         <Tab py={1} fontSize="sm">Entities</Tab>
-        <Tab py={1} fontSize="sm">Billing Periods</Tab>
+        <Tab py={1} fontSize="sm">Properties</Tab>
         <Tab py={1} fontSize="sm">Property Units</Tab>
+        <Tab py={1} fontSize="sm">Employees</Tab>
+        <Tab py={1} fontSize="sm">Billing Periods</Tab>
       </TabList>
       <TabPanels flex="1" overflow="hidden">
         <TabPanel h="100%" overflowY="auto" padding={0}>
           <BillingAccountTab />
         </TabPanel>
         <TabPanel h="100%" overflowY="auto" padding={0}>
-          <EmployeesTab />
+          <EntitiesTab />
         </TabPanel>
         <TabPanel h="100%" overflowY="auto" padding={0}>
           <PropertiesTab entities={entities} />
         </TabPanel>
         <TabPanel h="100%" overflowY="auto" padding={0}>
-          <EntitiesTab />
+          <PropertyUnitTab />
+        </TabPanel>
+        <TabPanel h="100%" overflowY="auto" padding={0}>
+          <EmployeesTab />
         </TabPanel>
         <TabPanel h="100%" overflowY="auto" padding={0}>
           <BillingPeriodTab />
-        </TabPanel>
-        <TabPanel h="100%" overflowY="auto" padding={0}>
-          <PropertyUnitTab />
         </TabPanel>
       </TabPanels>
     </Tabs>

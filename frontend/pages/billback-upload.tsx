@@ -110,93 +110,43 @@ const BillBack = () => {
         setIsLoading(true);
         setBillbackData([]);
         try {
-          console.log("Fetching data from fetchBillbackUpload...");
           const data = await fetchBillbackUpload(billingPeriod);
-          console.log("Raw data received:", data);
           
           if (!data || data.upload_data.length < 1) {
-            console.log("No data found, setting empty array");
             setBillbackData([]);
           } else {
-            console.log("Processing upload_data:", data.upload_data);
             const uploadData = data?.upload_data || [];
-            setBillbackData(uploadData.map(job => {
-                if(!!job){
-                    console.log("Processing job:", job);
-                    const billingAccount = billingAccounts.find((account) => account.name === job.category);
-                    
-                    // Check if propertyId starts with 'group-'
-                    const isPropertyGroup = job.propertyId?.startsWith('group-');
-                    let propertyGroup, billingProperty;
-                    
-                    if (isPropertyGroup) {
-                        const groupId = job.propertyId.replace('group-', '');
-                        propertyGroup = propertyGroups.find(group => group.id === groupId);
-                        // If we found a property group, use its name for the property field
-                        if (propertyGroup) {
-                            job.property = propertyGroup.name;
-                        }
-                    } else {
-                        // Try to find as individual property first
-                        billingProperty = billingProperties.find((property) => 
-                            property.name.toLowerCase() === job.property?.toLowerCase()
-                        );
-                        
-                        // If not found as individual property, try to find as property group by name
-                        if (!billingProperty) {
-                            propertyGroup = propertyGroups.find(group => 
-                                group.name.toLowerCase() === job.property?.toLowerCase()
-                            );
-                            
-                            // If found as property group, update propertyId to match group format
-                            if (propertyGroup) {
-                                job.propertyId = `group-${propertyGroup.id}`;
-                                job.property = propertyGroup.name;
-                            }
-                        }
-                    }
-
-                    const employee = employees.find((employee) => employee.name === job.employee);
-                    const rate = employee ? (Number(employee.rate) || 0) : 0;
-
-                    const mileage = (() => {
-                        if (!job) return 0;
-                        const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
-                        const parsedMileage = Number(mileageValue);
-                        return isNaN(parsedMileage) ? 0 : parsedMileage;
-                    })();
-
-                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
-
-                    // Only mark as error if we have neither a valid property group nor a valid property
-                    const isError = (isPropertyGroup ? !propertyGroup : !billingProperty) || !billingAccount;
-
-                    return {
-                        rowId: uuidv4(),
-                        employeeId: employee ? employee.id : undefined,
-                        employee: employee ? employee.name : job.employee,
-                        job_date: job.date ? job.date : job.job_date,
-                        propertyId: job.propertyId,
-                        property: job.property,
-                        entityId: !isPropertyGroup ? (billingProperty?.entityid || undefined) : '',
-                        entity: !isPropertyGroup ? (billingProperty?.entityName || "Not Found") : '',
-                        billingAccountId: billingAccount ? billingAccount.id : undefined,
-                        category: billingAccount ? billingAccount.name : job.category,
-                        startTime: job.clockedInAt,
-                        endTime: job.clockedOutAt,
-                        hours: job.hours,
-                        rate: rate,
-                        total: laborTotal,
-                        billedmiles: mileage,
-                        mileageTotal: mileageTotal,
-                        jobTotal: jobTotal,
-                        notes: job.notes,
-                        isError: isError,
-                        isManual: false
-                    };
+            const processedData = uploadData.map(job => {
+              if(!!job){
+                const billingAccount = billingAccounts.find((account) => account.id === job.billingAccountId);
+                const isPropertyGroup = job.propertyId?.startsWith('group-');
+                let propertyGroup, billingProperty;
+                
+                // Check for valid property/group
+                if (isPropertyGroup) {
+                  propertyGroup = propertyGroups.find(group => `group-${group.id}` === job.propertyId);
+                } else {
+                  billingProperty = billingProperties.find((property) => 
+                    property.name.toLowerCase() === job.property?.toLowerCase()
+                  );
                 }
-                return null;
-            }).filter(Boolean));
+
+                // Set isError based on missing property/group or billing account
+                const isError = (!propertyGroup && !billingProperty) || !billingAccount;
+                
+                return {
+                  ...job,
+                  isError: isError
+                };
+              }
+              return null;
+            }).filter(Boolean);
+
+            setBillbackData(processedData);
+            
+            // Check if any rows have errors
+            const hasErrors = processedData.some(row => row.isError);
+            setIsValid(!hasErrors);
           }
         } catch (error) {
           console.error("Error fetching billback data for billing period", error);
@@ -232,18 +182,20 @@ const BillBack = () => {
         mileageTotal: 0,
         jobTotal: 0,
         notes: "",
-        isError: false,
+        isError: true,
         isManual: true
     };
     console.log("New row data:", newRow);
     setBillbackData([newRow, ...billbackData]);
     setHasUnsavedChanges(true);
+    setIsValid(false);
     console.log("Updated billbackData after add:", billbackData);
   };
 
   const handleClearData =() =>{
     setBillbackData([]);
     setSelectedFile(null);
+    setHasUnsavedChanges(true);
   }
 
   const handleDataProcessed = (newData) => {
@@ -429,13 +381,14 @@ const BillBack = () => {
                 )
             );
         } else {
+            const propertyGroup = propertyGroups.find(group => `group-${group.id}` === value);
             setBillbackData(prevData =>
                 prevData.map(row =>
                     row.rowId === rowId
                         ? { 
                             ...row, 
                             propertyId: value,
-                            property: '',
+                            property: propertyGroup ? propertyGroup.name : '',
                             entityId: '',
                             entity: '',
                             isError: !row.billingAccountId
@@ -469,45 +422,11 @@ const BillBack = () => {
         setBillbackData(prevData =>
             prevData.map(row => {
                 if (row.rowId === rowId) {
-                    const newRow = { 
+                    return { 
                         ...row, 
                         employeeId: selectedEmployeeId,
                         employee: selectedEmployee ? selectedEmployee.name : '',
                         rate: selectedEmployee ? selectedEmployee.rate : 0
-                    };
-                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(
-                        newRow.hours, 
-                        newRow.rate, 
-                        newRow.billedmiles
-                    );
-                    return {
-                        ...newRow,
-                        total: laborTotal,
-                        mileageTotal,
-                        jobTotal
-                    };
-                }
-                return row;
-            })
-        );
-    } else if (field === 'hours' || field === 'rate' || field === 'billedmiles') {
-        setBillbackData(prevData =>
-            prevData.map(row => {
-                if (row.rowId === rowId) {
-                    const newRow = { 
-                        ...row,
-                        [field]: e.target.value
-                    };
-                    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(
-                        field === 'hours' ? parseFloat(e.target.value) : newRow.hours,
-                        field === 'rate' ? parseFloat(e.target.value) : newRow.rate,
-                        field === 'billedmiles' ? parseFloat(e.target.value) : newRow.billedmiles
-                    );
-                    return {
-                        ...newRow,
-                        total: laborTotal,
-                        mileageTotal,
-                        jobTotal
                     };
                 }
                 return row;

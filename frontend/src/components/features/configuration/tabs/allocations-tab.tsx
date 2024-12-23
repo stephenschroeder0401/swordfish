@@ -60,7 +60,7 @@ export const AllocationsTab: React.FC<TabProps> = ({ entities }) => {
       <Tabs>
         <TabList>
           <Tab>Property Groups</Tab>
-          <Tab>Employee Time</Tab>
+          {/* <Tab>Employee Time</Tab> */}
         </TabList>
 
         <TabPanels>

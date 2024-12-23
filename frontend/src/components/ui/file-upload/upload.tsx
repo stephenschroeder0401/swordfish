@@ -125,7 +125,9 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
     const format = detectFileFormat(csvData[0]);
     
     return csvData
-      .filter((row) => Object.values(row).some((value) => value && value.trim() !== ''))
+      .filter((row) => Object.values(row).some((value) => {
+        return value && typeof value === 'string' ? value.trim() !== '' : Boolean(value);
+      }))
       .map((row) => {
         if (format === 'timero') {
           // Handle Timero format
@@ -154,16 +156,28 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
           const minutes = Number(row['Minutes']) || 0;
           const hours = (minutes / 60).toFixed(2);
           
+          // Format the date
+          const formatDate = (dateStr: string) => {
+            if (!dateStr) return '';
+            try {
+              const [month, day, year] = dateStr.split('/');
+              return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            } catch (error) {
+              console.error('Date parsing error:', error);
+              return '';
+            }
+          };
+          
           return {
             employee: row['Employee Name']?.trim() || '',
-            date: row['Date']?.trim() || '',
-            property: row['Property']?.trim() || '', // Maps to property
-            category: row['Category']?.trim() || '', // Maps to billing category
+            date: formatDate(row['Date']?.trim() || ''),
+            property: row['Property']?.trim() || '',
+            category: row['Category']?.trim() || '',
             clockedInAt: null,
             clockedOutAt: null,
             hours: hours,
             mileage: 0,
-            notes: row['Comments'] || row['Task'] || '', // Include Task in notes if no Comments
+            notes: row['Comments'] || row['Task'] || '',
             format: 'manual' as const
           };
         }

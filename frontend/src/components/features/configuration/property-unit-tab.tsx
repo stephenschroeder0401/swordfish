@@ -34,28 +34,12 @@ import { fetchAllPropertiesNoPagination } from '@/lib/data-access';
 
 /* eslint-disable react-hooks/exhaustive-deps */
 
-interface GroupedUnit {
-  property: { name: string; id: string };
-  units: Array<{
-    id: string;
-    unit_name: string;
-    property_id: string;
-    bedrooms: string | number;
-    bathrooms: string | number;
-    rent: string | number;
-  }>;
-  totalUnits: number;
-  totalRent: number;
-  percentageOfTotal: number;
-}
-
 export const PropertyUnitTab = () => {
   const [propertyUnits, setPropertyUnits] = useState([]);
   const [properties, setProperties] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedProperties, setExpandedProperties] = useState<Record<string, boolean>>({});
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
-  const [groupedUnits, setGroupedUnits] = useState<Record<string, GroupedUnit>>({});
   const toast = useToast();
 
   useEffect(() => {
@@ -171,7 +155,7 @@ export const PropertyUnitTab = () => {
     }
   };
 
-  const calculateGroupedUnits = useMemo(() => {
+  const groupedUnits = useMemo(() => {
     const grouped = {};
     let totalRevenue = 0;
 

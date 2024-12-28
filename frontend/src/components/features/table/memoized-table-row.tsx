@@ -93,6 +93,17 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                   </option>
                 ))}
               </Select>
+            ) : column === 'billingRate' || column === 'billingTotal' || column === 'jobTotal' ? (
+              <Text minWidth={"100px"}>
+                {column === 'billingRate' && !item[column] ? item.rate : item[column]}
+                {column === 'billingTotal' && (!item.billingRate || item.billingTotal === 0) ? item.total : item.billingTotal}
+                {column === 'jobTotal' ? 
+                  (
+                    parseFloat((!item.billingTotal || item.billingTotal === 0) ? item.total : item.billingTotal) + 
+                    parseFloat(item.mileageTotal || 0)
+                  ).toFixed(2) 
+                  : null}
+              </Text>
             ) : (
               <Input
                 backgroundColor='white'
@@ -105,7 +116,15 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
               />
             )
           ) : (
-            <Text minWidth={"160px"}>{item[column]}</Text>
+            <Text 
+                minWidth={column === 'notes' ? "500px" : "160px"}
+                maxWidth={column === 'notes' ? "800px" : "auto"}
+                whiteSpace="pre-wrap"
+                overflow="visible"
+                padding="8px"
+            >
+                {item[column]}
+            </Text>
           )}
         </Td>
       ))}

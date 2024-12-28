@@ -54,12 +54,14 @@ const BillBack = () => {
   const [propertyGroups, setPropertyGroups] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const calculateTotals = (hours, rate, mileage) => {
-    console.log('mileage total: ', mileage);
-    const laborTotal = (hours * rate).toFixed(2);
+  const calculateTotals = (hours, laborRate, billingRate, mileage) => {
+    const laborTotal = (hours * laborRate).toFixed(2);
+    const billingTotal = (billingRate && billingRate !== 0) ? 
+        (hours * billingRate).toFixed(2) : 
+        laborTotal;
     const mileageTotal = (mileage * mileageRate).toFixed(2);
-    const jobTotal = ((parseFloat(laborTotal) + parseFloat(mileageTotal)).toFixed(2));
-    return { laborTotal, mileageTotal, jobTotal };
+    const jobTotal = ((parseFloat(billingTotal) + parseFloat(mileageTotal)).toFixed(2));
+    return { laborTotal, billingTotal, mileageTotal, jobTotal };
   };
 
   useEffect(() => {
@@ -177,6 +179,7 @@ const BillBack = () => {
         endTime: "",
         hours: 0,
         rate: 0,
+        billingRate: 0,
         total: 0,
         billedmiles: 0,
         mileageTotal: 0,
@@ -257,6 +260,8 @@ const BillBack = () => {
     );
     
     const rate = employee ? (Number(employee.rate) || 0) : 0;
+    const billingRate = billingAccount ? (Number(billingAccount.rate) || 0) : 0;
+    
     const mileage = (() => {
         if (!job) return 0;
         const mileageValue = job.mileage || job.billedmiles || job.Mileage || '0';
@@ -264,7 +269,12 @@ const BillBack = () => {
         return isNaN(parsedMileage) ? 0 : parsedMileage;
     })();
 
-    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(job.hours, rate, mileage);
+    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+        job.hours, 
+        rate, 
+        billingRate, 
+        mileage
+    );
 
     // If we found a property group, use its ID with 'group-' prefix
     const propertyId = propertyGroup 
@@ -286,8 +296,9 @@ const BillBack = () => {
         endTime: job.clockedOutAt,
         hours: job.hours,
         rate,
+        billingRate,
         total: laborTotal,
-        billedmiles: mileage,
+        billingTotal: billingTotal,
         mileageTotal,
         jobTotal,
         notes: job.notes,
@@ -317,7 +328,14 @@ const BillBack = () => {
     );
     
     const rate = employee ? (Number(employee.rate) || 0) : 0;
-    const { laborTotal, mileageTotal, jobTotal } = calculateTotals(hours, rate, 0);
+    const billingRate = billingAccount ? (Number(billingAccount.rate) || 0) : 0;
+    
+    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+        hours, 
+        rate, 
+        billingRate, 
+        0
+    );
 
     const propertyId = propertyGroup 
         ? `group-${propertyGroup.id}`
@@ -338,9 +356,10 @@ const BillBack = () => {
         endTime: null,
         hours,
         rate,
+        billingRate,
         total: laborTotal,
-        billedmiles: 0,
-        mileageTotal: 0,
+        billingTotal: billingTotal,
+        mileageTotal,
         jobTotal,
         notes: job.notes || '',
         isError: (!propertyGroup && !billingProperty) || !billingAccount,
@@ -452,13 +471,15 @@ const BillBack = () => {
     { column: "property", label: "Property", canSort: false },
     { column: "entity", label: "Entity", canSort: false, canEdit: false },
     { column: "category", label: "Category", canSort: false },
-    { column: "hours", label: "Hours", canSort: false, canEdit: true },
-    { column: "rate", label: "Rate", canSort: false, canEdit: true },
-    { column: "total", label: "Labor Total", canSort: false },
+    { column: "hours", label: "Hours", canSort: false },
+    { column: "rate", label: "Labor Rate", canSort: false },
+    { column: "billingRate", label: "Billing Rate", canSort: false, canEdit: false },
+    { column: "total", label: "Labor Total", canSort: false, canEdit: false },
+    { column: "billingTotal", label: "Billing Total", canSort: false, canEdit: false },
     { column: "billedmiles", label: "Mileage", canSort: false },
-    { column: "mileageTotal", label: "Mileage Total", canSort: false },
-    { column: "jobTotal", label: "Job Total", canSort: false },
-    { column: "notes", label: "Notes", canSort: false, canEdit: false },
+    { column: "mileageTotal", label: "Mileage Total", canSort: false, canEdit: false },
+    { column: "jobTotal", label: "Job Total", canSort: false, canEdit: false },
+    { column: "notes", label: "Notes", canSort: false, width: "300px" }
   ];
 
   const handleSaveProgress = async (notify:boolean) => {

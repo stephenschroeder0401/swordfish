@@ -318,6 +318,7 @@ export const PropertyUnitTab = () => {
                               </Text>
                             </HStack>
                             
+                            {/* @ts-ignore */}
                             {group?.units?.map((unit, index) => (
                               <HStack key={unit.id} spacing={4}>
                                 <Box width="50px" ml={2}>

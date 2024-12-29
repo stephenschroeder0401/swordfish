@@ -152,3 +152,42 @@ export const fetchAllPropertyGroups = async () => {
     throw error;
   }
 };
+
+
+// Add this with the other query functions
+export const fetchMonthlyBillingItems = async () => {
+  const session = await getUserSession();
+  if (!session) throw new Error('No active session');
+
+  console.log("getting montly billing for: ", )
+
+  const { data: monthlyItems, error } = await supabase
+    .from('billing_account')
+    .select(`
+      id,
+      glcode,
+      description,
+      rate,
+      property_group_gl!inner (
+        property_group!inner (
+          id,
+          client_id,
+          property_group_property!inner (
+            percentage,
+            property!inner (
+              code,
+              entity!inner (
+                name
+              )
+            )
+          )
+        )
+      )
+    `)
+    .eq('billing_type', 'Monthly')
+    .eq('property_group_gl.property_group.client_id', session.clientId)
+    .throwOnError();
+
+  if (error) throw error;
+  return monthlyItems || [];
+};

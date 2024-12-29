@@ -21,7 +21,7 @@ import { AppfolioLineItem } from "@/types/billing-types";
 import { saveJobs, fetchJobsAsBillingJob} from "@/lib/data-access/supabase-client";
 import { fetchAllBillingAccounts, fetchAllProperties, 
   fetchAllBillingPeriods, fetchAllPropertiesNoPagination, 
-  fetchAllBillingAccountsNoPagination } from "@/lib/data-access"
+  fetchAllBillingAccountsNoPagination, fetchMonthlyBillingItems } from "@/lib/data-access"
 
 const InvoicesDashboard = () => {
   const [data, setData] = useState<AppfolioLineItem[]>([]);
@@ -115,29 +115,7 @@ const InvoicesDashboard = () => {
         const billbackCategories = await fetchAllBillingAccountsNoPagination();
         
         // Fetch monthly billing items
-        const { data: monthlyItems } = await supabase
-          .from('billing_account')
-          .select(`
-            id,
-            glcode,
-            description,
-            rate,
-            property_group_gl!inner (
-              property_group:property_group_id (
-                property_group_property!inner (
-                  percentage,
-                  property:property_id (
-                    code,
-                    entity:entityid (
-                      name
-                    )
-                  )
-                )
-              )
-            )
-          `)
-          .eq('billing_type', 'Monthly')
-          .throwOnError();
+        const monthlyItems = await fetchMonthlyBillingItems();
 
         // Process hourly items
         const hourlyLineItems = jobs.flatMap((job) => {

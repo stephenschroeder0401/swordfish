@@ -159,8 +159,6 @@ export const fetchMonthlyBillingItems = async () => {
   const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
-  console.log("getting montly billing for: ", )
-
   const { data: monthlyItems, error } = await supabase
     .from('billing_account')
     .select(`
@@ -185,6 +183,7 @@ export const fetchMonthlyBillingItems = async () => {
       )
     `)
     .eq('billing_type', 'Monthly')
+    .eq('isbilledback', true)
     .eq('property_group_gl.property_group.client_id', session.clientId)
     .throwOnError();
 

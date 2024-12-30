@@ -479,7 +479,7 @@ const BillBack = () => {
     { column: "billedmiles", label: "Mileage", canSort: false },
     { column: "mileageTotal", label: "Mileage Total", canSort: false, canEdit: false },
     { column: "jobTotal", label: "Job Total", canSort: false, canEdit: false },
-    { column: "notes", label: "Notes", canSort: false, width: "300px" }
+    { column: "notes", label: "Notes", canSort: false, width: "800px" }
   ];
 
   const handleSaveProgress = async (notify:boolean) => {

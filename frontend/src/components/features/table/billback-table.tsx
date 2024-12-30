@@ -41,7 +41,7 @@ const clearFilters = () => {
   };
 
   return (
-    <Box minWidth="1500px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
+    <Box minWidth="2000px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
       <Box position="sticky" top="0" bg="white" zIndex="sticky" py={2}>
         <Flex ml={4} mb={4} align="center" wrap="wrap" padding={'7px'} gap={4} bg="gray.50" width="100%">
           <Flex align="center" bg="white">

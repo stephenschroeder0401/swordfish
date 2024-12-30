@@ -26,17 +26,40 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
   return (
     <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
-        <Td key={column}>
+        <Td 
+          key={column}
+          width={
+            column === 'notes' 
+              ? '300px'
+            : ['property', 'entity'].includes(column)
+              ? '210px'
+            : ['rate', 'billingRate'].includes(column)
+              ? '120px'
+            : ['total', 'billingTotal', 'mileageTotal'].includes(column)
+              ? '130px'
+            : ['hours', 'jobTotal', 'billedmiles'].includes(column)
+              ? '80px'
+            : 'auto'
+          }
+          height="auto"
+          whiteSpace={column === 'notes' ? 'normal' : 'nowrap'}
+          overflow="visible"
+        >
           {column === 'delete' ? (
-            <CloseIcon color={'red.200'} width={'2vw'} onClick={(e) => handleDelete(e, rowKey)} _hover={{
-              color: 'red.700',
-              transform: 'scale(1.2)',
-            }}/>
+            <CloseIcon 
+              color={'red.200'} 
+              width={'16px'}
+              onClick={(e) => handleDelete(e, rowKey)} 
+              _hover={{
+                color: 'red.700',
+                transform: 'scale(1.2)',
+              }}
+            />
           ) : canEdit !== false ? (
             column === 'property' ? (
               <Select
-                width="10vw"
-                minWidth={'160px'}
+                width="160px"
+                minWidth="160px"
                 backgroundColor='white'
                 value={item.propertyId}
                 onChange={(e) => handleEdit(e, rowKey, 'property', tableType)}
@@ -63,12 +86,12 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
               </Select>
             ) : column === 'category' ? (
               <Select
+                width="165px"
+                minWidth="165px"
                 backgroundColor='white'
                 value={item.billingAccountId}
                 onChange={(e) => handleEdit(e, rowKey, 'category', tableType)}
                 size="sm"
-                width={'10vw'}
-                minWidth={'165px'}
                 placeholder={item.category ? `NOT FOUND ${item.category}` : 'Select category'}
               >
                 {getAvailableBillingAccounts().map((account, idx) => (
@@ -79,12 +102,12 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
               </Select>
             ) : column === 'employee' ? (
               <Select
+                width="160px"
+                minWidth="160px"
                 backgroundColor='white'
                 value={item.employeeId}
                 onChange={(e) => handleEdit(e, rowKey, 'employee', tableType)}
                 size="sm"
-                width='9.5vw'
-                minWidth={'160px'}
                 placeholder="Select employee"
               >
                 {employees.map((employee, idx) => (
@@ -94,7 +117,11 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 ))}
               </Select>
             ) : column === 'billingRate' || column === 'billingTotal' || column === 'jobTotal' ? (
-              <Text minWidth={"100px"}>
+              <Text 
+                width="80px"
+                overflow="hidden"
+                textOverflow="ellipsis"
+              >
                 {column === 'billingRate' && !item[column] ? item.rate : item[column]}
                 {column === 'billingTotal' && (!item.billingRate || item.billingTotal === 0) ? item.total : item.billingTotal}
                 {column === 'jobTotal' ? 
@@ -105,25 +132,39 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                   : null}
               </Text>
             ) : (
-              <Input
-                backgroundColor='white'
-                width={column === 'job_date' ? '7vw' : '5.5vw'}
-                minWidth={column === 'job_date' ? '130px' : '65px'}
-                type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
-                value={item[column]}
-                onChange={(e) => handleEdit(e, rowKey, column, tableType)}
-                size="sm"
-              />
+              column === 'notes' ? (
+                <textarea 
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'white',
+                    padding: '8px',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '4px',
+                    minHeight: '60px',
+                    height: 'auto',
+                    resize: 'vertical'
+                  }}
+                  value={item[column]}
+                  onChange={(e) => handleEdit(e, rowKey, column, tableType)}
+                />
+              ) : (
+                <Input 
+                  backgroundColor='white'
+                  width="100%"
+                  type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
+                  value={item[column]}
+                  onChange={(e) => handleEdit(e, rowKey, column, tableType)}
+                  size="sm"
+                />
+              )
             )
           ) : (
             <Text 
-                minWidth={column === 'notes' ? "500px" : "160px"}
-                maxWidth={column === 'notes' ? "800px" : "auto"}
-                whiteSpace="pre-wrap"
-                overflow="visible"
-                padding="8px"
+              width={column === 'notes' ? "800px" : "80px"}
+              whiteSpace={column === 'notes' ? "normal" : "nowrap"}
+              overflow="visible"
             >
-                {item[column]}
+              {item[column]}
             </Text>
           )}
         </Td>

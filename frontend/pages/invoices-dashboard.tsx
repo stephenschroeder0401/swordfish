@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Text,
   Box,
@@ -10,7 +10,13 @@ import {
   Heading,
   Button,
   Select,
-  SimpleGrid
+  SimpleGrid,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanel,
+  TabPanels,
+  Checkbox
 } from "@chakra-ui/react";
 import { supabase } from '@/lib/data-access/supabase-client';
 import TableDisplay from "@/components/features/table/table-display";
@@ -22,37 +28,72 @@ import { saveJobs, fetchJobsAsBillingJob} from "@/lib/data-access/supabase-clien
 import { fetchAllBillingAccounts, fetchAllProperties, 
   fetchAllBillingPeriods, fetchAllPropertiesNoPagination, 
   fetchAllBillingAccountsNoPagination, fetchMonthlyBillingItems } from "@/lib/data-access"
+import debounce from 'lodash/debounce';
 
 const InvoicesDashboard = () => {
+  const [hourlyLineItems, setHourlyLineItems] = useState([]);
+  const [monthlyLineItems, setMonthlyLineItems] = useState([]);
   const [data, setData] = useState<AppfolioLineItem[]>([]);
   const [billbackName, setBillbackName] = useState("");  
   const [payeeName, setPayeeName] = useState("");  
   const [billDate, setBillDate] = useState("");
+  const [includeGLDescription, setIncludeGLDescription] = useState(true);
   const { billingPeriod } = useBillingPeriod(); 
+  const [separateByEntity, setSeparateByEntity] = useState(true);
 
+  // Create debounced update functions with shorter delay
+  const debouncedUpdateBillback = useMemo(
+    () => debounce((name: string) => {
+      setBillbackName(name);
+    }, 200),
+    []
+  );
+
+  const debouncedUpdatePayee = useMemo(
+    () => debounce((name: string) => {
+      setPayeeName(name);
+    }, 200),
+    []
+  );
+
+  const debouncedUpdateBillDate = useMemo(
+    () => debounce((date: string) => {
+      setBillDate(date);
+    }, 200),
+    []
+  );
+
+  // Update the input handlers
+  const handleBillbackChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value || '';  // Handle null case
+    debouncedUpdateBillback(e.target.value);
+  };
+
+  const handlePayeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value || '';
+    debouncedUpdatePayee(e.target.value);
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value || '';
+    debouncedUpdateBillDate(e.target.value);
+  };
 
   const updateDataWithState = () => {
     const newData = data.map(item => ({
       ...item,
-      // Update fields based on state variables
-      
-      payeeName: payeeName,  // Assuming you want to set all items to the same payeeName
+      payeeName: payeeName,
       billDescription: billbackName ? `${billbackName}: ${item.billingAccountCategory}` : item.billDescription,
-      billDate: billDate, // Set bill date for all items
-      dueDate: billDate, // Set due date for all items
-      billReference: billbackName, // Set bill reference for all items
-      billRemarks: billbackName, // Set bill remarks for all items
-      memoForCheck: billbackName, // Set memo for check for all items
+      billDate: billDate,
+      dueDate: billDate,
+      billReference: billbackName,
+      billRemarks: billbackName,
+      memoForCheck: billbackName,
     }));
   
     setData(newData);
   };
   
-  useEffect(() => {
-    updateDataWithState();
-  }, [billbackName, payeeName, billDate]); // Add any other state variables as needed
-  
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -68,7 +109,12 @@ const InvoicesDashboard = () => {
   
 
     const tableConfig: TableConfigItem[] = [
-      { column: "billPropertyCode", label: "Bill Property Code", canSort: false },
+      { 
+        column: "billPropertyCode", 
+        label: "Bill Property Code", 
+        canSort: false,
+        width: "30vw"
+      },
       { column: "entity", label: "Entity", canSort: false },
       { 
         column: "amount", 
@@ -86,25 +132,28 @@ const InvoicesDashboard = () => {
   const updateBillbackName = (name: string) => {
     setBillbackName(name);
     const newData: AppfolioLineItem[] = data.map((item) => {
-
-
-      const newName = item.billingAccountCategory? `${name}: ${item.billingAccountCategory}` : name;
+      const newName = includeGLDescription && item.billingAccountCategory 
+        ? `${name}: ${item.billingAccountCategory}` 
+        : name;
 
       return {
         ...item,
         billDescription: newName, 
       };
     });
-
     setData(newData);
   }
-  
-    
+
+  const handleGLDescriptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIncludeGLDescription(e.target.checked);
+    updateBillbackName(billbackName);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       if (!billingPeriod) {
-        setData([]); 
+        setHourlyLineItems([]);
+        setMonthlyLineItems([]);
         return;
       }
 
@@ -118,10 +167,14 @@ const InvoicesDashboard = () => {
         const monthlyItems = await fetchMonthlyBillingItems();
 
         // Process hourly items
-        const hourlyLineItems = jobs.flatMap((job) => {
+        const hourlyItems = jobs.flatMap((job) => {
           const account = billbackCategories.find((account) => account.id == job.billing_account_id);
           const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
           const property = billingProperties.find((property) => property.id == job.property_id);
+
+          const billDescription = includeGLDescription 
+            ? (billbackName ? `${billbackName}: ${account?.description}` : account?.description)
+            : '';
 
           const baseLineItem = {
             billPropertyCode: property?.code,
@@ -143,7 +196,7 @@ const InvoicesDashboard = () => {
             items.push({
               ...baseLineItem,
               amount: Number(job.total),
-              billDescription: account?.description,
+              billDescription: billDescription,
             });
           }
 
@@ -151,7 +204,7 @@ const InvoicesDashboard = () => {
             items.push({
               ...baseLineItem,
               amount: Number(job.milage_total),
-              billDescription: `Mileage: ${account?.description}`,
+              billDescription: billbackName ? `${billbackName}: Mileage: ${account?.description}` : `Mileage: ${account?.description}`,
             });
           }
 
@@ -159,7 +212,7 @@ const InvoicesDashboard = () => {
         });
 
         // Process monthly items
-        const monthlyLineItems = monthlyItems.flatMap(item => 
+        const monthlyLineItemsObj = monthlyItems.flatMap(item => 
           item.property_group_gl.flatMap(groupGl => 
             groupGl.property_group.property_group_property.map(propertyAllocation => ({
               billPropertyCode: propertyAllocation.property.code,
@@ -168,7 +221,9 @@ const InvoicesDashboard = () => {
               payeeName: payeeName,
               amount: (propertyAllocation.percentage * 0.01) * item.rate,
               billAccountCode: item.glcode,
-              billDescription: `Monthly: ${item.description}`,
+              billDescription: includeGLDescription
+                ? (billbackName ? `${billbackName}: Monthly: ${item.description}` : `Monthly: ${item.description}`)
+                : '',
               billDate: billDate,
               dueDate: billDate,
               billReference: billbackName,
@@ -177,17 +232,45 @@ const InvoicesDashboard = () => {
               billingAccountCategory: item.description
             }))
           )
-        );
+        ).reduce((acc, curr) => {
+          const key = `${curr.billPropertyCode}-${curr.billAccountCode}`;
+          if (!acc[key]) {
+            acc[key] = curr;
+          } else {
+            acc[key].amount += curr.amount;
+          }
+          return acc;
+        }, {});
 
-        // Combine both types of line items
-        setData([...hourlyLineItems, ...monthlyLineItems]);
+        // In your useEffect where we process the data
+        const hourlyItemsObj = hourlyItems.reduce((acc, curr) => {
+          // Create a key combining property, bill account, and description
+          const key = `${curr.billPropertyCode}-${curr.billAccountCode}-${curr.billDescription}`;
+          
+          if (!acc[key]) {
+            // First time seeing this combo
+            acc[key] = curr;
+          } else {
+            // We've seen this before, sum up the amounts
+            acc[key].amount += curr.amount;
+          }
+          
+          return acc;
+        }, {});
+
+        // Convert back to array before setting state
+        setHourlyLineItems(Object.values(hourlyItemsObj));
+
+        // Set separate states
+        setMonthlyLineItems(Object.values(monthlyLineItemsObj));
+
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
 
     fetchData();
-  }, [billingPeriod, billbackName, payeeName, billDate]);
+  }, [billingPeriod, billbackName, payeeName, billDate, includeGLDescription]);
 
   const convertToCSV = (objArray: AppFolioLineItem[]) => {
     if (!objArray.length) return '';
@@ -211,11 +294,27 @@ const InvoicesDashboard = () => {
     // Generate the header row from the headerMap values
     const headers = Object.values(headerMap).join(',') + '\r\n';
   
-    // Generate each data row
+    // Add this function to properly escape CSV fields
+    const escapeCSVField = (field: any, key?: string) => {
+      if (field === null || field === undefined) return '';
+      
+      // Round amount to nearest 100th (2 decimal places)
+      if (key === 'amount') {
+        return Number(field).toFixed(2);
+      }
+
+      const stringField = String(field);
+      if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+        return `"${stringField.replace(/"/g, '""')}"`;
+      }
+      return stringField;
+    };
+  
+    // Generate each data row with escaped fields
     const rows = objArray.map(obj => {
-      return Object.keys(headerMap) // Use the keys from headerMap to ensure correct order
-        .map(key => obj[key]) // Retrieve each value in the specified order
-        .join(','); // Join each value with a comma
+      return Object.keys(headerMap)
+        .map(key => escapeCSVField(obj[key], key))
+        .join(',');
     }).join('\r\n');
   
     return headers + rows;
@@ -223,120 +322,215 @@ const InvoicesDashboard = () => {
   
 
   const exportCSVFile = () => {
-    const entityGroups = data.reduce((acc, lineItem) => {
-      // Group data by entity
-      const key = lineItem.entity;
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(lineItem);
-      return acc;
-    }, {});
-  
-    Object.keys(entityGroups).forEach(entity => {
-      // Convert each group to CSV
-      const csvStr = convertToCSV(entityGroups[entity]);
+    const combinedData = [...hourlyLineItems, ...monthlyLineItems].map(item => ({
+      ...item,
+      billDescription: includeGLDescription 
+        ? item.billDescription
+        : billbackName
+    }));
+    
+    console.log("Exporting data: ", combinedData);
+
+    if (separateByEntity) {
+      // Existing entity separation logic
+      const entityGroups = combinedData.reduce((acc, lineItem) => {
+        const key = lineItem.entity;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(lineItem);
+        return acc;
+      }, {});
+
+      Object.keys(entityGroups).forEach(entity => {
+        const csvStr = convertToCSV(entityGroups[entity]);
+        const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const firstItem = entityGroups[entity][0];
+        const formattedBillDate = firstItem.billDate.replace(/-/g, '');
+        const fileName = `${entity}_${formattedBillDate}.csv`;
+        
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    } else {
+      // Single file export
+      const csvStr = convertToCSV(combinedData);
       const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-  
-      // Format file name to include the entity and bill date
-      // Assuming billDate is consistent across all items in a single entity group
-      const firstItem = entityGroups[entity][0];
-      const formattedBillDate = firstItem.billDate.replace(/-/g, '');
-      const fileName = `${entity}_${formattedBillDate}.csv`;
-  
-      // Create and trigger download
+      
+      // Use the bill date from first item for the filename
+      const formattedBillDate = combinedData[0]?.billDate.replace(/-/g, '') || 'export';
+      const fileName = `combined_${formattedBillDate}.csv`;
+      
       const link = document.createElement('a');
       link.setAttribute('href', url);
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    });
+    }
   };
-  /*
-  <SimpleGrid mt={5}columns={2}>
-        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
-        <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
-          <FormControl>
-            <FormLabel color="gray.800" fontWeight={600} mb={1}>Timero Upload:</FormLabel>
-            <CSVUpload style={{ width: '180px' }} disabled={!billingPeriod} onDataProcessed={handleDataProcessed} />
-          </FormControl>
-        </Card>
-        </Flex>
-        <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
-        <Heading color="gray.700" mt={4} ml={1} mr={5}>
-          Billback Upload
-        </Heading>
-        </Flex>
-      </SimpleGrid>*/
   
 
+  // Create a version without date columns for Hourly and Monthly tabs
+  const baseTableConfig = tableConfig.filter(config => 
+    !['billDate', 'dueDate'].includes(config.column)
+  );
+
   return (
-    <Container maxW='5000px' py={5}>
-      <SimpleGrid mt={5}columns={2}>
-        <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
-        </Flex>
-      <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
-      <Heading as="h1" size="xl" mb={6}>
-        Invoice Line Items
-      </Heading>  
-
-      </Flex>
-      </SimpleGrid>
-      <SimpleGrid columns={2}>
-      <Flex direction="row" justifyContent="left" my="4" ml={0}>
-        <Box mr={4}>
-          <Text fontWeight="bold" mb={2}>Billback Name</Text>
-          <Input
-            placeholder="Billback Name"
-            value={billbackName}
-            onChange={(e) => updateBillbackName(e.target.value)}
-            width="auto"
-          />
-        </Box>
-        <Box mr={4}>
-          <Text fontWeight="bold" mb={2}>Payee Name</Text>
-          <Input
-            placeholder="Payee Name"
-            value={payeeName}
-            onChange={(e) => setPayeeName(e.target.value)}
-            width="auto"
-          />
-        </Box>
-        <Box>
-          <Text fontWeight="bold" mb={2}>Bill Date</Text>
-          <Input
-            placeholder="Bill Date"
-            type="date"
-            value={billDate}
-            onChange={(e) => setBillDate(e.target.value)}
-            width="auto"
-          />
-        </Box>
-      </Flex>
-      <Flex justifyContent={"right"} alignItems={"flex-end"}>
-      <Button colorScheme="green"
-          bg={'green.500'} onClick={exportCSVFile} mb={4}>
-        Export to CSV
-      </Button>
-      </Flex>
-      </SimpleGrid>
-      <Box
-        overflowX="auto"
-        border="1px"
-        borderColor="gray.200"
-        borderRadius="lg"
+    <Box h="100vh" display="flex" flexDirection="column">
+      <Flex 
+        bg="white" 
+        borderBottom="1px" 
+        borderColor="gray.200" 
+        p={4}
+        h="7vh"
+        alignItems="center"
+        pb="3vh"
+        position="sticky"
+        top={0}
+        zIndex={10}
       >
+        <Heading as="h1" size="lg">
+          Invoices
+        </Heading>
+      </Flex>
 
-        <TableDisplay
-         tableConfig ={tableConfig}
-          data={data}
-          handleSort={handleSort}
-          
-        />
+      <Box flex="1" display="flex" flexDirection="column" overflow="hidden">
+        <Tabs 
+          variant="enclosed" 
+          display="flex"
+          flexDirection="column"
+          h="100%"
+          sx={{
+            '.chakra-tabs__tab[aria-selected=true]': {
+              color: 'green.700',
+              borderColor: 'green.700',
+              borderBottomColor: 'transparent'
+            },
+            '.chakra-tabs__tab:hover': {
+              color: 'green.600'
+            },
+            '.chakra-tabs__tab-panel': {
+              padding: 0,
+              overflowY: 'auto'
+            }
+          }}
+        >
+          <TabList height="5vh" bg="white" position="sticky" top={0} zIndex={1}>
+            <Tab py={1} fontSize="lg">Hourly Costs</Tab>
+            <Tab py={1} fontSize="lg">Monthly Allocated Costs</Tab>
+            <Tab py={1} fontSize="lg">Export</Tab>
+          </TabList>
+
+          <TabPanels flex="1" overflow="hidden">
+            <TabPanel h="100%" p={0}>
+              <Box p={4}>
+                <TableDisplay
+                  tableConfig={baseTableConfig}
+                  data={hourlyLineItems}
+                  handleSort={handleSort}
+                  sortField=""
+                  sortDirection=""
+                />
+                <Box mb="155px" />
+              </Box>
+            </TabPanel>
+
+            <TabPanel h="100%" p={0}>
+              <Box p={4}>
+                <TableDisplay
+                  tableConfig={baseTableConfig}
+                  data={monthlyLineItems}
+                  handleSort={handleSort}
+                  sortField=""
+                  sortDirection=""
+                />
+                <Box mb="155px" />
+              </Box>
+            </TabPanel>
+
+            <TabPanel h="100%" p={0}>
+              <Box p={2} position="relative">
+                <Box position="absolute" left={4} right={4} bg="white" zIndex={3}>
+                  <Box width="100%" mb={6} mt={4}>  
+                    <Box width="100%" mb={4} pb={4} borderBottom="1px" borderColor="gray.200">  
+                      <SimpleGrid columns={2} spacing={10}>
+                        <Flex direction="row" gap={4}>
+                          <Flex alignItems="center" gap={2}>
+                            <Checkbox 
+                              isChecked={includeGLDescription}
+                              onChange={handleGLDescriptionChange}
+                              size="sm"
+                            >
+                              <Text fontSize="xs" color="gray.500">Include GL Description</Text>
+                            </Checkbox>
+                            <Input
+                              placeholder="Enter billback name"
+                              onChange={handleBillbackChange}
+                              width="300px"
+                            />
+                          </Flex>
+                          <Input
+                            placeholder="Enter payee name"
+                            onChange={handlePayeeChange}
+                            width="300px"
+                          />
+                          <Input
+                            type="date"
+                            onChange={handleDateChange}
+                            width="300px"
+                          />
+                        </Flex>
+                        <Flex justifyContent="flex-end" gap={4} alignItems="center">
+                          <Checkbox 
+                            isChecked={separateByEntity}
+                            onChange={(e) => setSeparateByEntity(e.target.checked)}
+                            size="sm"
+                          >
+                            <Text fontSize="xs" color="gray.500">Separate by Entity</Text>
+                          </Checkbox>
+                          <Button 
+                            onClick={exportCSVFile} 
+                            colorScheme="green"
+                          >
+                            Export to CSV
+                          </Button>
+                        </Flex>
+                      </SimpleGrid>
+                    </Box>
+
+                    <Box overflowX="auto">
+                      <Box minWidth="2000px">
+                        <TableDisplay
+                          tableConfig={tableConfig}
+                          data={[...hourlyLineItems, ...monthlyLineItems].map(item => ({
+                            ...item,
+                            billDescription: includeGLDescription 
+                              ? item.billDescription 
+                              : billbackName
+                          }))}
+                          handleSort={handleSort}
+                          sortField=""
+                          sortDirection=""
+                        />
+                      </Box>
+                    </Box>
+                    <Box mb="155px" />
+                  </Box>
+                </Box>
+              </Box>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

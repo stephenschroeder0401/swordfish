@@ -65,7 +65,7 @@ const AdminPanel = () => {
               borderColor: 'green.700',
               borderBottomColor: 'transparent'
             },
-            '.chakra-tabs__tab:hover': {
+          '.chakra-tabs__tab:hover': {
               color: 'green.600'
             },
             '.chakra-tabs__tab-panel': {

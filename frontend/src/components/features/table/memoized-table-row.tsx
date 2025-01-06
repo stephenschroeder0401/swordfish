@@ -6,7 +6,6 @@ import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 //eslint-disable-next-line
 const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType, propertyGroups }) => {
 
-  console.log('employeeId:', item.employeeId);
   
   // Function to get available billing accounts based on property selection
   const getAvailableBillingAccounts = () => {
@@ -30,13 +29,19 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
           key={column}
           width={
             column === 'notes' 
-              ? '300px'
+              ? '2000px'
             : ['property', 'entity'].includes(column)
               ? '210px'
-            : ['rate', 'billingRate'].includes(column)
-              ? '120px'
-            : ['total', 'billingTotal', 'mileageTotal'].includes(column)
-              ? '130px'
+            : column === 'rate'
+              ? '200px'
+            : column === 'billingRate'
+              ? '160px'
+            : column === 'billingTotal'
+              ? '160px'
+            : column === 'mileageTotal'
+              ? '160px'
+            : column === 'total'
+              ? '160px'
             : ['hours', 'jobTotal', 'billedmiles'].includes(column)
               ? '80px'
             : 'auto'

@@ -18,7 +18,7 @@ import {
   Checkbox,
 } from '@chakra-ui/react';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
-import { fetchAllBillingAccounts, upsertBillingAccounts } from '@/lib/data-access/';
+import { fetchAllBillingAccounts, upsertBillingAccounts, deleteBillingAccount } from '@/lib/data-access/';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@chakra-ui/react';
 
@@ -112,8 +112,41 @@ const BillingAccountTab = () => {
     setTableData([emptyRow, ...tableData]);
   };
 
-  const handleDeleteRow = (index) => {
-    setTableData(prev => prev.filter((_, i) => i !== index));
+  const handleDeleteRow = async (index) => {
+    const row = tableData[index];
+    
+    // Only call delete if it's an existing record (has an ID)
+    if (row.id) {
+      setIsLoading(true);
+      try {
+        await deleteBillingAccount(row.id);
+        setTableData(prev => prev.filter((_, i) => i !== index));
+        
+        toast({
+          title: 'Success',
+          description: 'Billing account deleted successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+          position: 'top'
+        });
+      } catch (error) {
+        console.error('Error deleting billing account:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+          position: 'top'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // For new unsaved rows, just remove from UI
+      setTableData(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleSaveChanges = async () => {

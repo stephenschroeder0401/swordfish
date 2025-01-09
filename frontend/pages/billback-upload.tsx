@@ -54,13 +54,15 @@ const BillBack = () => {
   const [propertyGroups, setPropertyGroups] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const calculateTotals = (hours, laborRate, billingRate, mileage) => {
+  const calculateTotals = (hours, laborRate, billingRate, mileage, isBilledBack = true) => {
     const laborTotal = (hours * laborRate).toFixed(2);
-    const billingTotal = (billingRate && billingRate !== 0) ? 
+    const billingTotal = isBilledBack ? 
         (hours * billingRate).toFixed(2) : 
-        laborTotal;
+        "0.00";
     const mileageTotal = (mileage * mileageRate).toFixed(2);
-    const jobTotal = ((parseFloat(billingTotal) + parseFloat(mileageTotal)).toFixed(2));
+    const jobTotal = isBilledBack ? 
+        ((parseFloat(billingTotal) + parseFloat(mileageTotal)).toFixed(2)) :
+        "0.00";
     return { laborTotal, billingTotal, mileageTotal, jobTotal };
   };
 
@@ -381,85 +383,60 @@ const BillBack = () => {
     setHasUnsavedChanges(true);
     console.log("Editing:", { value: e.target.value, rowId, field, tableType });
     
-    if (field === 'property') {
-        const value = e.target.value;
-        if (!value.startsWith('group-')) {
-            const selectedProperty = billingProperties.find(prop => prop.id === value);
-            setBillbackData(prevData =>
-                prevData.map(row =>
-                    row.rowId === rowId
-                        ? { 
-                            ...row, 
-                            propertyId: value,
-                            property: selectedProperty ? selectedProperty.name : '',
-                            entityId: selectedProperty ? selectedProperty.entityid : '',
-                            entity: selectedProperty ? selectedProperty.entityName : '',
-                            isError: !selectedProperty || !row.billingAccountId
-                        }
-                        : row
-                )
-            );
-        } else {
-            const propertyGroup = propertyGroups.find(group => `group-${group.id}` === value);
-            setBillbackData(prevData =>
-                prevData.map(row =>
-                    row.rowId === rowId
-                        ? { 
-                            ...row, 
-                            propertyId: value,
-                            property: propertyGroup ? propertyGroup.name : '',
-                            entityId: '',
-                            entity: '',
-                            isError: !row.billingAccountId
-                        }
-                        : row
-                )
-            );
-        }
-    } else if (field === 'category') {
-        const selectedAccountId = e.target.value;
-        const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
-        
-        setBillbackData(prevData =>
-            prevData.map(row => {
-                if (row.rowId === rowId) {
-                    const isPropertyGroup = row.propertyId?.startsWith('group-');
-                    return { 
-                        ...row, 
+    setBillbackData(prevData =>
+        prevData.map(row => {
+            if (row.rowId === rowId) {
+                let updatedRow = { ...row };
+                
+                if (field === 'category') {
+                    const selectedAccountId = e.target.value;
+                    const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
+                    
+                    // Debug logging with correct property name
+                    console.log("Selected Account:", {
+                        id: selectedAccount?.id,
+                        name: selectedAccount?.name,
+                        isbilledback: selectedAccount?.isbilledback,
+                        rate: selectedAccount?.rate
+                    });
+
+                    // Check lowercase isbilledback
+                    const isBilledBack = selectedAccount?.isbilledback === true || selectedAccount?.isbilledback === 1;
+                    
+                    const effectiveBillingRate = isBilledBack ? Number(selectedAccount.rate) : 0;
+
+                    updatedRow = {
+                        ...updatedRow,
                         billingAccountId: selectedAccountId,
                         category: selectedAccount ? selectedAccount.name : '',
-                        isError: isPropertyGroup ? !selectedAccountId : (!selectedAccountId || !row.propertyId)
+                        billingRate: effectiveBillingRate,
+                        isError: !selectedAccountId || !row.propertyId
                     };
-                }
-                return row;
-            })
-        );
-    } else if (field === 'employee') {
-        const selectedEmployeeId = e.target.value;
-        const selectedEmployee = employees.find(emp => emp.id === selectedEmployeeId);
-        
-        setBillbackData(prevData =>
-            prevData.map(row => {
-                if (row.rowId === rowId) {
-                    return { 
-                        ...row, 
-                        employeeId: selectedEmployeeId,
-                        employee: selectedEmployee ? selectedEmployee.name : '',
-                        rate: selectedEmployee ? selectedEmployee.rate : 0
+
+                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+                        row.hours,
+                        row.rate,
+                        effectiveBillingRate,
+                        row.billedmiles,
+                        isBilledBack
+                    );
+                    
+                    updatedRow = {
+                        ...updatedRow,
+                        total: laborTotal,
+                        billingTotal: billingTotal,
+                        mileageTotal: mileageTotal,
+                        jobTotal: jobTotal
                     };
+                } else {
+                    updatedRow = { ...row, [field]: e.target.value };
                 }
-                return row;
-            })
-        );
-    } else {
-        setBillbackData(prevData =>
-            prevData.map(row =>
-                row.rowId === rowId
-                    ? { ...row, [field]: e.target.value }
-                    : row
-            )
-        );
-    }
+
+                return updatedRow;
+            }
+            return row;
+        })
+    );
   };
 
 

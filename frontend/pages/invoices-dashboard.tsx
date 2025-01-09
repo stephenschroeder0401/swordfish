@@ -29,6 +29,9 @@ import { fetchAllBillingAccounts, fetchAllProperties,
   fetchAllBillingPeriods, fetchAllPropertiesNoPagination, 
   fetchAllBillingAccountsNoPagination, fetchMonthlyBillingItems } from "@/lib/data-access"
 import debounce from 'lodash/debounce';
+import { 
+  fetchAllBillingAccountsIncludingDeleted 
+} from "@/lib/data-access/billing-accounts";
 
 const InvoicesDashboard = () => {
   const [hourlyLineItems, setHourlyLineItems] = useState([]);
@@ -161,7 +164,7 @@ const InvoicesDashboard = () => {
         // Fetch hourly jobs
         const jobs = await fetchJobsAsBillingJob(billingPeriod);
         const billingProperties = await fetchAllPropertiesNoPagination();
-        const billbackCategories = await fetchAllBillingAccountsNoPagination();
+        const billbackCategories = await fetchAllBillingAccountsIncludingDeleted();
         
         // Fetch monthly billing items
         const monthlyItems = await fetchMonthlyBillingItems();

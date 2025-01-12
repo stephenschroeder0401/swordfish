@@ -16,7 +16,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
-import { fetchAllEntities, upsertEntities } from '@/lib/data-access';
+import { fetchAllEntities, upsertEntities, deleteEntity } from '@/lib/data-access';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@chakra-ui/react';
 
@@ -77,8 +77,30 @@ const EntitiesTab = () => {
     setTableData([emptyRow, ...tableData]);
   };
 
-  const handleDeleteRow = (index) => {
-    setTableData(prev => prev.filter((_, i) => i !== index));
+  const handleDeleteRow = async (index) => {
+    try {
+      const row = tableData[index];
+      if (row.id) {
+        await deleteEntity(row.id);
+        toast({
+          title: 'Success',
+          description: 'Entity deleted successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+      setTableData(prev => prev.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error('Error deleting entity:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete entity',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleSaveChanges = async () => {

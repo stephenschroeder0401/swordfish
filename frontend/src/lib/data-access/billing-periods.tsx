@@ -16,7 +16,8 @@ export const fetchAllBillingPeriods = async (): Promise<BillingPeriod[]> => {
   const { data, error } = await supabase
     .from('billing_period')
     .select("*")
-    .eq('client_id', session.clientId);
+    .eq('client_id', session.clientId)
+    .eq('is_deleted', false);
 
   if (error) {
     console.error("Error fetching billing periods:", error);
@@ -48,17 +49,20 @@ export const upsertBillingPeriods = async (billingPeriods: Partial<BillingPeriod
   return data;
 };
 
-export const deleteBillingPeriod = async (id: string): Promise<void> => {
-  const session = await getUserSession();
+export const deleteBillingPeriod = async (id: string) => {
+  try {
+    const session = await getUserSession();
+    
+    const { error } = await supabase
+      .from('billing_period')
+      .update({ is_deleted: true })
+      .eq('id', id)
+      .eq('client_id', session.clientId);
 
-  const { error } = await supabase
-    .from('billing_period')
-    .delete()
-    .eq('id', id)
-    .eq('client_id', session.clientId);
-
-  if (error) {
-    console.error("Error deleting billing period:", error);
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting billing period:', error);
     throw error;
   }
 };

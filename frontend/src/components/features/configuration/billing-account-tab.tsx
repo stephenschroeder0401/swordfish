@@ -173,7 +173,13 @@ const BillingAccountTab = () => {
         return;
       }
 
-      await upsertBillingAccounts(tableData);
+      // Ensure empty rates are set to 0
+      const dataToSave = tableData.map(row => ({
+        ...row,
+        rate: row.rate || 0
+      }));
+
+      await upsertBillingAccounts(dataToSave);
       
       toast({
         title: 'Success',

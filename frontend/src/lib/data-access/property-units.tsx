@@ -35,13 +35,31 @@ export const updatePropertyUnit = async (id, updates) => {
   return data[0];
 };
 
-export const deletePropertyUnit = async (id) => {
+export const deletePropertyUnit = async (id: string) => {
+  const session = await getUserSession();
+  
+  // First get the property unit to check client_id
+  const { data: unit, error: fetchError } = await supabase
+    .from('property_unit')
+    .select('*, property!inner(*, entity!inner(client_id))')
+    .eq('id', id)
+    .single();
+
+  if (fetchError) throw fetchError;
+  
+  // Verify client_id
+  if (unit?.property?.entity?.client_id !== session.clientId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Then perform the soft delete
   const { error } = await supabase
     .from('property_unit')
-    .delete()
+    .update({ is_deleted: true })
     .eq('id', id);
 
   if (error) throw error;
+  return true;
 };
 
 export const upsertPropertyUnits = async (propertyUnits) => {

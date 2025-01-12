@@ -57,7 +57,7 @@ const BillBack = () => {
   const calculateTotals = (hours, laborRate, billingRate, mileage, isBilledBack = true) => {
     const laborTotal = (hours * laborRate).toFixed(2);
     const billingTotal = isBilledBack ? 
-        (hours * billingRate).toFixed(2) : 
+        ((hours * billingRate) || parseFloat(laborTotal)).toFixed(2) : 
         "0.00";
     const mileageTotal = (mileage * mileageRate).toFixed(2);
     const jobTotal = isBilledBack ? 
@@ -84,6 +84,7 @@ const BillBack = () => {
         fetchAllEmployees(),
         fetchAllPropertyGroups()
       ]);
+      console.log("Loaded billing accounts:", accounts); // Debug log
       setBillingAccounts(accounts);
       setBillingProperties(properties);
       setEmployees(employeeData);
@@ -109,60 +110,80 @@ const BillBack = () => {
     });
 
     if (billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
-      setSelectedFile(null);
-      const fetchBillbackData = async () => {
-        setIsLoading(true);
-        setBillbackData([]);
-        try {
-          const data = await fetchBillbackUpload(billingPeriod);
-          
-          if (!data || data.upload_data.length < 1) {
+        setSelectedFile(null);
+        const fetchBillbackData = async () => {
+            setIsLoading(true);
             setBillbackData([]);
-          } else {
-            const uploadData = data?.upload_data || [];
-            const processedData = uploadData.map(job => {
-              if(!!job){
-                const billingAccount = billingAccounts.find((account) => account.id === job.billingAccountId);
-                const isPropertyGroup = job.propertyId?.startsWith('group-');
-                let propertyGroup, billingProperty;
+            try {
+                const data = await fetchBillbackUpload(billingPeriod);
                 
-                // Check for valid property/group
-                if (isPropertyGroup) {
-                  propertyGroup = propertyGroups.find(group => `group-${group.id}` === job.propertyId);
+                if (!data || data.upload_data.length < 1) {
+                    setBillbackData([]);
                 } else {
-                  billingProperty = billingProperties.find((property) => 
-                    property.name.toLowerCase() === job.property?.toLowerCase()
-                  );
+                    const uploadData = data?.upload_data || [];
+                    const processedData = uploadData.map(job => {
+                        if(!!job) {
+                            // Recheck billing account
+                            const billingAccount = billingAccounts.find((account) => 
+                                account.id === job.billingAccountId
+                            );
+
+                            // Recheck property/group
+                            const isPropertyGroup = job.propertyId?.startsWith('group-');
+                            let propertyGroup, billingProperty;
+                            
+                            if (isPropertyGroup) {
+                                propertyGroup = propertyGroups.find(group => 
+                                    `group-${group.id}` === job.propertyId
+                                );
+                            } else {
+                                billingProperty = billingProperties.find((property) => 
+                                    property.id === job.propertyId
+                                );
+                            }
+
+                            // Update entity information if it's a property
+                            const entityId = !isPropertyGroup ? billingProperty?.entityid : '';
+                            const entityName = !isPropertyGroup ? billingProperty?.entityName : '';
+
+                            // Recheck employee
+                            const employee = employees.find((emp) => 
+                                emp.id === job.employeeId
+                            );
+
+                            // Set isError based on current data
+                            const isError = (!propertyGroup && !billingProperty) || !billingAccount || !employee;
+
+                            return {
+                                ...job,
+                                property: propertyGroup?.name || billingProperty?.name || job.property,
+                                entity: entityName || job.entity,
+                                entityId: entityId || job.entityId,
+                                employee: employee?.name || job.employee,
+                                rate: employee?.rate || job.rate,
+                                isError
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+
+                    setBillbackData(processedData);
+                    
+                    // Check if any rows have errors
+                    const hasErrors = processedData.some(row => row.isError);
+                    setIsValid(!hasErrors);
                 }
+            } catch (error) {
+                console.error("Error fetching billback data for billing period", error);
+                setBillbackData([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-                // Set isError based on missing property/group or billing account
-                const isError = (!propertyGroup && !billingProperty) || !billingAccount;
-                
-                return {
-                  ...job,
-                  isError: isError
-                };
-              }
-              return null;
-            }).filter(Boolean);
-
-            setBillbackData(processedData);
-            
-            // Check if any rows have errors
-            const hasErrors = processedData.some(row => row.isError);
-            setIsValid(!hasErrors);
-          }
-        } catch (error) {
-          console.error("Error fetching billback data for billing period", error);
-          setBillbackData([]);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      fetchBillbackData();
+        fetchBillbackData();
     }
-  }, [billingPeriod, billingAccounts, billingProperties, employees]);
+}, [billingPeriod, billingAccounts, billingProperties, employees, propertyGroups]);
 
   const addRow = () => {
     console.log("=== Adding New Row ===");
@@ -381,14 +402,69 @@ const BillBack = () => {
 
   const handleEdit = async (e: any, rowId: string, field: string, tableType: string) => {
     setHasUnsavedChanges(true);
-    console.log("Editing:", { value: e.target.value, rowId, field, tableType });
     
     setBillbackData(prevData =>
         prevData.map(row => {
             if (row.rowId === rowId) {
                 let updatedRow = { ...row };
                 
-                if (field === 'category') {
+                if (field === 'property') {
+                    const selectedPropertyId = e.target.value;
+                    
+                    // Check if it's a property group
+                    const isPropertyGroup = selectedPropertyId.startsWith('group-');
+                    let propertyGroup, billingProperty;
+                    
+                    if (isPropertyGroup) {
+                        const groupId = selectedPropertyId.replace('group-', '');
+                        propertyGroup = propertyGroups.find(group => group.id === groupId);
+                        updatedRow = {
+                            ...updatedRow,
+                            propertyId: selectedPropertyId,
+                            property: propertyGroup ? propertyGroup.name : '',
+                            entityId: '', // Clear entity for property groups
+                            entity: '', // Clear entity for property groups
+                            isError: !propertyGroup || !row.billingAccountId
+                        };
+                    } else {
+                        billingProperty = billingProperties.find(prop => prop.id === selectedPropertyId);
+                        updatedRow = {
+                            ...updatedRow,
+                            propertyId: selectedPropertyId,
+                            property: billingProperty ? billingProperty.name : '',
+                            entityId: billingProperty?.entityid || '',
+                            entity: billingProperty?.entityName || "Not Found",
+                            isError: !billingProperty || !row.billingAccountId
+                        };
+                    }
+                } else if (field === 'employee') {
+                    const selectedEmployeeId = e.target.value;
+                    const selectedEmployee = employees.find(emp => emp.id === selectedEmployeeId);
+                    
+                    updatedRow = {
+                        ...updatedRow,
+                        employeeId: selectedEmployeeId,
+                        employee: selectedEmployee ? selectedEmployee.name : '',
+                        rate: selectedEmployee ? Number(selectedEmployee.rate) : 0
+                    };
+
+                    // Recalculate totals with new employee rate
+                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+                        row.hours,
+                        updatedRow.rate,
+                        row.billingRate,
+                        row.billedmiles,
+                        billingAccounts.find(acc => acc.id === row.billingAccountId)?.isbilledback
+                    );
+                    
+                    updatedRow = {
+                        ...updatedRow,
+                        total: laborTotal,
+                        billingTotal: billingTotal,
+                        mileageTotal: mileageTotal,
+                        jobTotal: jobTotal
+                    };
+                } else if (field === 'category') {
                     const selectedAccountId = e.target.value;
                     const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
                     
@@ -419,6 +495,27 @@ const BillBack = () => {
                         effectiveBillingRate,
                         row.billedmiles,
                         isBilledBack
+                    );
+                    
+                    updatedRow = {
+                        ...updatedRow,
+                        total: laborTotal,
+                        billingTotal: billingTotal,
+                        mileageTotal: mileageTotal,
+                        jobTotal: jobTotal
+                    };
+                } else if (field === 'hours' || field === 'billedmiles') {
+                    // Handle numeric fields
+                    const numericValue = Number(e.target.value) || 0;
+                    updatedRow = { ...row, [field]: numericValue };
+
+                    // Recalculate totals
+                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+                        field === 'hours' ? numericValue : row.hours,
+                        row.rate,
+                        row.billingRate,
+                        field === 'billedmiles' ? numericValue : row.billedmiles,
+                        billingAccounts.find(acc => acc.id === row.billingAccountId)?.isbilledback
                     );
                     
                     updatedRow = {

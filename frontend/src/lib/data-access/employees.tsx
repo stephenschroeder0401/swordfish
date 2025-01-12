@@ -16,11 +16,27 @@ export const fetchAllEmployees = async () => {
 
   const { data, error } = await supabase
     .from('employee')
-    .select("*")
-    .eq('client_id', session.clientId);
+    .select('*')
+    .eq('client_id', session.clientId)
+    .eq('is_deleted', false);
 
   if (error) throw error;
   return data;
+};
+
+
+export const deleteEmployee = async (id: string) => {
+  const session = await getUserSession();
+  if (!session) throw new Error('No active session');
+
+  const { error } = await supabase
+    .from('employee')
+    .update({ is_deleted: true })
+    .eq('id', id)
+    .eq('client_id', session.clientId);
+
+  if (error) throw error;
+  return true;
 };
 
 export const upsertEmployees = async (employees: Employee[]) => {

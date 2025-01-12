@@ -11,11 +11,13 @@ export const fetchAllEntities = async () => {
   const session = await getUserSession();
   if (!session) throw new Error('No active session');
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('entity')
     .select('*')
     .eq('client_id', session.clientId)
-    .order('name');
+    .eq('is_deleted', false);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data;
@@ -41,4 +43,12 @@ export const upsertEntities = async (entities: Entity[]) => {
 
   if (error) throw error;
   return data;
+};
+
+
+export const deleteEntity = async (id: string) => {
+  const { error } = await supabase
+    .from('entity')
+    .update({ is_deleted: true })
+    .eq('id', id);
 };

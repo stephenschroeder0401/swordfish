@@ -32,7 +32,8 @@ export const fetchAllProperties = async (
         client_id
       )
     `, { count: 'exact' })
-    .eq('entity.client_id', clientId);
+    .eq('entity.client_id', clientId)
+    .eq('is_deleted', false);
 
   // Add search filter if searchTerm exists
   if (searchTerm) {
@@ -62,6 +63,7 @@ export const fetchAllPropertiesNoPagination = async () => {
       )
     `)
     .eq('entity.client_id', session.clientId)
+    .eq('is_deleted', false)
     .order('name');
 
   if (error) throw error;
@@ -93,7 +95,8 @@ export const searchProperties = async (
         client_id
       )
     `, { count: 'exact' })
-    .eq('entity.client_id', session.clientId);
+    .eq('entity.client_id', session.clientId)
+    .eq('is_deleted', false);
 
   if (searchTerm) {
     query = query.or(`name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
@@ -150,4 +153,16 @@ export const upsertProperties = async (properties: Property[]) => {
   }));
 
   return formattedData;
+};
+
+export const deleteProperty = async (id: string) => {
+  const session = await getUserSession();
+  
+  const { error } = await supabase
+    .from('property')
+    .update({ is_deleted: true })
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
 };

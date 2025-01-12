@@ -132,7 +132,8 @@ export const fetchAllPropertyGroups = async () => {
           billing_account_id
         )
       `)
-      .eq('client_id', session.clientId);
+      .eq('client_id', session.clientId)
+      .eq('is_deleted', false);
 
     if (groupError) throw groupError;
 
@@ -189,4 +190,22 @@ export const fetchMonthlyBillingItems = async () => {
 
   if (error) throw error;
   return monthlyItems || [];
+};
+
+export const deletePropertyGroup = async (id: string) => {
+  try {
+    const session = await getAuthenticatedSession();
+    
+    const { error } = await supabase
+      .from('property_group')
+      .update({ is_deleted: true })
+      .eq('id', id)
+      .eq('client_id', session.clientId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting property group:', error);
+    throw error;
+  }
 };

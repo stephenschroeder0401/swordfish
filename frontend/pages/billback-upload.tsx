@@ -312,7 +312,7 @@ const BillBack = () => {
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
-        entity: billingProperty?.entityName || "Not Found",
+        entity: billingProperty?.entityName || '',
         billingAccountId: billingAccount?.id,
         category: billingAccount?.name || job.category,
         startTime: job.clockedInAt,
@@ -372,9 +372,9 @@ const BillBack = () => {
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
-        entity: billingProperty?.entityName || "Not Found",
+        entity: billingProperty?.entityName || '',
         billingAccountId: billingAccount?.id || '',
-        category: job.category,
+        category: billingAccount?.name || job.category || '',
         startTime: null,
         endTime: null,
         hours,
@@ -422,8 +422,8 @@ const BillBack = () => {
                             ...updatedRow,
                             propertyId: selectedPropertyId,
                             property: propertyGroup ? propertyGroup.name : '',
-                            entityId: '', // Clear entity for property groups
-                            entity: '', // Clear entity for property groups
+                            entityId: '', 
+                            entity: '', // Just leave empty for property groups
                             isError: !propertyGroup || !row.billingAccountId
                         };
                     } else {
@@ -468,23 +468,23 @@ const BillBack = () => {
                     const selectedAccountId = e.target.value;
                     const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
                     
-                    // Debug logging with correct property name
-                    console.log("Selected Account:", {
-                        id: selectedAccount?.id,
-                        name: selectedAccount?.name,
-                        isbilledback: selectedAccount?.isbilledback,
-                        rate: selectedAccount?.rate
+                    console.log("Category Edit Debug:", {
+                        selectedAccountId,
+                        selectedAccount,
+                        currentCategory: row.category,
+                        isPropertyGroup: row.propertyId?.startsWith('group-')
                     });
-
-                    // Check lowercase isbilledback
-                    const isBilledBack = selectedAccount?.isbilledback === true || selectedAccount?.isbilledback === 1;
                     
-                    const effectiveBillingRate = isBilledBack ? Number(selectedAccount.rate) : 0;
+                    // Debug logging
+                    console.log("Selected Account:", selectedAccount);
+
+                    const isBilledBack = selectedAccount?.isbilledback === true || selectedAccount?.isbilledback === 1;
+                    const effectiveBillingRate = isBilledBack ? Number(selectedAccount?.rate) : 0;
 
                     updatedRow = {
                         ...updatedRow,
                         billingAccountId: selectedAccountId,
-                        category: selectedAccount ? selectedAccount.name : '',
+                        category: selectedAccount?.name || '',
                         billingRate: effectiveBillingRate,
                         isError: !selectedAccountId || !row.propertyId
                     };
@@ -836,5 +836,4 @@ const BillBack = () => {
     </Box>
   );
 };
-
 export default BillBack;

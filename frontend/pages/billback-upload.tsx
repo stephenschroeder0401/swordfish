@@ -304,6 +304,11 @@ const BillBack = () => {
         ? `group-${propertyGroup.id}`
         : (billingProperty?.id || '');
 
+    // Add this check for property group billing accounts
+    const isValidBillingAccount = propertyGroup ? 
+        propertyGroup.billingAccounts.includes(billingAccount?.id) : 
+        true;
+
     return {
         rowId: uuidv4(),
         employeeId: employee?.id,
@@ -314,7 +319,9 @@ const BillBack = () => {
         entityId: billingProperty?.entityid || '',
         entity: billingProperty?.entityName || '',
         billingAccountId: billingAccount?.id,
-        category: billingAccount?.name || job.category,
+        category: (billingAccount && isValidBillingAccount) ? 
+            billingAccount.name : 
+            `${job.category}`,
         startTime: job.clockedInAt,
         endTime: job.clockedOutAt,
         hours: job.hours,
@@ -326,7 +333,7 @@ const BillBack = () => {
         jobTotal,
         notes: job.notes,
         // Only mark as error if we have neither a property group nor a valid property
-        isError: (!propertyGroup && !billingProperty) || !billingAccount,
+        isError: (!propertyGroup && !billingProperty) || !billingAccount || !isValidBillingAccount,
         isManual: false
     };
   };
@@ -364,6 +371,11 @@ const BillBack = () => {
         ? `group-${propertyGroup.id}`
         : (billingProperty?.id || '');
 
+    // Add this check for property group billing accounts
+    const isValidBillingAccount = propertyGroup ? 
+        propertyGroup.billingAccounts.includes(billingAccount?.id) : 
+        true;
+
     return {
         rowId: uuidv4(),
         employeeId: employee?.id,
@@ -374,7 +386,9 @@ const BillBack = () => {
         entityId: billingProperty?.entityid || '',
         entity: billingProperty?.entityName || '',
         billingAccountId: billingAccount?.id || '',
-        category: billingAccount?.name || job.category || '',
+        category: (billingAccount && isValidBillingAccount) ? 
+            billingAccount.name : 
+            `${job.category}`,
         startTime: null,
         endTime: null,
         hours,
@@ -385,7 +399,7 @@ const BillBack = () => {
         mileageTotal,
         jobTotal,
         notes: job.notes || '',
-        isError: (!propertyGroup && !billingProperty) || !billingAccount,
+        isError: (!propertyGroup && !billingProperty) || !billingAccount || !isValidBillingAccount,
         isManual: true
     };
   };
@@ -468,19 +482,20 @@ const BillBack = () => {
                     const selectedAccountId = e.target.value;
                     const selectedAccount = billingAccounts.find(account => account.id === selectedAccountId);
                     
-                    console.log("Category Edit Debug:", {
-                        selectedAccountId,
-                        selectedAccount,
-                        currentCategory: row.category,
-                        isPropertyGroup: row.propertyId?.startsWith('group-')
-                    });
-                    
                     // Debug logging
                     console.log("Selected Account:", selectedAccount);
 
                     const isBilledBack = selectedAccount?.isbilledback === true || selectedAccount?.isbilledback === 1;
                     const effectiveBillingRate = isBilledBack ? Number(selectedAccount?.rate) : 0;
 
+                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+                        row.hours,
+                        row.rate,
+                        effectiveBillingRate,
+                        row.billedmiles || 0,
+                        isBilledBack
+                    );
+                    
                     updatedRow = {
                         ...updatedRow,
                         billingAccountId: selectedAccountId,
@@ -489,14 +504,6 @@ const BillBack = () => {
                         isError: !selectedAccountId || !row.propertyId
                     };
 
-                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-                        row.hours,
-                        row.rate,
-                        effectiveBillingRate,
-                        row.billedmiles,
-                        isBilledBack
-                    );
-                    
                     updatedRow = {
                         ...updatedRow,
                         total: laborTotal,

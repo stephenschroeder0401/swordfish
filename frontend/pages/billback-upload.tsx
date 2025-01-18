@@ -196,38 +196,36 @@ const BillBack = () => {
     }
 }, [billingPeriod, billingAccounts, billingProperties, employees, propertyGroups]);
 
-  const addRow = () => {
-    console.log("=== Adding New Row ===");
+  const addRow = useCallback(() => {
     const newRow = {
-        rowId: uuidv4(),
-        employeeId: "",
-        employee: "",
-        job_date: new Date().toISOString().split('T')[0],
-        propertyId: "",
-        property: "",
-        entityId: "",
-        entity: "",
-        billingAccountId: "",
-        category: "",
-        startTime: "",
-        endTime: "",
-        hours: 0,
-        rate: 0,
-        billingRate: 0,
-        total: 0,
-        billedmiles: 0,
-        mileageTotal: 0,
-        jobTotal: 0,
-        notes: "",
-        isError: true,
-        isManual: true
+      rowId: uuidv4(),
+      employeeId: "",
+      employee: "",
+      job_date: new Date().toISOString().split('T')[0],
+      propertyId: "",
+      property: "",
+      entityId: "",
+      entity: "",
+      billingAccountId: "",
+      category: "",
+      startTime: "",
+      endTime: "",
+      hours: "",
+      rate: "",
+      billingRate: "",
+      total: "",
+      billedmiles: "",
+      mileageTotal: "",
+      jobTotal: "",
+      notes: "",
+      isError: true,
+      isManual: true
     };
-    console.log("New row data:", newRow);
-    setBillbackData([newRow, ...billbackData]);
+    
+    setBillbackData(prev => [newRow, ...prev]);
     setHasUnsavedChanges(true);
     setIsValid(false);
-    console.log("Updated billbackData after add:", billbackData);
-  };
+  }, []);
 
   const handleClearData =() =>{
     setBillbackData([]);
@@ -842,7 +840,6 @@ const BillBack = () => {
         ) : (
           <Box minWidth="100%" width="fit-content">
             <BillbackDisplay
-              key={billbackData.length}
               data={billbackData}
               tableConfig={memoizedTableConfig}
               handleEdit={handleEdit}

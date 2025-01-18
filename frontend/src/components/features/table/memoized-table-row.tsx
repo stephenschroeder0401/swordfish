@@ -55,7 +55,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
             column === 'notes' 
               ? '2000px'
             : ['property', 'entity'].includes(column)
-              ? '210px'
+              ? '270px'
             : column === 'rate'
               ? '200px'
             : column === 'billingRate'
@@ -67,13 +67,14 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
             : column === 'total'
               ? '160px'
             : ['hours', 'jobTotal', 'billedmiles'].includes(column)
-              ? '80px'
+              ? '120px'
             : 'auto'
           }
           height="auto"
           whiteSpace={column === 'notes' ? 'normal' : 'nowrap'}
           overflow="visible"
         >
+          {console.log('Column name:', column)}
           {column === 'delete' ? (
             <CloseIcon 
               color={'red.200'} 
@@ -87,36 +88,46 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
           ) : canEdit !== false ? (
             column === 'property' ? (
               <Select
-                width="160px"
-                minWidth="160px"
-                backgroundColor='white'
-                value={item.propertyId}
+                backgroundColor={!item.propertyId || (!propertyGroups.some(g => `group-${g.id}` === item.propertyId) && 
+                  !properties.some(p => p.id === item.propertyId)) ? 'red.50' : 'white'}
+                value={item.propertyId || ''}
                 onChange={(e) => handleFieldEdit(e, 'property')}
                 size="sm"
-                placeholder={item.property ? `NOT FOUND ${item.property}` : 'Select property'}
+                width="100%"
+                style={{
+                  minWidth: '270px',
+                  maxWidth: 'none'
+                }}
+                placeholder={item.property ? `NOT FOUND: ${item.property}` : 'Select Property'}
               >
-                {propertyGroups && propertyGroups.length > 0 && (
-                  <optgroup label="Property Groups">
-                    {propertyGroups.map((group, idx) => (
-                      <option key={`group-${idx}`} value={`group-${group.id}`}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                
+                <optgroup label="Property Groups">
+                  {propertyGroups.map((group) => (
+                    <option key={`group-${group.id}`} value={`group-${group.id}`}>
+                      {group.name}
+                    </option>
+                  ))}
+                </optgroup>
                 <optgroup label="Properties">
-                  {properties.map((property, idx) => (
-                    <option key={idx} value={property.id}>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
                       {property.name}
                     </option>
                   ))}
                 </optgroup>
               </Select>
+            ) : column === 'entity' ? (
+              <Text
+                width="270px"
+                minWidth="270px"
+                maxWidth="none"
+                overflow="visible"
+                whiteSpace="normal"
+              >
+                {item[column]}
+              </Text>
             ) : column === 'category' ? (
               <Select
-                width="165px"
-                minWidth="165px"
+                minWidth="210px"
                 backgroundColor='white'
                 value={item.billingAccountId || ''}
                 onChange={(e) => handleFieldEdit(e, 'category')}
@@ -180,6 +191,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                 <Input 
                   backgroundColor='white'
                   width="100%"
+                  minWidth="50px"
                   type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                   value={item[column] === 0 ? '' : item[column]}
                   onChange={(e) => handleFieldEdit(e, column)}
@@ -190,9 +202,8 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
             )
           ) : (
             <Text 
-              width={column === 'notes' ? "800px" : "80px"}
-              whiteSpace={column === 'notes' ? "normal" : "nowrap"}
               overflow="visible"
+              whiteSpace="normal"
             >
               {item[column]}
             </Text>

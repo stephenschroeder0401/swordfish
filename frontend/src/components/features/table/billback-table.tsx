@@ -123,8 +123,8 @@ const BillbackDisplay = React.memo(({
       <Table mb={10} variant="simple" size="sm">
         <Thead position="sticky" top="50px" bg="white" zIndex="sticky">
           <Tr>
-            {tableConfig.map(({ label, column }) => (
-              <Th key={column}>
+            {tableConfig.map(({ label, column, width }) => (
+              <Th key={column} width={width}>
                 <Flex align="center">
                   {label}
                 </Flex>
@@ -156,5 +156,7 @@ const BillbackDisplay = React.memo(({
   // Temporarily disable memoization to verify rendering works
   return false;
 });
+
+BillbackDisplay.displayName = 'BillbackDisplay';
 
 export default BillbackDisplay;

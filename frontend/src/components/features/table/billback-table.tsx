@@ -1,40 +1,46 @@
 // @ts-nocheck
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Select, Icon, Text } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import MemoizedTableRow from "./memoized-table-row";
 
-const BillbackDisplay = ({ data, handleSort, sortField, sortDirection, tableConfig, handleEdit, tableType, accounts = [],
-   properties = [], employees = [], handleDelete, entities = [], propertyGroups = [] }) => {
+const BillbackDisplay = React.memo(({ 
+  data, 
+  tableConfig, 
+  handleEdit, 
+  accounts = [],
+  properties = [], 
+  employees = [], 
+  handleDelete, 
+  entities = [], 
+  propertyGroups = [] 
+}) => {
+  console.log('BillbackDisplay render with data:', {
+    length: data?.length,
+    firstItem: data?.[0]
+  });
 
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedEntity, setSelectedEntity] = useState("");
-  const [filteredData, setFilteredData] = useState(data);
 
-  useEffect(() => {
-
-    const newFilteredData = data.filter(item => {
-        const matchesEmployee = !selectedEmployee || item.employeeId === selectedEmployee;
-        const matchesCategory = !selectedCategory || item.billingAccountId === selectedCategory;
-        const matchesProperty = !selectedProperty || item.propertyId === selectedProperty;
-        const matchesEntity = !selectedEntity || item.entity === selectedEntity;
-        return matchesEmployee && matchesCategory && matchesProperty && matchesEntity;
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const matchesEmployee = !selectedEmployee || item.employeeId === selectedEmployee;
+      const matchesCategory = !selectedCategory || item.billingAccountId === selectedCategory;
+      const matchesProperty = !selectedProperty || item.propertyId === selectedProperty;
+      const matchesEntity = !selectedEntity || item.entity === selectedEntity;
+      return matchesEmployee && matchesCategory && matchesProperty && matchesEntity;
     });
+  }, [data, selectedEmployee, selectedCategory, selectedProperty, selectedEntity]);
 
-    setFilteredData(newFilteredData);
-
-}, [data, selectedEmployee, selectedCategory, selectedProperty, selectedEntity]); // Ensure useEffect triggers on changes to these states
-
-
-const clearFilters = () => {
-  setSelectedEmployee("");
-  setSelectedCategory("");
-  setSelectedProperty("");
-  setSelectedEntity("");
-};
-
+  const clearFilters = () => {
+    setSelectedEmployee("");
+    setSelectedCategory("");
+    setSelectedProperty("");
+    setSelectedEntity("");
+  };
 
   const handleFilterChange = (setter) => (e) => {
     setter(e.target.value);
@@ -117,21 +123,17 @@ const clearFilters = () => {
       <Table mb={10} variant="simple" size="sm">
         <Thead position="sticky" top="50px" bg="white" zIndex="sticky">
           <Tr>
-            {tableConfig.map(({ label, column, canSort }) => (
-              <Th key={column} cursor={canSort ? "pointer" : "default"} onClick={() => canSort && handleSortClick(column)}>
+            {tableConfig.map(({ label, column }) => (
+              <Th key={column}>
                 <Flex align="center">
                   {label}
-                  {sortField === column && (
-                    sortDirection === "AscNullsFirst" ? <ChevronUpIcon ml={2} /> : <ChevronDownIcon ml={2} />
-                  )}
                 </Flex>
               </Th>
             ))}
           </Tr>
         </Thead>
         <Tbody>
-          {filteredData.map((item, index) => (
-            
+          {data?.map((item, index) => (
             <MemoizedTableRow
               key={item.rowId}
               rowKey={item.rowId}
@@ -143,7 +145,6 @@ const clearFilters = () => {
               properties={properties}
               accounts={accounts}
               employees={employees}
-              tableType={tableType}
               propertyGroups={propertyGroups}
             />
           ))}
@@ -151,6 +152,9 @@ const clearFilters = () => {
       </Table>
     </Box>
   );
-};
+}, (prevProps, nextProps) => {
+  // Temporarily disable memoization to verify rendering works
+  return false;
+});
 
 export default BillbackDisplay;

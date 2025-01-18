@@ -1,29 +1,53 @@
 // @ts-nocheck
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon, Text } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
-const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, tableConfig, properties, accounts, employees, tableType, propertyGroups }) => {
-
-  
-  // Function to get available billing accounts based on property selection
-  const getAvailableBillingAccounts = () => {
+const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, tableConfig, properties, accounts, employees, propertyGroups }) => {
+  // Memoize expensive calculations
+  const availableBillingAccounts = useMemo(() => {
     if (item.propertyId?.startsWith('group-')) {
       const groupId = item.propertyId.replace('group-', '');
       const selectedGroup = propertyGroups.find(group => group.id === groupId);
       if (selectedGroup) {
-        // Filter accounts to only those in the group's billingAccounts array
         return accounts.filter(account => 
           selectedGroup.billingAccounts.includes(account.id)
         );
       }
     }
-    return accounts; // Return all accounts if no group selected or group not found
-  };
+    return accounts;
+  }, [item.propertyId, propertyGroups, accounts]);
+
+  // Memoize handlers
+  const handleFieldEdit = useCallback((e, field) => {
+    const value = e.target.value;
+
+    // Handle special cases for dropdowns
+    if (field === 'employee') {
+      const selectedEmployee = employees.find(emp => emp.id === value);
+      handleEdit({
+        target: {
+          value,
+          employeeName: selectedEmployee?.name
+        }
+      }, rowKey, field);
+    } else {
+      // For all other fields, maintain the event-like structure
+      handleEdit({
+        target: {
+          value
+        }
+      }, rowKey, field);
+    }
+  }, [rowKey, handleEdit, employees]);
+
+  const handleRowDelete = useCallback((e) => {
+    handleDelete(e, rowKey);
+  }, [rowKey, handleDelete]);
 
   return (
-    <Tr key={rowKey} style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
+    <Tr style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
         <Td 
           key={column}
@@ -54,7 +78,7 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
             <CloseIcon 
               color={'red.200'} 
               width={'16px'}
-              onClick={(e) => handleDelete(e, rowKey)} 
+              onClick={(e) => handleRowDelete(e)} 
               _hover={{
                 color: 'red.700',
                 transform: 'scale(1.2)',
@@ -67,7 +91,7 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 minWidth="160px"
                 backgroundColor='white'
                 value={item.propertyId}
-                onChange={(e) => handleEdit(e, rowKey, 'property', tableType)}
+                onChange={(e) => handleFieldEdit(e, 'property')}
                 size="sm"
                 placeholder={item.property ? `NOT FOUND ${item.property}` : 'Select property'}
               >
@@ -94,12 +118,12 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 width="165px"
                 minWidth="165px"
                 backgroundColor='white'
-                value={item.billingAccountId}
-                onChange={(e) => handleEdit(e, rowKey, 'category', tableType)}
+                value={item.billingAccountId || ''}
+                onChange={(e) => handleFieldEdit(e, 'category')}
                 size="sm"
                 placeholder={item.category ? `NOT FOUND ${item.category}` : 'Select category'}
               >
-                {getAvailableBillingAccounts().map((account, idx) => (
+                {availableBillingAccounts.map((account, idx) => (
                   <option key={idx} value={account.id}>
                     {account.name}
                   </option>
@@ -110,8 +134,8 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                 width="160px"
                 minWidth="160px"
                 backgroundColor='white'
-                value={item.employeeId}
-                onChange={(e) => handleEdit(e, rowKey, 'employee', tableType)}
+                value={item.employeeId || ''}
+                onChange={(e) => handleFieldEdit(e, 'employee')}
                 size="sm"
                 placeholder="Select employee"
               >
@@ -150,16 +174,17 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
                     resize: 'vertical'
                   }}
                   value={item[column]}
-                  onChange={(e) => handleEdit(e, rowKey, column, tableType)}
+                  onChange={(e) => handleFieldEdit(e, column)}
                 />
               ) : (
                 <Input 
                   backgroundColor='white'
                   width="100%"
                   type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
-                  value={item[column]}
-                  onChange={(e) => handleEdit(e, rowKey, column, tableType)}
+                  value={item[column] === 0 ? '' : item[column]}
+                  onChange={(e) => handleFieldEdit(e, column)}
                   size="sm"
+                  onWheel={(e) => e.target.blur()}
                 />
               )
             )
@@ -176,7 +201,8 @@ const MemoizedTableRow = ({ rowKey, item, index, handleEdit, handleDelete, table
       ))}
     </Tr>
   );
-};
- // Add this closing parenthesis
+}, (prevProps, nextProps) => {
+  return JSON.stringify(prevProps.item) === JSON.stringify(nextProps.item);
+});
 
 export default MemoizedTableRow;

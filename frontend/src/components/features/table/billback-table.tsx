@@ -15,23 +15,29 @@ const BillbackDisplay = React.memo(({
   propertyGroups = [] 
 }) => {
   return (
-    <Box minWidth="2000px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2} position="relative">
+    <Box 
+      position="relative"
+      overflowX="auto"
+      overflowY="auto"
+      maxH="calc(100vh - 250px)"
+    >
       <Table mb={10} variant="simple" size="sm">
-        <Thead position="sticky" top="0" bg="white" zIndex="sticky">
+        <Thead position="sticky" top={0} zIndex={4}>
           <Tr>
             {tableConfig.map(({ label, column, width }) => (
               <Th 
                 key={column} 
                 width={width}
-                position={column === 'notes' ? 'sticky' : 'static'}
+                position={column === 'delete' ? 'sticky' : column === 'notes' ? 'sticky' : 'static'}
+                left={column === 'delete' ? 0 : 'auto'}
                 right={column === 'notes' ? 0 : 'auto'}
                 bg="white"
-                zIndex={column === 'notes' ? 3 : 1}
-                borderRight={column === 'notes' ? '2px solid #E2E8F0' : 'none'}
+                zIndex={column === 'delete' || column === 'notes' ? 4 : 1}
+                borderRight={column === 'delete' ? '2px solid #E2E8F0' : 'none'}
+                borderLeft={column === 'notes' ? '2px solid #E2E8F0' : 'none'}
+                top={0}
               >
-                <Flex align="center">
-                  {label}
-                </Flex>
+                {label}
               </Th>
             ))}
           </Tr>

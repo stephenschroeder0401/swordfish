@@ -51,13 +51,16 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
       {tableConfig.map(({ column, canEdit }) => (
         <Td 
           key={column}
-          position={column === 'notes' ? 'sticky' : 'static'}
+          position={column === 'delete' ? 'sticky' : column === 'notes' ? 'sticky' : 'static'}
+          left={column === 'delete' ? 0 : 'auto'}
           right={column === 'notes' ? 0 : 'auto'}
-          bg="white"
-          zIndex={2}
+          bg={item.isError ? '#ffebee' : 'white'}
+          zIndex={column === 'delete' || column === 'notes' ? 3 : 1}
+          borderRight={column === 'delete' ? '2px solid #E2E8F0' : 'none'}
+          borderLeft={column === 'notes' ? '2px solid #E2E8F0' : 'none'}
           width={
             column === 'notes' 
-              ? '2000px'
+              ? '300px'
             : ['property', 'entity'].includes(column)
               ? '270px'
             : column === 'rate'
@@ -72,8 +75,11 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
               ? '160px'
             : ['hours', 'jobTotal', 'billedmiles'].includes(column)
               ? '120px'
+            : column === 'delete'
+              ? '50px'
             : 'auto'
           }
+          minWidth={column === 'notes' ? '200px' : 'auto'}
           height="auto"
           whiteSpace={column === 'notes' ? 'normal' : 'nowrap'}
           overflow="visible"
@@ -190,12 +196,14 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                   value={item[column]}
                   onChange={(e) => handleFieldEdit(e, column)}
                 />
+              ) : column === 'rate' ? (
+                <Text>{item[column]}</Text>
               ) : (
                 <Input 
                   backgroundColor='white'
                   width="100%"
                   minWidth="50px"
-                  type={column === 'hours' || column === 'rate' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
+                  type={column === 'hours' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                   value={item[column] === 0 ? '' : item[column]}
                   onChange={(e) => handleFieldEdit(e, column)}
                   size="sm"

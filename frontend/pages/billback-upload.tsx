@@ -571,7 +571,12 @@ const BillBack = () => {
 
 
   const tableConfig = [
-    { column: "delete", label: "", canSort: false },
+    { 
+      column: "delete", 
+      label: "", 
+      canSort: false,
+      width: "50px"
+    },
     { column: "employee", label: "Employee", canSort: false },
     { column: "job_date", label: "Date", canSort: false },
     { column: "property", label: "Property", canSort: false, width: "350px" },
@@ -1041,6 +1046,7 @@ const BillBack = () => {
         minWidth="100%"
         borderTop="1px"
         borderColor="gray.200"
+        position="relative"
       >
         {isLoading ? (
           <Center h="200px">

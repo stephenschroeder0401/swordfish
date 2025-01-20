@@ -1,11 +1,10 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text, Tooltip } from "@chakra-ui/react";
+import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text, Tooltip, Spinner } from "@chakra-ui/react";
 import BillbackDisplay from "@/components/features/table/billback-table";
-import CSVUpload from "@/components/ui/file-upload/upload";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
-import { AddIcon } from "@chakra-ui/icons"
+import { AddIcon, AttachmentIcon, CalendarIcon, RepeatIcon } from "@chakra-ui/icons"
 import { saveJobs, upsertBillbackUpload, fetchBillbackUpload } 
 from "@/lib/data-access/supabase-client";
 import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
@@ -13,6 +12,8 @@ import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
    fetchAllPropertyGroups
 } from "@/lib/data-access";
 import { FaExclamationTriangle } from 'react-icons/fa';
+import { useRouter } from 'next/router';
+import CSVUpload from "@/components/ui/file-upload/upload";
 
 // Add a new type for clarity
 type FileFormat = 'timero' | 'manual';
@@ -54,6 +55,16 @@ const BillBack = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [propertyGroups, setPropertyGroups] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const router = useRouter();
+
+  // Near your other state declarations
+  const { entryCount, totalHours, totalBilled } = useMemo(() => {
+    return {
+      entryCount: billbackData.length,
+      totalHours: billbackData.reduce((sum, item) => sum + (parseFloat(item.hours) || 0), 0),
+      totalBilled: billbackData.reduce((sum, item) => sum + (parseFloat(item.billingTotal || item.total) || 0), 0)
+    };
+  }, [billbackData]);
 
   // Update ref whenever billbackData changes
   useEffect(() => {
@@ -413,13 +424,14 @@ const BillBack = () => {
     };
   };
 
-  const handleDelete = (e, key) => {
-    console.log(key);
-    console.log(billbackData);
-    const newData = billbackData.filter(item => item.rowId !== key);
-    setBillbackData(newData);
+  const handleDelete = useCallback((e, key) => {
+    setBillbackData(prevData => {
+      const newData = prevData.filter(item => item.rowId !== key);
+      console.log(`Deleted row ${key}. New count: ${newData.length}`);
+      return newData;
+    });
     setHasUnsavedChanges(true);
-  };
+  }, []);
   
 
 
@@ -713,164 +725,147 @@ const BillBack = () => {
     firstItem: billbackData?.[0]
   });
 
+  useEffect(() => {
+    const handleRouteChange = (url: string) => {
+      if (hasUnsavedChanges && !window.confirm('You have unsaved changes. Are you sure you want to leave this page?')) {
+        router.events.emit('routeChangeError');
+        throw 'Route change aborted.';
+      }
+    };
+
+    router.events.on('routeChangeStart', handleRouteChange);
+    return () => router.events.off('routeChangeStart', handleRouteChange);
+  }, [hasUnsavedChanges, router]);
+
+  // Add this near your other useMemo hooks
+  const totals = useMemo(() => {
+    console.log('Calculating totals for', billbackData.length, 'rows');
+    const result = billbackData.reduce((acc, item) => {
+      const hours = parseFloat(item.hours) || 0;
+      const total = parseFloat(item.billingTotal || item.total) || 0;
+      console.log('Adding hours:', hours, 'total:', total);
+      return {
+        hours: acc.hours + hours,
+        total: acc.total + total
+      };
+    }, { hours: 0, total: 0 });
+    console.log('Final totals:', result);
+    return result;
+  }, [billbackData]);
+
+  const handleUpload = async (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      handleDataProcessed(file);
+    }
+  };
+
   return (
-    <Box width="100%" overflowX="hidden">
-      <Container maxW='100%' px={0} py={2}>
-        <SimpleGrid mt={5}columns={2}>
-          <Flex direction="row" alignItems="flex-center" justifyContent="flex-start" >
-          <Card size="md" type="outline" mt={5} ml={7} p={4} minWidth='250px' width='18vw'>
-            <FormControl>
-              <FormLabel color="gray.800" fontWeight={600} mb={1}>Timesheet Upload:</FormLabel>
-              <CSVUpload
-                style={{ width: '180px' }}
-                disabled={!billingPeriod}
-                onDataProcessed={handleDataProcessed}
-                setLoading={setIsLoading}
-                selectedFile={selectedFile}
-                setSelectedFile={setSelectedFile}  
-               />
-            </FormControl>
-          </Card>
-          </Flex>
-          <Flex minWidth={'250px'} direction="row" alignItems="flex-start" justifyContent="flex-end" >
-          <Heading color="gray.700" mt={4} ml={1} mr={5}>
-            Time Management
-          </Heading>
-          </Flex>
-        </SimpleGrid>
+    <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
+      {/* Header Section */}
+      <Flex 
+        bg="white" 
+        borderBottom="1px" 
+        borderColor="gray.200" 
+        p={4}
+        h="7vh"
+        alignItems="center"
+        pb="3vh"
+        justifyContent="space-between"
+      >
+        <Heading as="h1" size="lg">
+          Time Management
+        </Heading>
+      </Flex>
 
-        <SimpleGrid mt={5} columns={2}>
-        <Flex direction="row" alignItems="flex-end" justifyContent="flex-start" height="100%">
-        <IconButton
-          onClick={addRow}
-          colorScheme="white"
-          size="md"
-          width="4vw"
-          icon={<AddIcon size="large" color="green.400" _hover={{color:"green.200", transform: 'scale(1.2)'}}/>}
-          aria-label="Add Row"
-          mb={-2}
-          
-        />
-        <Text 
-          color={'red.400'} 
-          _hover={{
-            color: 'red.700',
-            transform: 'scale(1.1)',
-            cursor: 'pointer'
-          }}
-          onClick={handleClearData}
-          ml={2}
-        >
-          CLEAR
-        </Text>
-        </Flex>
-        <Flex mr={8} direction="row" alignItems="flex-end" justifyContent="flex-end" height="100%">
-          <Flex direction="column" alignItems="flex-end">
-            {hasUnsavedChanges && (
-              <Text
-                color="orange.500"
-                fontSize="sm"
-                mb={2}
-                fontWeight="medium"
-                display="flex"
-                alignItems="center"
-              >
-                <FaExclamationTriangle style={{ marginRight: '8px' }} />
-                You have unsaved changes
-              </Text>
-            )}
-            <Tooltip 
-              label={`Save changes (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+S)`}
-              isDisabled={!hasUnsavedChanges || !billingPeriod}
-            >
-              <Button
-                onClick={() => handleSave()}
-                size="md"
-                bg={hasUnsavedChanges ? "orange.400" : "gray.100"}
-                color={hasUnsavedChanges ? "white" : "gray.800"}
-                isDisabled={!billingPeriod || !hasUnsavedChanges}
-                mr={4}  
-                minWidth='9vw'
-                transition="all 0.2s ease"
-                _hover={hasUnsavedChanges ? {
-                  transform: 'scale(1.05)',
-                  bg: 'orange.500'
-                } : {
-                  bg: 'gray.200'
-                }}
-              >
-                {hasUnsavedChanges ? "Save Changes" : "Save Progress"}
-              </Button>
-            </Tooltip>
-          </Flex>
-          <Button
-            onClick={handleSubmit}
-            size="md"
+      {/* Sub-header with actions */}
+      <Flex justify="space-between" align="center" px={4} py={2}>
+        <Flex gap={4} align="center" width="300px">
+          <IconButton
+            aria-label="Add row"
+            icon={<AddIcon />}
+            size="xs"
             colorScheme="green"
-            bg={'green.500'}
-            isLoading={false}
-            isDisabled={!isValid || hasUnsavedChanges}
-            mt={2}
-            minWidth='9vw'
-          >
-            Invoice Jobs
-          </Button>
-        </Flex>
-        </SimpleGrid>
-      </Container>
+            onClick={addRow}
+          />
 
-      <Box
-        width="100%"
-        overflowX="auto"
-        border="1px"
+          <CSVUpload
+            style={{ width: '180px' }}
+            disabled={!billingPeriod}
+            onDataProcessed={handleDataProcessed}
+            setLoading={setIsLoading}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+          />
+        </Flex>
+
+        <Flex gap={6} fontSize="sm" color="gray.600" align="center">
+          <Text>{entryCount} time entries</Text>
+          <Text color="gray.300">|</Text>
+          <Text>{totalHours.toFixed(2)} billed hours</Text>
+          <Text color="gray.300">|</Text>
+          <Text>${totalBilled.toFixed(2)} billed total</Text>
+        </Flex>
+
+        <Box width="300px" textAlign="right">
+          <Flex gap={2} justify="flex-end">
+            <Button
+              size="sm"
+              variant="outline"
+              colorScheme="green"
+              onClick={() => handleSaveProgress(true)}
+              isLoading={isLoading}
+              isDisabled={!hasUnsavedChanges}
+            >
+              Save Progress
+            </Button>
+
+            <Button
+              size="sm"
+              color="white"
+              background="green.600"
+              onClick={handleSubmit}
+              isLoading={isUploading}
+              isDisabled={!isValid || billbackData.length === 0}
+              _hover={{
+                bg: "green.500"
+              }}
+            >
+              Invoice Jobs
+            </Button>
+          </Flex>
+        </Box>
+      </Flex>
+
+      {/* Main Content */}
+      <Box 
+        flex="1" 
+        display="flex" 
+        flexDirection="column" 
+        overflow="auto"
+        minWidth="100%"
+        borderTop="1px"
         borderColor="gray.200"
-        borderRadius="lg"
-        mt={2}
-        mb={155}
       >
         {isLoading ? (
-          <Center height="100vh">
-            <Image
-              src="/loading.gif"
-              alt="Loading..."
-              width="300px"
-              height="300px"
-            />
+          <Center h="200px">
+            <Spinner size="xl" />
           </Center>
         ) : (
-          <Box minWidth="100%" width="fit-content">
-            <BillbackDisplay
-              data={billbackData}
-              tableConfig={memoizedTableConfig}
-              handleEdit={handleEdit}
-              accounts={billingAccounts}
-              properties={billingProperties}
-              employees={employees}
-              handleDelete={handleDelete}
-              entities={entities}
-              propertyGroups={propertyGroups}
-            />
-          </Box>
+          <BillbackDisplay
+            data={billbackData}
+            tableConfig={memoizedTableConfig}
+            handleEdit={handleEdit}
+            accounts={billingAccounts}
+            properties={billingProperties}
+            employees={employees}
+            handleDelete={handleDelete}
+            entities={entities}
+            propertyGroups={propertyGroups}
+          />
         )}
       </Box>
-      {isUploading && (
-        <Center
-          position="fixed"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          bg="blackAlpha.300"
-          zIndex={999}
-        >
-          <Image
-            src="/loading.gif"
-            alt="Loading..."
-            width="100px"
-            height="100px"
-          />
-        </Center>
-      )}
     </Box>
   );
 };

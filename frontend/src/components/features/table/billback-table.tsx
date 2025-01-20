@@ -1,7 +1,6 @@
 // @ts-nocheck
-import React, { useEffect, useState, useMemo } from "react";
-import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Select, Icon, Text } from "@chakra-ui/react";
-import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
+import React from "react";
+import { Table, Thead, Tbody, Tr, Th, Box, Flex } from "@chakra-ui/react";
 import MemoizedTableRow from "./memoized-table-row";
 
 const BillbackDisplay = React.memo(({ 
@@ -15,116 +14,21 @@ const BillbackDisplay = React.memo(({
   entities = [], 
   propertyGroups = [] 
 }) => {
-  console.log('BillbackDisplay render with data:', {
-    length: data?.length,
-    firstItem: data?.[0]
-  });
-
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedProperty, setSelectedProperty] = useState("");
-  const [selectedEntity, setSelectedEntity] = useState("");
-
-  const filteredData = useMemo(() => {
-    return data.filter(item => {
-      const matchesEmployee = !selectedEmployee || item.employeeId === selectedEmployee;
-      const matchesCategory = !selectedCategory || item.billingAccountId === selectedCategory;
-      const matchesProperty = !selectedProperty || item.propertyId === selectedProperty;
-      const matchesEntity = !selectedEntity || item.entity === selectedEntity;
-      return matchesEmployee && matchesCategory && matchesProperty && matchesEntity;
-    });
-  }, [data, selectedEmployee, selectedCategory, selectedProperty, selectedEntity]);
-
-  const clearFilters = () => {
-    setSelectedEmployee("");
-    setSelectedCategory("");
-    setSelectedProperty("");
-    setSelectedEntity("");
-  };
-
-  const handleFilterChange = (setter) => (e) => {
-    setter(e.target.value);
-  };
-
   return (
-    <Box minWidth="2000px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2}>
-      <Box position="sticky" top="0" bg="white" zIndex="sticky" py={2}>
-        <Flex ml={4} mb={4} align="center" wrap="wrap" padding={'7px'} gap={4} bg="gray.50" width="100%">
-          <Flex align="center" bg="white">
-            <Select
-              placeholder="Filter employee"
-              value={selectedEmployee}
-              onChange={handleFilterChange(setSelectedEmployee)}
-              width="200px"
-            >
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </Select>
-          </Flex>
-          <Flex align="center">
-            <Select
-              placeholder="Filter category"
-              value={selectedCategory}
-              onChange={handleFilterChange(setSelectedCategory)}
-              width="200px"
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </Select>
-          </Flex>
-          <Flex align="center">
-            <Select
-              placeholder="Filter property"
-              value={selectedProperty}
-              onChange={handleFilterChange(setSelectedProperty)}
-              width="200px"
-            >
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </Select>
-          </Flex>
-          {entities && entities.length > 0 && (
-            <Flex align="center">
-              <Select
-                placeholder="Filter entity"
-                value={selectedEntity}
-                onChange={handleFilterChange(setSelectedEntity)}
-                width="200px"
-              >
-                {entities.map((entity) => (
-                  <option key={entity.id} value={entity.name}>
-                    {entity.name}
-                  </option>
-                ))}
-              </Select>
-            </Flex>
-          )}
-          <Flex align="center">
-          <Text color={'red.400'} _hover={{
-              color: 'red.700',
-              transform: 'scale(1.1)',
-              cursor: 'pointer'
-            }}
-            onClick={clearFilters}>
-       REMOVE FILTERS
-      </Text>
-      </Flex>
-        </Flex>
-      </Box>
+    <Box minWidth="2000px" overflowX="auto" overflowY="auto" maxH="calc(100vh - 250px)" zIndex={2} position="relative">
       <Table mb={10} variant="simple" size="sm">
-        <Thead position="sticky" top="50px" bg="white" zIndex="sticky">
+        <Thead position="sticky" top="0" bg="white" zIndex="sticky">
           <Tr>
             {tableConfig.map(({ label, column, width }) => (
-              <Th key={column} width={width}>
+              <Th 
+                key={column} 
+                width={width}
+                position={column === 'notes' ? 'sticky' : 'static'}
+                right={column === 'notes' ? 0 : 'auto'}
+                bg="white"
+                zIndex={column === 'notes' ? 3 : 1}
+                borderRight={column === 'notes' ? '2px solid #E2E8F0' : 'none'}
+              >
                 <Flex align="center">
                   {label}
                 </Flex>
@@ -152,9 +56,6 @@ const BillbackDisplay = React.memo(({
       </Table>
     </Box>
   );
-}, (prevProps, nextProps) => {
-  // Temporarily disable memoization to verify rendering works
-  return false;
 });
 
 BillbackDisplay.displayName = 'BillbackDisplay';

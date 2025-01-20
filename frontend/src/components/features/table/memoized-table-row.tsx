@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useMemo, useCallback } from "react";
 import { Table, Thead, Tbody, Tr, Th, Td, Flex, Box, Input, Select, Button, IconButton, Icon, Text } from "@chakra-ui/react";
-import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from "@chakra-ui/icons";
+import { ChevronUpIcon, ChevronDownIcon, CloseIcon, MinusIcon } from "@chakra-ui/icons";
 
 //eslint-disable-next-line
 const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, tableConfig, properties, accounts, employees, propertyGroups }) => {
@@ -51,6 +51,10 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
       {tableConfig.map(({ column, canEdit }) => (
         <Td 
           key={column}
+          position={column === 'notes' ? 'sticky' : 'static'}
+          right={column === 'notes' ? 0 : 'auto'}
+          bg="white"
+          zIndex={2}
           width={
             column === 'notes' 
               ? '2000px'
@@ -76,14 +80,13 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
         >
           {console.log('Column name:', column)}
           {column === 'delete' ? (
-            <CloseIcon 
-              color={'red.200'} 
-              width={'16px'}
-              onClick={(e) => handleRowDelete(e)} 
-              _hover={{
-                color: 'red.700',
-                transform: 'scale(1.2)',
-              }}
+            <IconButton
+              aria-label="Delete row"
+              icon={<MinusIcon />}
+              size="sm"
+              colorScheme="red"
+              onClick={(e) => handleRowDelete(e)}
+              variant="ghost"
             />
           ) : canEdit !== false ? (
             column === 'property' ? (

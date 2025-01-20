@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, useToast, Icon, Flex, Text } from '@chakra-ui/react';
 import { FaUpload } from 'react-icons/fa';
+import { AttachmentIcon } from "@chakra-ui/icons";
 
 interface CSVUploadProps {
   onDataProcessed: (data: any) => void;
@@ -10,6 +11,7 @@ interface CSVUploadProps {
   disabled?: boolean;
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
+  style?: any;
 }
 
 const validateHeaders = (headers: string[]) => {
@@ -26,7 +28,7 @@ const validateHeaders = (headers: string[]) => {
   return true;
 };
 
-const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, selectedFile, setSelectedFile, disabled = false }) => {
+const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, selectedFile, setSelectedFile, disabled = false, style }) => {
 
   useEffect(() => {
     if(!selectedFile) {
@@ -186,30 +188,27 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
   
 
   return (
-    <Flex direction="column" width="14vw" alignItems="flex-start">
-      <Button
-        leftIcon={<Icon as={FaUpload} />}
-        colorScheme="gray"
-        size='md'
-        onClick={() => fileInputRef.current?.click()}
-        isDisabled={disabled}
-      >
-        {selectedFile ? 'File Selected' : 'Upload CSV'}
-      </Button>
-      {selectedFile && (
-        <>
-          <Text color="gray" mt={2} fontSize="sm">{selectedFile.name}</Text>
-        </>
-      )}
-      <Input
-        ref={fileInputRef}
+    <>
+      <input
         type="file"
+        id="file-upload"
         accept=".csv"
-        onChange={handleFileChange}
         style={{ display: 'none' }}
-        disabled={disabled}
+        onChange={handleFileChange}
       />
-    </Flex>
+      
+      <Button
+        leftIcon={<AttachmentIcon />}
+        size="sm"
+        variant="outline"
+        colorScheme="gray"
+        onClick={() => document.getElementById('file-upload').click()}
+        isDisabled={disabled}
+        style={style}
+      >
+        Upload Timesheet
+      </Button>
+    </>
   );
 };
 

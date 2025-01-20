@@ -14,6 +14,7 @@ import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import CSVUpload from "@/components/ui/file-upload/upload";
+import { CloseIcon } from '@chakra-ui/icons';
 
 // Add a new type for clarity
 type FileFormat = 'timero' | 'manual';
@@ -56,6 +57,11 @@ const BillBack = () => {
   const [propertyGroups, setPropertyGroups] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const router = useRouter();
+  const [employeeFilter, setEmployeeFilter] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState('');
+  const [entityFilter, setEntityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [isFiltering, setIsFiltering] = useState(false);
 
   // Near your other state declarations
   const { entryCount, totalHours, totalBilled } = useMemo(() => {
@@ -699,10 +705,30 @@ const BillBack = () => {
 
   // Memoize filtered data
   const filteredData = useMemo(() => {
-    return billbackData.filter(item => {
-      // Your filtering logic here
+    return billbackData.filter(row => {
+      // Employee filter
+      if (employeeFilter && row.employeeId !== employeeFilter) {
+        return false;
+      }
+
+      // Property filter
+      if (propertyFilter && row.propertyId !== propertyFilter) {
+        return false;
+      }
+
+      // Entity filter
+      if (entityFilter && row.entityId !== entityFilter) {
+        return false;
+      }
+
+      // Category filter
+      if (categoryFilter && row.billingAccountId !== categoryFilter) {
+        return false;
+      }
+
+      return true;
     });
-  }, [billbackData, /* other filter dependencies */]);
+  }, [billbackData, employeeFilter, propertyFilter, entityFilter, categoryFilter]);
 
   // Memoize table configuration
   const memoizedTableConfig = useMemo(() => tableConfig, []);
@@ -761,6 +787,34 @@ const BillBack = () => {
     }
   };
 
+  // Create a helper function to handle all filter changes
+  const handleFilterChange = async (type: string, value: string) => {
+    setIsFiltering(true);
+    
+    // Use requestAnimationFrame to ensure loading state is rendered
+    requestAnimationFrame(() => {
+      switch(type) {
+        case 'employee':
+          setEmployeeFilter(value);
+          break;
+        case 'property':
+          setPropertyFilter(value);
+          break;
+        case 'entity':
+          setEntityFilter(value);
+          break;
+        case 'category':
+          setCategoryFilter(value);
+          break;
+      }
+      
+      // Clear loading state after a brief delay to allow for table re-render
+      setTimeout(() => {
+        setIsFiltering(false);
+      }, 0);
+    });
+  };
+
   return (
     <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
       {/* Header Section */}
@@ -779,8 +833,14 @@ const BillBack = () => {
         </Heading>
       </Flex>
 
-      {/* Sub-header with actions */}
-      <Flex justify="space-between" align="center" px={4} py={2}>
+      {/* First row with actions and totals */}
+      <Flex 
+        justify="space-between" 
+        align="center" 
+        px={4} 
+        py={2}
+        bg="gray.50"  // Light gray background
+      >
         <Flex gap={4} align="center" width="300px">
           <IconButton
             aria-label="Add row"
@@ -791,7 +851,10 @@ const BillBack = () => {
           />
 
           <CSVUpload
-            style={{ width: '180px' }}
+            style={{ 
+              width: '180px',
+              background: 'white'  // Add white background
+            }}
             disabled={!billingPeriod}
             onDataProcessed={handleDataProcessed}
             setLoading={setIsLoading}
@@ -801,11 +864,17 @@ const BillBack = () => {
         </Flex>
 
         <Flex gap={6} fontSize="sm" color="gray.600" align="center">
-          <Text>{entryCount} time entries</Text>
+          <Text>
+            <Text as="span" fontWeight="bold">{entryCount}</Text> time entries
+          </Text>
           <Text color="gray.300">|</Text>
-          <Text>{totalHours.toFixed(2)} billed hours</Text>
+          <Text>
+            <Text as="span" fontWeight="bold">{Math.round(totalHours)}</Text> billed hours
+          </Text>
           <Text color="gray.300">|</Text>
-          <Text>${totalBilled.toFixed(2)} billed total</Text>
+          <Text>
+            <Text as="span" color="green.500">$<Text as="span" fontWeight="bold">{totalBilled.toFixed(2)}</Text></Text> billed total
+          </Text>
         </Flex>
 
         <Box width="300px" textAlign="right">
@@ -814,6 +883,7 @@ const BillBack = () => {
               size="sm"
               variant="outline"
               colorScheme="green"
+              bg="white"  // Add white background
               onClick={() => handleSaveProgress(true)}
               isLoading={isLoading}
               isDisabled={!hasUnsavedChanges}
@@ -838,6 +908,130 @@ const BillBack = () => {
         </Box>
       </Flex>
 
+      {/* Divider */}
+      <Box borderBottom="1px" borderColor="gray.200" />
+
+      {/* Second row with filters */}
+      <Flex 
+        px={4} 
+        py={2} 
+        gap={4} 
+        borderBottom="1px" 
+        borderColor="gray.200"
+        bg="white"  // White background for contrast
+      >
+        <Flex align="center" gap={2}>
+          <Select
+            placeholder="All Employees"
+            size="sm"
+            width="200px"
+            onChange={(e) => handleFilterChange('employee', e.target.value)}
+            value={employeeFilter}
+          >
+            {employees?.map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.name}</option>
+            ))}
+          </Select>
+          {employeeFilter && (
+            <CloseIcon 
+              color="red.500"
+              w={3}
+              h={3}
+              cursor="pointer"
+              _hover={{ color: "red.600" }}
+              onClick={() => handleFilterChange('employee', '')}
+            />
+          )}
+        </Flex>
+
+        <Flex align="center" gap={2}>
+          <Select
+            placeholder="All Properties"
+            size="sm"
+            width="200px"
+            onChange={(e) => handleFilterChange('property', e.target.value)}
+            value={propertyFilter}
+          >
+            {billingProperties?.map(prop => (
+              <option key={prop.id} value={prop.id}>{prop.name}</option>
+            ))}
+          </Select>
+          {propertyFilter && (
+            <CloseIcon 
+              color="red.500"
+              w={3}
+              h={3}
+              cursor="pointer"
+              _hover={{ color: "red.600" }}
+              onClick={() => handleFilterChange('property', '')}
+            />
+          )}
+        </Flex>
+
+        <Flex align="center" gap={2}>
+          <Select
+            placeholder="All Entities"
+            size="sm"
+            width="200px"
+            onChange={(e) => handleFilterChange('entity', e.target.value)}
+            value={entityFilter}
+          >
+            {entities?.map(entity => (
+              <option key={entity.id} value={entity.id}>{entity.name}</option>
+            ))}
+          </Select>
+          {entityFilter && (
+            <CloseIcon 
+              color="red.500"
+              w={3}
+              h={3}
+              cursor="pointer"
+              _hover={{ color: "red.600" }}
+              onClick={() => handleFilterChange('entity', '')}
+            />
+          )}
+        </Flex>
+
+        <Flex align="center" gap={2}>
+          <Select
+            placeholder="All Categories"
+            size="sm"
+            width="200px"
+            onChange={(e) => handleFilterChange('category', e.target.value)}
+            value={categoryFilter}
+          >
+            {billingAccounts?.map(account => (
+              <option key={account.id} value={account.id}>{account.name}</option>
+            ))}
+          </Select>
+          {categoryFilter && (
+            <CloseIcon 
+              color="red.500"
+              w={3}
+              h={3}
+              cursor="pointer"
+              _hover={{ color: "red.600" }}
+              onClick={() => handleFilterChange('category', '')}
+            />
+          )}
+        </Flex>
+      </Flex>
+
+      {/* Add loading overlay */}
+      {isFiltering && (
+        <Center 
+          position="absolute" 
+          top="0" 
+          left="0" 
+          right="0" 
+          bottom="0" 
+          bg="whiteAlpha.700" 
+          zIndex="overlay"
+        >
+          <Spinner size="xl" />
+        </Center>
+      )}
+
       {/* Main Content */}
       <Box 
         flex="1" 
@@ -854,7 +1048,7 @@ const BillBack = () => {
           </Center>
         ) : (
           <BillbackDisplay
-            data={billbackData}
+            data={filteredData}
             tableConfig={memoizedTableConfig}
             handleEdit={handleEdit}
             accounts={billingAccounts}

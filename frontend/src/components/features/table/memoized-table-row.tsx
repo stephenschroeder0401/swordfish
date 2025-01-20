@@ -208,6 +208,9 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                   onChange={(e) => handleFieldEdit(e, column)}
                   size="sm"
                   onWheel={(e) => e.target.blur()}
+                  _hover={{ border: 'none' }}
+                  _focus={{ border: 'none', boxShadow: 'none' }}
+                  border="none"
                 />
               )
             )

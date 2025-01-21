@@ -204,7 +204,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                 <Input 
                   backgroundColor='white'
                   width="100%"
-                  minWidth="50px"
+                  minWidth="60px"
                   type={column === 'hours' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                   value={item[column] === 0 ? '' : item[column]}
                   onChange={(e) => handleFieldEdit(e, column)}

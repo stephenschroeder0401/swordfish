@@ -22,7 +22,24 @@ const BillbackDisplay = React.memo(({
       maxH="calc(100vh - 250px)"
     >
       <Table mb={10} variant="simple" size="sm">
-        <Thead position="sticky" top={0} zIndex={4}>
+        <Thead 
+          position="sticky" 
+          top={0} 
+          bg="white" 
+          zIndex={4}
+          sx={{
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: '1px',
+              backgroundColor: '#E2E8F0',
+              zIndex: 5
+            }
+          }}
+        >
           <Tr>
             {tableConfig.map(({ label, column, width }) => (
               <Th 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import {
   Select,
@@ -48,6 +48,7 @@ export const PropertySelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedProperties);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const filteredProperties = properties
     .filter(p => 
@@ -117,6 +118,7 @@ export const PropertySelect = ({
   return (
     <Box position="relative" width={width} minWidth={minWidth}>
       <Button
+        ref={buttonRef}
         onClick={onOpen}
         width="100%"
         size={size}
@@ -130,22 +132,30 @@ export const PropertySelect = ({
         {getDisplayValue()}
       </Button>
 
-      {isOpen && (
+      {isOpen && buttonRef.current && (
         <Portal>
           <Box
             position="fixed"
             zIndex={1400}
-            top="50%"
-            left="50%"
-            transform="translate(-50%, -50%)"
             bg="white"
             boxShadow="xl"
             borderRadius="md"
             width="400px"
-            maxHeight="80vh"
             overflow="hidden"
+            mt={1}
+            style={{
+              top: `${Math.min(
+                buttonRef.current.getBoundingClientRect().bottom,
+                window.innerHeight - 400
+              )}px`,
+              left: `${buttonRef.current.getBoundingClientRect().left}px`,
+              maxHeight: `${Math.min(
+                400,
+                window.innerHeight - buttonRef.current.getBoundingClientRect().bottom - 20
+              )}px`
+            }}
           >
-            <VStack spacing={0} align="stretch">
+            <VStack spacing={0} align="stretch" height="100%">
               <Box p={4} borderBottomWidth={1}>
                 <Input
                   placeholder="Search properties..."
@@ -156,7 +166,22 @@ export const PropertySelect = ({
                 />
               </Box>
 
-              <Box overflowY="auto" maxHeight="60vh">
+              <Box 
+                overflowY="auto" 
+                maxHeight="calc(100vh - 300px)"
+                css={{
+                  '&::-webkit-scrollbar': {
+                    width: '4px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    width: '6px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'gray.200',
+                    borderRadius: '24px',
+                  },
+                }}
+              >
                 <VStack align="stretch" spacing={0}>
                   {isMulti && (
                     <HStack
@@ -197,7 +222,7 @@ export const PropertySelect = ({
               </Box>
 
               {isMulti && (
-                <Box p={4} borderTopWidth={1}>
+                <Box p={4} borderTopWidth={1} bg="white" position="sticky" bottom={0}>
                   <Button size={size} width="100%" onClick={onClose}>
                     Done
                   </Button>

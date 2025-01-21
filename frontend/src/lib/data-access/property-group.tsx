@@ -10,6 +10,7 @@ const getAuthenticatedSession = async () => {
 export const upsertPropertyGroup = async (group: {
   id: string;
   name: string;
+  allocationType: 'custom' | 'revenue';
   properties: Array<{
     id: string;
     percentage: number;
@@ -23,7 +24,8 @@ export const upsertPropertyGroup = async (group: {
     const groupToSave = {
       id: group.id,
       name: group.name,
-      client_id: session.clientId
+      client_id: session.clientId,
+      allocation_type: group.allocationType
     };
 
     const { data: groupData, error: groupError } = await supabase
@@ -95,7 +97,7 @@ export const upsertPropertyGroup = async (group: {
 export const saveAllPropertyGroups = async (groups: Array<{
   id: string;
   name: string;
-  //client_id: string;
+  allocationType: 'custom' | 'revenue';
   properties: Array<{
     id: string;
     percentage: number;
@@ -103,7 +105,6 @@ export const saveAllPropertyGroups = async (groups: Array<{
   billingAccounts: string[];
 }>) => {
   try {
-    // Save each group sequentially to maintain data consistency
     for (const group of groups) {
       await upsertPropertyGroup(group);
     }
@@ -124,6 +125,7 @@ export const fetchAllPropertyGroups = async () => {
         id,
         name,
         client_id,
+        allocation_type,
         property_group_property (
           property_id,
           percentage
@@ -141,6 +143,7 @@ export const fetchAllPropertyGroups = async () => {
       id: group.id,
       name: group.name,
       client_id: group.client_id,
+      allocationType: group.allocation_type || 'custom',
       properties: group.property_group_property.map(prop => ({
         id: prop.property_id,
         percentage: prop.percentage

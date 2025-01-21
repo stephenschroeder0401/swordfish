@@ -25,7 +25,7 @@ import {
 import { ChevronDownIcon, ChevronUpIcon, AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { PropertySelect } from '@/components/shared/property-select';
 import { BillingAccountSelect } from '@/components/shared/billing-account-select';
-import { fetchAllBillingAccounts, saveAllPropertyGroups, fetchAllPropertyGroups } from '@/lib/data-access/';
+import { fetchAllBillingAccounts, saveAllPropertyGroups, fetchAllPropertyGroups, deletePropertyGroup } from '@/lib/data-access/';
 import { useToast } from '@chakra-ui/react';
 import { v4 as uuidv4 } from 'uuid';
 import { getRevenueAllocation } from '@/lib/utils/revenue-calculations';
@@ -58,10 +58,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
     const loadPropertyGroups = async () => {
       try {
         const groups = await fetchAllPropertyGroups();
-        setRows(groups.map(group => ({
-          ...group,
-          allocationType: 'custom' as const
-        })));
+        setRows(groups);
       } catch (error) {
         console.error('Error loading property groups:', error);
         toast({
@@ -130,8 +127,36 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
     }));
   };
 
-  const deleteRow = (rowId: string) => {
-    setRows(rows.filter(row => row.id !== rowId));
+  const deleteRow = async (rowId: string) => {
+    try {
+      setIsSaving(true);
+      // First call the delete API
+      await deletePropertyGroup(rowId);
+      
+      // Then update UI
+      setRows(rows.filter(row => row.id !== rowId));
+      
+      toast({
+        title: 'Success',
+        description: 'Property group deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
+    } catch (error) {
+      console.error('Error deleting property group:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete property group. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+        position: 'top'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deletePropertyFromGroup = (rowId: string, propertyId: string) => {
@@ -425,7 +450,7 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                               </Text>
                             </HStack>
                             {row.properties
-                              .filter(prop => prop.percentage > 0)
+                              .filter(prop => row.allocationType === 'revenue' ? prop.percentage > 0 : true)
                               .map(prop => {
                                 const propertyDetails = properties.find(p => p.id === prop.id);
                                 return (
@@ -435,9 +460,9 @@ export const PropertyGroupsPanel = ({ properties = [], billingAccounts = [] }) =
                                     </Text>
                                     <HStack width="10vw" spacing={2}>
                                       <NumberInput
-                                        value={prop.percentage}
+                                        value={prop.percentage === 0 ? '' : prop.percentage}
                                         onChange={(_, value) => 
-                                          updatePropertyPercentage(row.id, prop.id, value)
+                                          updatePropertyPercentage(row.id, prop.id, typeof value === 'string' ? 0 : value)
                                         }
                                         min={0}
                                         max={100}

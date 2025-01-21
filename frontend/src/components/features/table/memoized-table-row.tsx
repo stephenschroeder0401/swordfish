@@ -61,8 +61,10 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
           width={
             column === 'notes' 
               ? '300px'
-            : ['property', 'entity'].includes(column)
-              ? '270px'
+            : column === 'property'
+              ? '350px'
+            : column === 'entity'
+              ? '150px'
             : column === 'rate'
               ? '200px'
             : column === 'billingRate'
@@ -76,7 +78,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
             : ['hours', 'jobTotal', 'billedmiles'].includes(column)
               ? '120px'
             : column === 'delete'
-              ? '50px'
+              ? '35px'
             : 'auto'
           }
           minWidth={column === 'notes' ? '200px' : 'auto'}
@@ -126,8 +128,8 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
               </Select>
             ) : column === 'entity' ? (
               <Text
-                width="270px"
-                minWidth="270px"
+                width="150px"
+                minWidth="150px"
                 maxWidth="none"
                 overflow="visible"
                 whiteSpace="normal"

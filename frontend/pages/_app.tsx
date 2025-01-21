@@ -104,7 +104,7 @@ function MyApp({ Component, pageProps }: { Component: React.ComponentType; pageP
                 <NavBar />
               </Box>
             )}
-            <Box flex="1" overflowY="auto" p={shouldShowNav ? "4" : "0"}>
+            <Box flex="1" overflowY="auto" p={shouldShowNav ? "0" : "0"}>
               <Providers>
                 <Component {...pageProps} />
               </Providers>

@@ -575,12 +575,18 @@ const BillBack = () => {
       column: "delete", 
       label: "", 
       canSort: false,
-      width: "50px"
+      sticky: true,
+      width: "35px"
     },
     { column: "employee", label: "Employee", canSort: false },
     { column: "job_date", label: "Date", canSort: false },
     { column: "property", label: "Property", canSort: false, width: "350px" },
-    { column: "entity", label: "Entity", canSort: false, canEdit: false, width: "350px" },
+    { 
+      column: "entity", 
+      label: "Entity", 
+      canSort: false,
+      width: "200px"
+    },
     { column: "category", label: "Category", canSort: false },
     { column: "hours", label: "Hours", canSort: false },
     { column: "rate", label: "Labor Rate", canSort: false },
@@ -821,7 +827,13 @@ const BillBack = () => {
   };
 
   return (
-    <Box h="100vh" display="flex" flexDirection="column" overflow="hidden">
+    <Box 
+      h="100vh" 
+      display="flex" 
+      flexDirection="column" 
+      overflow="hidden"
+      p={0}  // Remove all padding
+    >
       {/* Header Section */}
       <Flex 
         bg="white" 
@@ -830,7 +842,7 @@ const BillBack = () => {
         p={4}
         h="7vh"
         alignItems="center"
-        pb="3vh"
+        pb="1vh"
         justifyContent="space-between"
       >
         <Heading as="h1" size="lg">
@@ -844,7 +856,7 @@ const BillBack = () => {
         align="center" 
         px={4} 
         py={2}
-        bg="gray.50"  // Light gray background
+        bg="gray.50"  // Lighter grey for the top bar
       >
         <Flex gap={4} align="center" width="300px">
           <IconButton
@@ -858,7 +870,16 @@ const BillBack = () => {
           <CSVUpload
             style={{ 
               width: '180px',
-              background: 'white'  // Add white background
+              background: 'white',
+              border: '2px solid #E2E8F0',  // Default border
+              borderRadius: '4px',
+              transition: 'all 0.2s',  // Smooth transition for hover effect
+              _hover: {
+                border: '2px solid #63B3ED',  // Light blue border on hover (Chakra's blue.300)
+                transform: 'translateY(-1px)',  // Slight lift effect
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',  // Subtle shadow on hover
+                cursor: 'pointer'  // Add pointer cursor on hover
+              }
             }}
             disabled={!billingPeriod}
             onDataProcessed={handleDataProcessed}
@@ -922,9 +943,17 @@ const BillBack = () => {
         py={2} 
         gap={4} 
         borderBottom="1px" 
-        borderColor="gray.200"
-        bg="white"  // White background for contrast
+        borderColor="gray.200" 
+        bg="gray.100"
+        align="center"
       >
+        <Text
+          color="gray.600"
+          fontSize="sm"
+          fontWeight="medium"
+        >
+          Filters:
+        </Text>
         <Flex align="center" gap={2}>
           <Select
             placeholder="All Employees"
@@ -932,6 +961,7 @@ const BillBack = () => {
             width="200px"
             onChange={(e) => handleFilterChange('employee', e.target.value)}
             value={employeeFilter}
+            bg="white"
           >
             {employees?.map(emp => (
               <option key={emp.id} value={emp.id}>{emp.name}</option>
@@ -956,6 +986,7 @@ const BillBack = () => {
             width="200px"
             onChange={(e) => handleFilterChange('property', e.target.value)}
             value={propertyFilter}
+            bg="white"
           >
             {billingProperties?.map(prop => (
               <option key={prop.id} value={prop.id}>{prop.name}</option>
@@ -980,6 +1011,7 @@ const BillBack = () => {
             width="200px"
             onChange={(e) => handleFilterChange('entity', e.target.value)}
             value={entityFilter}
+            bg="white"
           >
             {entities?.map(entity => (
               <option key={entity.id} value={entity.id}>{entity.name}</option>
@@ -1004,6 +1036,7 @@ const BillBack = () => {
             width="200px"
             onChange={(e) => handleFilterChange('category', e.target.value)}
             value={categoryFilter}
+            bg="white"
           >
             {billingAccounts?.map(account => (
               <option key={account.id} value={account.id}>{account.name}</option>

@@ -46,16 +46,13 @@ const NavBar = () => {
   };
 
   return (
-    <Flex
+    <Box
+      as="nav"
+      width="140px"
+      height="100%"
       bg="gray.50"
       borderRight="1px"
       borderColor="gray.200"
-      flexDirection="column"
-      alignItems="flex-start"
-      position="sticky"
-      top="60px"
-      height="calc(100vh - 60px)"
-      width="150px"
     >
       <Box width="100%" p="2.5">
         <Text m="1" fontSize="sm" fontWeight="bold" color={'black'} display="flex" alignItems="center">
@@ -105,7 +102,7 @@ const NavBar = () => {
           </Text>
         </Link>
       </Box>
-    </Flex>
+    </Box>
   );
 };
 

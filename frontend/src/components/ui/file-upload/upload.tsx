@@ -15,11 +15,13 @@ interface CSVUploadProps {
 }
 
 const validateHeaders = (headers: string[]) => {
-  const timeroFormat = ['Employee Name', 'Clocked In At', 'Clocked Out At', 'Job Name', 'Mileage', 'Notes'];
-  const manualFormat = ['Date', 'Employee Name', 'Property', 'Category', 'Task', 'Minutes', 'Comments'];
+  const requiredTimeroHeaders = ['Employee Name', 'Clocked In At', 'Clocked Out At', 'Job Name', 'Mileage', 'Notes'];
+  const requiredManualHeaders = ['Date', 'Employee Name', 'Property', 'Category', 'Task', 'Minutes', 'Comments'];
 
-  const isTimero = timeroFormat.every(header => headers.includes(header));
-  const isManual = manualFormat.every(header => headers.includes(header));
+  // Check if all required Timero headers exist in the CSV headers
+  const isTimero = requiredTimeroHeaders.every(header => headers.includes(header));
+  // Check if all required Manual headers exist in the CSV headers
+  const isManual = requiredManualHeaders.every(header => headers.includes(header));
 
   if (!isTimero && !isManual) {
     throw new Error('Invalid file format. Please use either Timero or Manual template.');
@@ -53,6 +55,8 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
 
 
   const parseCSV = (file: File) => {
+    console.log('Starting to parse file:', file.name);  // Debug log
+    
     Papa.parse(file, {
       complete: (result) => {
         try {
@@ -132,21 +136,56 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
       }))
       .map((row) => {
         if (format === 'timero') {
+          console.log('Processing row:', row);  // Debug log
+          
           // Handle Timero format
           const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
           const category = categoryParts.join('/');
           
-          const clockedInAt = new Date(row['Clocked In At']);
-          const clockedOutAt = new Date(row['Clocked Out At']);
-          const duration = (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60);
+          // Parse the date/time with more flexible format
+          const parseDateTime = (dateTimeStr: string) => {
+            console.log('Parsing datetime:', dateTimeStr);  // Debug log
+            if (!dateTimeStr) return null;  // Handle undefined/null
+            
+            try {
+              // Check if format is MM-DD-YYYY HH:MM AM/PM
+              if (dateTimeStr.includes('-')) {
+                const [datePart, timePart, ampm] = dateTimeStr.split(' ');
+                const [month, day, year] = datePart.split('-');
+                const [hours, minutes] = timePart.split(':');
+                
+                let hour = parseInt(hours);
+                if (ampm === 'PM' && hour !== 12) hour += 12;
+                if (ampm === 'AM' && hour === 12) hour = 0;
+                
+                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.toString().padStart(2, '0')}:${minutes}:00`);
+              }
+              // Handle M/D/YYYY HH:MM format
+              else {
+                const [datePart, timePart] = dateTimeStr.split(' ');
+                const [month, day, year] = datePart.split('/');
+                const [hours, minutes] = timePart.split(':');
+                
+                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes}:00`);
+              }
+            } catch (error) {
+              console.error('Date parsing error:', error);
+              throw error;
+            }
+          };
+          
+          const clockedInAt = parseDateTime(row['Clocked In At']);
+          const clockedOutAt = parseDateTime(row['Clocked Out At']);
+          const duration = clockedInAt && clockedOutAt ? 
+            (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60) : 0;
           
           return {
             employee: row['Employee Name']?.trim() || '',
-            date: clockedInAt.toISOString().split('T')[0],
+            date: clockedInAt ? clockedInAt.toISOString().split('T')[0] : '',
             property: property?.trim() || '',
             category: category?.trim() || '',
-            clockedInAt: clockedInAt.toISOString(),
-            clockedOutAt: clockedOutAt.toISOString(),
+            clockedInAt: clockedInAt ? clockedInAt.toISOString() : null,
+            clockedOutAt: clockedOutAt ? clockedOutAt.toISOString() : null,
             hours: duration.toFixed(2),
             mileage: row['Mileage'] || 0,
             notes: row['Notes'] || '',

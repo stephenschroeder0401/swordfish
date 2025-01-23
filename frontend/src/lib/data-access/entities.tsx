@@ -15,7 +15,7 @@ export const fetchAllEntities = async () => {
     .from('entity')
     .select('*')
     .eq('client_id', session.clientId)
-    .eq('is_deleted', false);
+    .or('is_deleted.is.null,is_deleted.eq.false');
 
   const { data, error } = await query;
 

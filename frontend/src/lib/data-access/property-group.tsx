@@ -157,8 +157,6 @@ export const fetchAllPropertyGroups = async () => {
   }
 };
 
-
-// Add this with the other query functions
 export const fetchMonthlyBillingItems = async () => {
   const session = await getUserSession();
   if (!session) throw new Error('No active session');
@@ -189,6 +187,8 @@ export const fetchMonthlyBillingItems = async () => {
     .eq('billing_type', 'Monthly')
     .eq('isbilledback', true)
     .eq('property_group_gl.property_group.client_id', session.clientId)
+    .not('property_group_gl.property_group.is_deleted', 'is', true)
+    .not('property_group_gl.property_group.property_group_property.property.is_deleted', 'is', true)
     .throwOnError();
 
   if (error) throw error;

@@ -17,7 +17,7 @@ export const fetchAllBillingPeriods = async (): Promise<BillingPeriod[]> => {
     .from('billing_period')
     .select("*")
     .eq('client_id', session.clientId)
-    .eq('is_deleted', false);
+    .or('is_deleted.is.null,is_deleted.eq.false');
 
   if (error) {
     console.error("Error fetching billing periods:", error);

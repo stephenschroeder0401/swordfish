@@ -7,18 +7,30 @@ export const getPropertyUnits = async () => {
 
   const { data, error } = await supabase
     .from('property_unit')
-    .select('*, property!inner(*, entity!inner(*))')
-    .eq('property.entity.client_id', session.clientId);
+    .select(`
+      *,
+      property:property_id!inner (
+        *,
+        entity:entityid!inner (*)
+      )
+    `)
+    .eq('property.entity.client_id', session.clientId)
+    .eq('property.is_deleted', false)
+    .or('is_deleted.is.null,is_deleted.eq.false');
   
   if (error) throw error;
   return data;
 };
 
 export const createPropertyUnit = async (propertyUnit) => {
+  console.log('Creating unit:', propertyUnit);  // Debug log
+
   const { data, error } = await supabase
     .from('property_unit')
     .insert([propertyUnit])
     .select();
+
+  console.log('Insert result:', { data, error });  // Debug log
 
   if (error) throw error;
   return data[0];
@@ -63,9 +75,17 @@ export const deletePropertyUnit = async (id: string) => {
 };
 
 export const upsertPropertyUnits = async (propertyUnits) => {
+  const now = new Date().toISOString();
+  const unitsWithDates = propertyUnits.map(unit => ({
+    ...unit,
+    updated_at: now,
+    created_at: unit.id ? unit.created_at : now,
+    is_deleted: false
+  }));
+
   const { data, error } = await supabase
     .from('property_unit')
-    .upsert(propertyUnits)
+    .upsert(unitsWithDates)
     .select();
 
   if (error) throw error;
@@ -85,7 +105,9 @@ export const getPropertyRevenue = async (propertyId: string) => {
       )
     `)
     .eq('property_id', propertyId)
-    .eq('property.entity.client_id', session.clientId);
+    .eq('property.entity.client_id', session.clientId)
+    .eq('property.is_deleted', false)
+    .or('is_deleted.is.null,is_deleted.eq.false');
 
   if (error) throw error;
 

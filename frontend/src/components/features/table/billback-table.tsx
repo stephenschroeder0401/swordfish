@@ -10,7 +10,8 @@ const BillbackDisplay = React.memo(({
   accounts = [],
   properties = [], 
   employees = [], 
-  handleDelete, 
+  handleDelete,
+  openClearDialog,
   entities = [], 
   propertyGroups = [] 
 }) => {
@@ -41,7 +42,7 @@ const BillbackDisplay = React.memo(({
           }}
         >
           <Tr>
-            {tableConfig.map(({ label, column, width }) => (
+            {tableConfig.map(({ label, column, width, renderHeader }) => (
               <Th 
                 key={column} 
                 width={width}
@@ -54,7 +55,7 @@ const BillbackDisplay = React.memo(({
                 borderLeft={column === 'notes' ? '2px solid #E2E8F0' : 'none'}
                 top={0}
               >
-                {label}
+                {renderHeader ? renderHeader() : label}
               </Th>
             ))}
           </Tr>

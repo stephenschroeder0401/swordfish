@@ -4,7 +4,7 @@ import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, F
 import BillbackDisplay from "@/components/features/table/billback-table";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
-import { AddIcon, AttachmentIcon, CalendarIcon, RepeatIcon } from "@chakra-ui/icons"
+import { AddIcon, AttachmentIcon, CalendarIcon, RepeatIcon, CloseIcon } from "@chakra-ui/icons"
 import { saveJobs, upsertBillbackUpload, fetchBillbackUpload } 
 from "@/lib/data-access/supabase-client";
 import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
@@ -14,7 +14,6 @@ import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import CSVUpload from "@/components/ui/file-upload/upload";
-import { CloseIcon } from '@chakra-ui/icons';
 
 // Add a new type for clarity
 type FileFormat = 'timero' | 'manual';
@@ -130,18 +129,9 @@ const BillBack = () => {
 
   useEffect(() => {
     console.log("=== Data Loading Flow ===");
-    console.log("Dependencies:", {
-        billingPeriod,
-        billingAccountsLength: billingAccounts.length,
-        billingPropertiesLength: billingProperties.length,
-        employeesLength: employees.length
-    });
-
     if (billingPeriod && billingAccounts.length && billingProperties.length && employees.length) {
-        setSelectedFile(null);
         const fetchBillbackData = async () => {
             setIsLoading(true);
-            setBillbackData([]);
             try {
                 const data = await fetchBillbackUpload(billingPeriod);
                 
@@ -149,60 +139,28 @@ const BillBack = () => {
                     setBillbackData([]);
                 } else {
                     const uploadData = data?.upload_data || [];
+                    
+                    // Format the date properly when processing existing data
                     const processedData = uploadData.map(job => {
-                        if(!!job) {
-                            // Recheck billing account
-                            const billingAccount = billingAccounts.find((account) => 
-                                account.id === job.billingAccountId
-                            );
-
-                            // Recheck property/group
-                            const isPropertyGroup = job.propertyId?.startsWith('group-');
-                            let propertyGroup, billingProperty;
-                            
-                            if (isPropertyGroup) {
-                                propertyGroup = propertyGroups.find(group => 
-                                    `group-${group.id}` === job.propertyId
-                                );
-                            } else {
-                                billingProperty = billingProperties.find((property) => 
-                                    property.id === job.propertyId
-                                );
-                            }
-
-                            // Update entity information if it's a property
-                            const entityId = !isPropertyGroup ? billingProperty?.entityid : '';
-                            const entityName = !isPropertyGroup ? billingProperty?.entityName : '';
-
-                            // Recheck employee
-                            const employee = employees.find((emp) => 
-                                emp.id === job.employeeId
-                            );
-
-                            // Set isError based on current data
-                            const isError = (!propertyGroup && !billingProperty) || !billingAccount || !employee;
-
-                            return {
-                                ...job,
-                                property: propertyGroup?.name || billingProperty?.name || job.property,
-                                entity: entityName || job.entity,
-                                entityId: entityId || job.entityId,
-                                employee: employee?.name || job.employee,
-                                rate: employee?.rate || job.rate,
-                                isError
-                            };
+                        // Format the date before processing
+                        const formattedJob = {
+                            ...job,
+                            job_date: job.job_date ? new Date(job.job_date).toISOString().split('T')[0] : ''
+                        };
+                        
+                        if (job.isManual) {
+                            return processManualJob(formattedJob);
+                        } else {
+                            return processTimeroJob(formattedJob);
                         }
-                        return null;
-                    }).filter(Boolean);
+                    });
 
                     setBillbackData(processedData);
-                    
-                    // Check if any rows have errors
                     const hasErrors = processedData.some(row => row.isError);
                     setIsValid(!hasErrors);
                 }
             } catch (error) {
-                console.error("Error fetching billback data for billing period", error);
+                console.error("Error:", error);
                 setBillbackData([]);
             } finally {
                 setIsLoading(false);
@@ -244,11 +202,11 @@ const BillBack = () => {
     setIsValid(false);
   }, []);
 
-  const handleClearData =() =>{
+  const handleClearData = () => {
     setBillbackData([]);
     setSelectedFile(null);
     setHasUnsavedChanges(true);
-  }
+  };
 
   const handleDataProcessed = (newData) => {
     console.log("=== Processing New Data ===");
@@ -290,6 +248,11 @@ const BillBack = () => {
 
   // Split processing logic
   const processTimeroJob = (job) => {
+    // Format the date first
+    const formattedDate = job.job_date ? 
+        new Date(job.job_date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
+        new Date().toLocaleDateString('en-CA');
+
     // First check if the property name matches a property group
     const propertyGroup = propertyGroups.find(group => 
         group.name.toLowerCase() === job.property.toLowerCase()
@@ -339,7 +302,7 @@ const BillBack = () => {
         rowId: uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
-        job_date: job.date || job.job_date,
+        job_date: formattedDate,  // Use the formatted date
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
@@ -365,6 +328,11 @@ const BillBack = () => {
   };
 
   const processManualJob = (job) => {
+    // Format the date first
+    const formattedDate = job.job_date ? 
+        new Date(job.job_date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
+        new Date().toLocaleDateString('en-CA');
+
     const hours = Number(job.hours) || 0;
     
     const propertyGroup = propertyGroups.find(group => 
@@ -406,7 +374,7 @@ const BillBack = () => {
         rowId: uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
-        job_date: job.date,
+        job_date: formattedDate,  // Use the formatted date
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
@@ -576,7 +544,25 @@ const BillBack = () => {
       label: "", 
       canSort: false,
       sticky: true,
-      width: "35px"
+      width: "35px",
+      renderHeader: () => (
+        <Tooltip label="Clear all entries">
+          <IconButton
+            aria-label="Clear all entries"
+            icon={<CloseIcon />}
+            size="xs"
+            colorScheme="red"
+            onClick={handleClearData}
+            variant="ghost"
+            pl="5px"
+            ml="2px"
+            _hover={{ 
+              bg: 'red.50',
+              color: 'red.600'
+            }}
+          />
+        </Tooltip>
+      )
     },
     { column: "employee", label: "Employee", canSort: false },
     { column: "job_date", label: "Date", canSort: false },
@@ -826,6 +812,11 @@ const BillBack = () => {
     });
   };
 
+  const openClearDialog = () => {
+    // Implement the logic to open the clear dialog
+    console.log("Clear dialog opened");
+  };
+
   return (
     <Box 
       h="100vh" 
@@ -856,7 +847,7 @@ const BillBack = () => {
         align="center" 
         px={4} 
         py={2}
-        bg="gray.50"  // Lighter grey for the top bar
+        bg="gray.50"
       >
         <Flex gap={4} align="center" width="300px">
           <IconButton
@@ -871,14 +862,14 @@ const BillBack = () => {
             style={{ 
               width: '180px',
               background: 'white',
-              border: '2px solid #E2E8F0',  // Default border
+              border: '2px solid #E2E8F0',
               borderRadius: '4px',
-              transition: 'all 0.2s',  // Smooth transition for hover effect
+              transition: 'all 0.2s',
               _hover: {
-                border: '2px solid #63B3ED',  // Light blue border on hover (Chakra's blue.300)
-                transform: 'translateY(-1px)',  // Slight lift effect
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',  // Subtle shadow on hover
-                cursor: 'pointer'  // Add pointer cursor on hover
+                border: '2px solid #63B3ED',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                cursor: 'pointer'
               }
             }}
             disabled={!billingPeriod}
@@ -887,6 +878,7 @@ const BillBack = () => {
             selectedFile={selectedFile}
             setSelectedFile={setSelectedFile}
           />
+
         </Flex>
 
         <Flex gap={6} fontSize="sm" color="gray.600" align="center">
@@ -923,7 +915,7 @@ const BillBack = () => {
               background="green.600"
               onClick={handleSubmit}
               isLoading={isUploading}
-              isDisabled={!isValid || billbackData.length === 0}
+              isDisabled={!isValid}
               _hover={{
                 bg: "green.500"
               }}
@@ -1096,6 +1088,7 @@ const BillBack = () => {
             handleDelete={handleDelete}
             entities={entities}
             propertyGroups={propertyGroups}
+            openClearDialog={openClearDialog}
           />
         )}
       </Box>

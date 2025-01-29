@@ -14,11 +14,12 @@ import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import CSVUpload from "@/components/ui/file-upload/upload";
+import Papa from 'papaparse';
 
 // Add a new type for clarity
-type FileFormat = 'timero' | 'manual';
+type FileFormat = 'timero' | 'manual' | 'progress';
 
-// Add format detection function
+// Update format detection function
 const detectFileFormat = (firstRow: any): FileFormat => {
   // Check object keys instead of trying to join array
   const headers = Object.keys(firstRow);
@@ -29,9 +30,12 @@ const detectFileFormat = (firstRow: any): FileFormat => {
   if (headers.includes('Minutes') && headers.includes('Task')) {
     return 'manual';
   }
+  if (headers.includes('Hours') && headers.includes('Employee')) {
+    return 'progress';
+  }
   
   // If data is already transformed (from upload.tsx)
-  if (firstRow.format === 'timero' || firstRow.format === 'manual') {
+  if (firstRow.format === 'timero' || firstRow.format === 'manual' || firstRow.format === 'progress') {
     return firstRow.format;
   }
   
@@ -335,6 +339,7 @@ const BillBack = () => {
   };
 
   const processManualJob = (job) => {
+    console.log("processing manual job ", job);
     // Format the date first
     const formattedDate = job.date ? 
         new Date(job.date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
@@ -827,6 +832,37 @@ const BillBack = () => {
     console.log("Clear dialog opened");
   };
 
+  const handleExport = () => {
+    // Transform billbackData to CSV-friendly format
+    const exportData = billbackData.map(row => ({
+      'Employee': row.employee,
+      'Date': row.job_date,
+      'Property': row.property,
+      'Category': row.category,
+      'Hours': row.hours,
+      'Mileage': row.billedmiles,
+      'Notes': row.notes,
+      'Labor Total': row.total,
+      'Billing Total': row.billingTotal,
+      'Mileage Total': row.mileageTotal,
+      'Job Total': row.jobTotal
+    }));
+
+    // Convert to CSV
+    const csv = Papa.unparse(exportData);
+
+    // Create and trigger download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `billback_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <Box 
       h="100vh" 
@@ -910,15 +946,23 @@ const BillBack = () => {
             <Button
               size="sm"
               variant="outline"
+              colorScheme="blue"
+              onClick={handleExport}
+              isDisabled={billbackData.length === 0}
+            >
+              Export CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               colorScheme="green"
-              bg="white"  // Add white background
+              bg="white"
               onClick={() => handleSaveProgress(true)}
               isLoading={isLoading}
               isDisabled={!hasUnsavedChanges}
             >
               Save Progress
             </Button>
-
             <Button
               size="sm"
               color="white"

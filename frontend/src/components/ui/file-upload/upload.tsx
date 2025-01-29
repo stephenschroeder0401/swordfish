@@ -17,14 +17,15 @@ interface CSVUploadProps {
 const validateHeaders = (headers: string[]) => {
   const requiredTimeroHeaders = ['Employee Name', 'Clocked In At', 'Clocked Out At', 'Job Name', 'Mileage', 'Notes'];
   const requiredManualHeaders = ['Date', 'Employee Name', 'Property', 'Category', 'Task', 'Minutes', 'Comments'];
+  const requiredProgressHeaders = ['Employee', 'Date', 'Property', 'Category', 'Hours', 'Mileage', 'Notes'];
 
-  // Check if all required Timero headers exist in the CSV headers
+  // Check each format
   const isTimero = requiredTimeroHeaders.every(header => headers.includes(header));
-  // Check if all required Manual headers exist in the CSV headers
   const isManual = requiredManualHeaders.every(header => headers.includes(header));
+  const isProgress = requiredProgressHeaders.every(header => headers.includes(header));
 
-  if (!isTimero && !isManual) {
-    throw new Error('Invalid file format. Please use either Timero or Manual template.');
+  if (!isTimero && !isManual && !isProgress) {
+    throw new Error('Invalid file format. Please use either Timero, Manual, or Progress template.');
   }
 
   return true;
@@ -114,13 +115,16 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
     });
   };
 
-  const detectFileFormat = (row: any): 'timero' | 'manual' => {
+  const detectFileFormat = (row: any): 'timero' | 'manual' | 'progress' => {
     const headers = Object.keys(row);
     if (headers.includes('Clocked In At') && headers.includes('Clocked Out At')) {
       return 'timero';
     }
     if (headers.includes('Date') && headers.includes('Minutes')) {
       return 'manual';
+    }
+    if (headers.includes('Employee') && headers.includes('Hours')) {
+      return 'progress';
     }
     throw new Error('Unrecognized file format');
   };
@@ -190,6 +194,20 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
             mileage: row['Mileage'] || 0,
             notes: row['Notes'] || '',
             format: 'timero' as const
+          };
+        } else if (format === 'progress') {
+          // Direct mapping for Progress format
+          return {
+            employee: row['Employee']?.trim() || '',
+            date: row['Date']?.trim() || '',
+            property: row['Property']?.trim() || '',
+            category: row['Category']?.trim() || '',
+            clockedInAt: null,
+            clockedOutAt: null,
+            hours: row['Hours'] || '0',
+            mileage: row['Mileage'] || '0',
+            notes: row['Notes'] || '',
+            format: 'progress' as const
           };
         } else {
           console.log("ROW!! :", row);

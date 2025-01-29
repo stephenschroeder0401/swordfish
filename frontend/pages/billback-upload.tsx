@@ -222,11 +222,18 @@ const BillBack = () => {
         if (!job) return null;
 
         // Process based on format
-        if (fileFormat === 'timero') {
-          return processTimeroJob(job);
-        } else {
-          return processManualJob(job);
-        }
+        const processedJob = fileFormat === 'timero' ? 
+          processTimeroJob(job) : 
+          processManualJob(job);
+
+        // Explicitly check for required fields after processing
+        processedJob.isError = (
+          !processedJob.employeeId ||           // Must have employee
+          !processedJob.propertyId ||           // Must have property
+          !processedJob.billingAccountId        // Must have category
+        );
+
+        return processedJob;
       });
 
       console.log("All processed billingJobs:", billingJobs);
@@ -249,8 +256,8 @@ const BillBack = () => {
   // Split processing logic
   const processTimeroJob = (job) => {
     // Format the date first
-    const formattedDate = job.job_date ? 
-        new Date(job.job_date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
+    const formattedDate = job.date ? 
+        new Date(job.date).toLocaleDateString('en-CA') : 
         new Date().toLocaleDateString('en-CA');
 
     // First check if the property name matches a property group
@@ -302,7 +309,7 @@ const BillBack = () => {
         rowId: uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
-        job_date: formattedDate,  // Use the formatted date
+        job_date: formattedDate,
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
@@ -318,10 +325,10 @@ const BillBack = () => {
         billingRate,
         total: laborTotal,
         billingTotal: billingTotal,
+        billedmiles: mileage,  // Map the mileage here
         mileageTotal,
         jobTotal,
         notes: job.notes,
-        // Only mark as error if we have neither a property group nor a valid property
         isError: (!propertyGroup && !billingProperty) || !billingAccount || !isValidBillingAccount,
         isManual: false
     };
@@ -622,10 +629,13 @@ const BillBack = () => {
   const handleSubmit = async () => {
     setIsUploading(true);
     try {
-        console.log("Submitting jobs:", billbackData);
+        // First save progress
+        await handleSaveProgress(false); // Pass false to not show the toast for intermediate save
+
+        // Then save jobs
         await saveJobs(billbackData, billingPeriod, propertyGroups);
         toast({
-            title: "Jobs saved successfully",
+          title: "Jobs saved successfully",
             status: "success",
             duration: 3000,
             isClosable: true,

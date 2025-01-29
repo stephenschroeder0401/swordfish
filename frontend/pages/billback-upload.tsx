@@ -336,8 +336,8 @@ const BillBack = () => {
 
   const processManualJob = (job) => {
     // Format the date first
-    const formattedDate = job.job_date ? 
-        new Date(job.job_date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
+    const formattedDate = job.date ? 
+        new Date(job.date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
         new Date().toLocaleDateString('en-CA');
 
     const hours = Number(job.hours) || 0;

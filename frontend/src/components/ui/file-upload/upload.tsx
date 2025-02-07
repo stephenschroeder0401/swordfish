@@ -262,6 +262,13 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
         onClick={() => document.getElementById('file-upload').click()}
         isDisabled={disabled}
         style={style}
+        _hover={{
+          bg: "blue.50",
+          borderColor: "blue.500",
+          color: "blue.600",
+          transform: "translateY(-1px)",
+          transition: "all 0.2s ease-in-out"
+        }}
       >
         Upload Timesheet
       </Button>

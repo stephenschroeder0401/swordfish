@@ -260,9 +260,12 @@ const BillBack = () => {
   // Split processing logic
   const processTimeroJob = (job) => {
     // Format the date first
-    const formattedDate = job.date ? 
-        new Date(job.date).toLocaleDateString('en-CA') : 
-        new Date().toLocaleDateString('en-CA');
+    const formattedDate = job.job_date ? 
+        new Date(job.job_date).toLocaleDateString('en-CA') : 
+        (job.date ? 
+            new Date(job.date).toLocaleDateString('en-CA') : 
+            new Date().toLocaleDateString('en-CA')
+        );
 
     // First check if the property name matches a property group
     const propertyGroup = propertyGroups.find(group => 
@@ -341,9 +344,12 @@ const BillBack = () => {
   const processManualJob = (job) => {
     console.log("processing manual job ", job);
     // Format the date first
-    const formattedDate = job.date ? 
-        new Date(job.date).toLocaleDateString('en-CA') : // en-CA gives YYYY-MM-DD format
-        new Date().toLocaleDateString('en-CA');
+    const formattedDate = job.job_date ? 
+        new Date(job.job_date).toLocaleDateString('en-CA') : 
+        (job.date ? 
+            new Date(job.date).toLocaleDateString('en-CA') : 
+            new Date().toLocaleDateString('en-CA')
+        );
 
     const hours = Number(job.hours) || 0;
     

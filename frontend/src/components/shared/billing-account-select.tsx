@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Text,
@@ -14,6 +14,7 @@ import {
   TagCloseButton
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
+import { fetchAllBillingAccounts } from '@/lib/data-access/';
 
 interface BillingAccount {
   id: string;
@@ -50,12 +51,38 @@ export const BillingAccountSelect = ({
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedAccounts);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [accounts, setAccounts] = useState<BillingAccount[]>(billingAccounts || []);
 
-  const filteredAccounts = billingAccounts
-    .filter(account => 
-      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.glcode.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  console.log("All billing accounts:", billingAccounts);
+  console.log("Selected accounts:", selectedAccounts);
+
+  useEffect(() => {
+    setAccounts(billingAccounts);
+  }, [billingAccounts]);
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const { data } = await fetchAllBillingAccounts(0, 1000);
+        setAccounts(data || []);
+      } catch (error) {
+        console.error('Error loading billing accounts:', error);
+      }
+    };
+
+    if (!billingAccounts || billingAccounts.length === 0) {
+      loadAccounts();
+    }
+  }, [billingAccounts]);
+
+  const filteredAccounts = accounts
+    .filter(account => {
+      const matches = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        account.glcode.toLowerCase().includes(searchTerm.toLowerCase());
+      console.log(`Account ${account.name}: matches filter? ${matches}`);
+      return matches;
+    });
+  console.log("Filtered accounts:", filteredAccounts);
 
   const handleAccountClick = (accountId: string) => {
     const newSelectedIds = isMulti
@@ -75,7 +102,7 @@ export const BillingAccountSelect = ({
   const getDisplayValue = () => {
     if (selectedIds.length === 0) return placeholder;
     if (!isMulti) {
-      const account = billingAccounts.find(a => a.id === selectedIds[0]);
+      const account = accounts.find(a => a.id === selectedIds[0]);
       return account ? `${account.name} (${account.glcode})` : placeholder;
     }
     return `${selectedIds.length} accounts selected`;
@@ -89,7 +116,7 @@ export const BillingAccountSelect = ({
   };
 
   const handleSelectAll = () => {
-    const allAccountIds = billingAccounts
+    const allAccountIds = accounts
       .filter(account => !excludeIds.includes(account.id))
       .map(account => account.id);
     
@@ -105,17 +132,40 @@ export const BillingAccountSelect = ({
       label: "Select All",
       value: "all"
     },
-    ...billingAccounts.map(account => ({
+    ...accounts.map(account => ({
       label: account.name,
       value: account.id
     }))
   ];
 
+  // Calculate available space dynamically
+  const getMaxHeight = () => {
+    if (!buttonRef.current) return 500;
+    const buttonBottom = buttonRef.current.getBoundingClientRect().bottom;
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - buttonBottom - 20; // 20px buffer
+    return Math.max(200, Math.min(500, spaceBelow));
+  };
+
+  const handleOpen = async () => {
+    try {
+      const { data } = await fetchAllBillingAccounts(0, 1000);
+      setAccounts(data || []);
+    } catch (error) {
+      console.error('Error loading billing accounts:', error);
+    }
+    onOpen();
+  };
+
   return (
-    <Box position="relative" width={width} minWidth={minWidth}>
+    <Box
+      position="relative"
+      width={width}
+      minWidth={minWidth}
+    >
       <Button
         ref={buttonRef}
-        onClick={onOpen}
+        onClick={handleOpen}
         width="100%"
         size={size}
         variant="outline"
@@ -142,13 +192,10 @@ export const BillingAccountSelect = ({
             style={{
               top: `${Math.min(
                 buttonRef.current.getBoundingClientRect().bottom,
-                window.innerHeight - 400
+                window.innerHeight - getMaxHeight()
               )}px`,
               left: `${buttonRef.current.getBoundingClientRect().left}px`,
-              maxHeight: `${Math.min(
-                400,
-                window.innerHeight - buttonRef.current.getBoundingClientRect().bottom - 20
-              )}px`
+              maxHeight: getMaxHeight()
             }}
           >
             <VStack spacing={0} align="stretch" height="100%">
@@ -164,7 +211,7 @@ export const BillingAccountSelect = ({
 
               <Box 
                 overflowY="auto" 
-                maxHeight="calc(100vh - 300px)"
+                maxHeight="400px"
                 css={{
                   '&::-webkit-scrollbar': {
                     width: '4px',
@@ -188,7 +235,7 @@ export const BillingAccountSelect = ({
                       onClick={handleSelectAll}
                     >
                       <Checkbox
-                        isChecked={selectedIds.length === billingAccounts.length}
+                        isChecked={selectedIds.length === accounts.length}
                         pointerEvents="none"
                       />
                       <Text>Select All</Text>

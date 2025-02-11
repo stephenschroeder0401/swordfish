@@ -238,7 +238,13 @@ const BillingAccountTab = () => {
         </Box>
       </Flex>
 
-      <Box overflowY="auto" flex="1" position="relative">
+      <Box 
+        overflowY="auto" 
+        flex="1" 
+        position="relative"
+        maxHeight="calc(100vh - 200px)"
+        pb="100px"
+      >
         {isLoading ? (
           <Center h="200px">
             <Spinner size="xl" />

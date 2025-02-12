@@ -154,7 +154,7 @@ const EntitiesTab = () => {
   };
 
   return (
-    <Box h="100%" display="flex" flexDirection="column" overflow="hidden">
+    <Box h="100%" display="flex" flexDirection="column" overflow="auto">
       <Flex justify="space-between" align="center" px={4} py={2}>
         <Flex gap={4} align="center" width="300px">
           <IconButton
@@ -183,7 +183,14 @@ const EntitiesTab = () => {
         </Box>
       </Flex>
 
-      <Box overflowY="auto" flex="1" position="relative">
+      <Box 
+        overflowY="auto" 
+        flex="1" 
+        position="relative"
+        maxH="calc(100vh - 140px)"
+        mx={4}
+        mb={4}
+      >
         {isLoading ? (
           <Center h="200px">
             <Spinner size="xl" />
@@ -224,6 +231,9 @@ const EntitiesTab = () => {
                   ))}
                 </Tr>
               ))}
+              <Tr>
+                <Td colSpan={getVisibleColumns().length + 1} height="200px"></Td>
+              </Tr>
             </Tbody>
           </Table>
         )}

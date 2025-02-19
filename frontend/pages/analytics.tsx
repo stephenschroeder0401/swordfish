@@ -70,6 +70,16 @@ const Analytics: React.FC = () => {
   const [selectedJobNotes, setSelectedJobNotes] = useState<string | null>(null);
   const [employeeAllocations, setEmployeeAllocations] = useState<TimeAllocation[]>([]);
 
+  // Replace with a refined, modern color palette
+  const sophisticatedColors = [
+    '#63B3ED',  // Soft blue
+    '#76E4F7',  // Light cyan
+    '#9F7AEA',  // Lavender
+    '#4FD1C5',  // Teal
+    '#68D391',  // Sage green
+    '#F687B3',  // Dusty pink
+  ];
+
   useEffect(() => {
     if (billingPeriod) {
       fetchBillbackData();
@@ -179,12 +189,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }]
     });
   };
@@ -204,12 +211,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }]
     });
   };
@@ -229,12 +233,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }]
     });
   };
@@ -254,12 +255,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }]
     });
   };
@@ -328,8 +326,8 @@ const Analytics: React.FC = () => {
     const datasets = [{
       label: 'Hours per Category',
       data: chartData,
-      backgroundColor: 'rgba(75, 192, 192, 0.6)',
-      borderColor: 'rgba(75, 192, 192, 1)',
+      backgroundColor: '#63B3ED',  // Soft blue
+      borderColor: '#4299E1',      // Slightly darker blue
       borderWidth: 1
     }];
 
@@ -342,12 +340,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: chartData,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }]
     } as JobChartData);
   };
@@ -440,12 +435,9 @@ const Analytics: React.FC = () => {
       labels: labels,
       datasets: [{
         data: data,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ],
-        hoverBackgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
+        backgroundColor: sophisticatedColors,
+        hoverBackgroundColor: sophisticatedColors.map(color => `${color}CC`),  // Slight transparency on hover
+        borderWidth: 0,
       }],
       notes: notes // Add this line to include notes in the chart data
     });
@@ -459,25 +451,34 @@ const Analytics: React.FC = () => {
         position: 'right',
         align: 'center',
         labels: {
-          boxWidth: 15,
+          boxWidth: 12,
           padding: 15,
           font: {
-            size: 12
+            size: 11,
+            family: "'Inter', sans-serif"  // More modern font
           },
+          color: 'white'  // White text for legend
         },
       },
       tooltip: {
-        bodyFont: {
-          size: 12
-        },
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
         titleFont: {
-          size: 14
-        }
+          size: 13,
+          family: "'Inter', sans-serif"
+        },
+        bodyFont: {
+          size: 12,
+          family: "'Inter', sans-serif"
+        },
+        padding: 12,
+        cornerRadius: 4,
+        titleColor: 'white',
+        bodyColor: 'white'
       }
     },
     layout: {
       padding: {
-        right: 50
+        right: 40
       }
     },
     onClick: handleEntityClick
@@ -611,57 +612,53 @@ const Analytics: React.FC = () => {
         position: 'right',
         align: 'center',
         labels: {
-          boxWidth: 15,
+          boxWidth: 12,
           padding: 15,
           font: {
-            size: 12
+            size: 11,
+            family: "'Inter', sans-serif"  // More modern font
           },
+          color: 'white'  // White text for legend
         },
       },
       tooltip: {
-        callbacks: {
-          label: function(context) {
-            const label = context.label || '';
-            const value = context.raw as number;
-            const total = context.dataset.data.reduce((acc: number, current: number) => acc + current, 0);
-            const percentage = ((value / total) * 100).toFixed(1);
-            let tooltipText = `${label}: ${percentage}%`;
-            
-            // Add notes to tooltip if available
-            if (selectedEmployeeCategory && jobChartData && jobChartData.notes) {
-              const notes = jobChartData.notes[context.dataIndex];
-              if (notes) {
-                tooltipText += `\nNotes: ${notes}`;
-              }
-            }
-            
-            return tooltipText;
-          }
-        }
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        titleFont: {
+          size: 13,
+          family: "'Inter', sans-serif"
+        },
+        bodyFont: {
+          size: 12,
+          family: "'Inter', sans-serif"
+        },
+        padding: 12,
+        cornerRadius: 4,
+        titleColor: 'white',
+        bodyColor: 'white'
       }
     },
     layout: {
       padding: {
-        right: 50
+        right: 40
       }
     },
     onClick: selectedEmployeeCategory ? undefined : handleEmployeePieChartClick
   };
   return (
-    <Container maxW='5000px' py={2} height="auto" minHeight="100vh">
+    <Container maxW='5000px' py={2} height="auto" minHeight="100vh" bg="gray.900">
       <Flex direction="column" alignItems="stretch" height="100%">
 
         <Flex mb={4}>
           <HStack spacing={4} align="stretch" w={'23vw'} minWidth={'300px'} mr={4}>
-            <Box p={4} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
-              <Heading fontSize="lg">Billed Hours</Heading>
-              <Text fontSize="2xl" fontWeight="bold">
+            <Box p={4} shadow="lg" borderRadius="md" flex={1} bg="gray.800">
+              <Heading fontSize="lg" color="white">Billed Hours</Heading>
+              <Text fontSize="2xl" fontWeight="bold" color="white">
                 {isNaN(overallTotalHours) ? '0' : overallTotalHours.toFixed(2)}
               </Text>
             </Box>
-            <Box p={4} shadow="md" borderWidth="1px" borderRadius="md" flex={1}>
-              <Heading fontSize="lg">Billed Revenue</Heading>
-              <Text color={"green.500"} fontSize="2xl" fontWeight="bold">
+            <Box p={4} shadow="lg" borderRadius="md" flex={1} bg="gray.800">
+              <Heading fontSize="lg" color="white">Billed Revenue</Heading>
+              <Text color="green.400" fontSize="2xl" fontWeight="bold">
                 ${isNaN(overallTotalRevenue) ? '0.00' : overallTotalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
               </Text>
             </Box>
@@ -669,8 +666,8 @@ const Analytics: React.FC = () => {
           <Box flex={1} /> {/* This empty box pushes the charts to the right */}
         </Flex>
         <Flex justify="space-between" mb={4} flexWrap="wrap">
-          <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" width="48%">
-            <Heading fontSize="xl" mb={4}>
+          <Box p={5} shadow="lg" borderRadius="md" width="48%" bg="gray.800">
+            <Heading fontSize="xl" mb={4} color="white">
               {selectedEntity ? `Properties for ${selectedEntity}` : 'Billed Hours by Entity'}
             </Heading>
             {selectedEntity && (
@@ -689,8 +686,8 @@ const Analytics: React.FC = () => {
               )}
             </Box>
           </Box>
-          <Box p={5} shadow="md" borderWidth="1px" borderRadius="md" width="48%">
-            <Heading fontSize="xl" mb={4}>
+          <Box p={5} shadow="lg" borderRadius="md" width="48%" bg="gray.800">
+            <Heading fontSize="xl" mb={4} color="white">
               {selectedMainCategory ? `Employees for ${selectedMainCategory}` : 'Billed Hours by Category'}
             </Heading>
             {selectedMainCategory && (
@@ -710,7 +707,7 @@ const Analytics: React.FC = () => {
             </Box>
           </Box>
         </Flex>
-        <Card mt={2} mb={20}>
+        <Card mt={2} mb={20} bg="gray.800" color="white">
           <CardHeader py={2}>
             <Heading size="md">Employee Category Breakdown</Heading>
           </CardHeader>

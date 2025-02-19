@@ -1,12 +1,57 @@
 // @ts-nocheck
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Select, useToast, Box, Button, Container, Flex, Heading, Image, Card, FormControl, FormLabel, SimpleGrid, IconButton, Center, Text, Tooltip, Spinner } from "@chakra-ui/react";
+import { 
+  Select, 
+  useToast, 
+  Box, 
+  Button, 
+  Container, 
+  Flex, 
+  Heading, 
+  Image, 
+  Card, 
+  FormControl, 
+  FormLabel, 
+  SimpleGrid, 
+  IconButton, 
+  Center, 
+  Text, 
+  Tooltip, 
+  Spinner, 
+  Input,
+  Textarea,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  Progress,
+  Circle,
+  VStack,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
+  ModalFooter,
+  Divider,
+} from "@chakra-ui/react";
+import { 
+  AddIcon, 
+  CheckIcon,
+  AttachmentIcon, 
+  CalendarIcon, 
+  RepeatIcon, 
+  CloseIcon, 
+  ArrowForwardIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@chakra-ui/icons";
 import BillbackDisplay from "@/components/features/table/billback-table";
 import { v4 as uuidv4 } from 'uuid';
 import { useBillingPeriod } from "@/contexts/BillingPeriodContext"; 
-import { AddIcon, AttachmentIcon, CalendarIcon, RepeatIcon, CloseIcon } from "@chakra-ui/icons"
-import { saveJobs, upsertBillbackUpload, fetchBillbackUpload } 
-from "@/lib/data-access/supabase-client";
+import { saveJobs, upsertBillbackUpload, fetchBillbackUpload } from "@/lib/data-access/supabase-client";
 import { fetchAllEmployees, fetchAllProperties, fetchAllPropertiesNoPagination,
    fetchAllBillingPeriods, fetchAllBillingAccountsNoPagination, fetchAllEntities,
    fetchAllPropertyGroups
@@ -15,6 +60,7 @@ import { FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import CSVUpload from "@/components/ui/file-upload/upload";
 import Papa from 'papaparse';
+import OpenAI from 'openai';
 
 // Add a new type for clarity
 type FileFormat = 'timero' | 'manual' | 'progress';
@@ -65,6 +111,29 @@ const BillBack = () => {
   const [entityFilter, setEntityFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isFiltering, setIsFiltering] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatProcessing, setIsChatProcessing] = useState(false);
+  const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const [isTimeroSyncing, setIsTimeroSyncing] = useState(false);
+  const [isCalendarImporting, setIsCalendarImporting] = useState(false);
+  const [showTimeroModal, setShowTimeroModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStage, setSyncStage] = useState('');
+  
+  // New state for corrections
+  const [activeTab, setActiveTab] = useState('entries');
+  const [validationErrors, setValidationErrors] = useState({
+    employees: new Set<string>(),
+    properties: new Set<string>(),
+    billingAccounts: new Set<string>()
+  });
+  const [selectedCorrections, setSelectedCorrections] = useState({
+    employees: {},
+    properties: {},
+    billingAccounts: {}
+  });
+  const [showCorrectionsIndicator, setShowCorrectionsIndicator] = useState(false);
 
   // Near your other state declarations
   const { entryCount, totalHours, totalBilled } = useMemo(() => {
@@ -146,10 +215,10 @@ const BillBack = () => {
                     
                     // Format the date properly when processing existing data
                     const processedData = uploadData.map(job => {
-                        // Format the date before processing
+                        // Pass through the job data exactly as it is
                         const formattedJob = {
                             ...job,
-                            job_date: job.job_date ? new Date(job.job_date).toISOString().split('T')[0] : ''
+                            job_date: job.date || job.job_date || ''  // Use date exactly as it is
                         };
                         
                         if (job.isManual) {
@@ -180,7 +249,7 @@ const BillBack = () => {
       rowId: uuidv4(),
       employeeId: "",
       employee: "",
-      job_date: new Date().toISOString().split('T')[0],
+      job_date: new Date().toLocaleDateString('en-US'),  // Use local date string format
       propertyId: "",
       property: "",
       entityId: "",
@@ -259,13 +328,8 @@ const BillBack = () => {
 
   // Split processing logic
   const processTimeroJob = (job) => {
-    // Format the date first
-    const formattedDate = job.job_date ? 
-        new Date(job.job_date).toLocaleDateString('en-CA') : 
-        (job.date ? 
-            new Date(job.date).toLocaleDateString('en-CA') : 
-            new Date().toLocaleDateString('en-CA')
-        );
+    // Use the date exactly as it comes in, no formatting or manipulation
+    const formattedDate = job.date || job.job_date || '';
 
     // First check if the property name matches a property group
     const propertyGroup = propertyGroups.find(group => 
@@ -284,6 +348,41 @@ const BillBack = () => {
     const employee = employees.find((employee) => 
         employee.name.toLowerCase() === job.employee.toLowerCase()
     );
+
+    // Track validation errors
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      
+      // Employee validation
+      if (!employee) {
+        newErrors.employees.add(job.employee);
+      } else {
+        newErrors.employees.delete(job.employee);
+      }
+
+      // Property validation
+      if (!propertyGroup && !billingProperty) {
+        newErrors.properties.add(job.property);
+      } else {
+        newErrors.properties.delete(job.property);
+      }
+
+      // Billing account validation
+      if (!billingAccount) {
+        newErrors.billingAccounts.add(job.category);
+      } else {
+        newErrors.billingAccounts.delete(job.category);
+      }
+
+      // Update corrections indicator
+      setShowCorrectionsIndicator(
+        newErrors.employees.size > 0 || 
+        newErrors.properties.size > 0 || 
+        newErrors.billingAccounts.size > 0
+      );
+
+      return newErrors;
+    });
     
     const rate = employee ? (Number(employee.rate) || 0) : 0;
     const billingRate = billingAccount ? (Number(billingAccount.rate) || 0) : 0;
@@ -337,19 +436,17 @@ const BillBack = () => {
         jobTotal,
         notes: job.notes,
         isError: (!propertyGroup && !billingProperty) || !billingAccount || !isValidBillingAccount,
-        isManual: false
+        isManual: false,
+        originalEmployee: job.employee,
+        originalProperty: job.property,
+        originalCategory: job.category
     };
   };
 
   const processManualJob = (job) => {
     console.log("processing manual job ", job);
-    // Format the date first
-    const formattedDate = job.job_date ? 
-        new Date(job.job_date).toLocaleDateString('en-CA') : 
-        (job.date ? 
-            new Date(job.date).toLocaleDateString('en-CA') : 
-            new Date().toLocaleDateString('en-CA')
-        );
+    // Use the date exactly as it comes in, no formatting or manipulation
+    const formattedDate = job.date || job.job_date || '';
 
     const hours = Number(job.hours) || 0;
     
@@ -368,6 +465,41 @@ const BillBack = () => {
     const employee = employees.find((employee) => 
         employee.name.toLowerCase() === job.employee.toLowerCase()
     );
+
+    // Track validation errors
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      
+      // Employee validation
+      if (!employee) {
+        newErrors.employees.add(job.employee);
+      } else {
+        newErrors.employees.delete(job.employee);
+      }
+
+      // Property validation
+      if (!propertyGroup && !billingProperty) {
+        newErrors.properties.add(job.property);
+      } else {
+        newErrors.properties.delete(job.property);
+      }
+
+      // Billing account validation
+      if (!billingAccount) {
+        newErrors.billingAccounts.add(job.category);
+      } else {
+        newErrors.billingAccounts.delete(job.category);
+      }
+
+      // Update corrections indicator
+      setShowCorrectionsIndicator(
+        newErrors.employees.size > 0 || 
+        newErrors.properties.size > 0 || 
+        newErrors.billingAccounts.size > 0
+      );
+
+      return newErrors;
+    });
     
     const rate = employee ? (Number(employee.rate) || 0) : 0;
     const billingRate = billingAccount ? (Number(billingAccount.rate) || 0) : 0;
@@ -392,7 +524,7 @@ const BillBack = () => {
         rowId: uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
-        job_date: formattedDate,  // Use the formatted date
+        job_date: formattedDate,
         propertyId: propertyId,
         property: propertyGroup?.name || billingProperty?.name || job.property,
         entityId: billingProperty?.entityid || '',
@@ -412,7 +544,10 @@ const BillBack = () => {
         jobTotal,
         notes: job.notes || '',
         isError: (!propertyGroup && !billingProperty) || !billingAccount || !isValidBillingAccount,
-        isManual: true
+        isManual: true,
+        originalEmployee: job.employee,
+        originalProperty: job.property,
+        originalCategory: job.category
     };
   };
 
@@ -869,6 +1004,255 @@ const BillBack = () => {
     document.body.removeChild(link);
   };
 
+  // Initialize OpenAI client
+  const openai = new OpenAI({
+    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true
+  });
+
+  // Add this function to handle AI interactions
+  const handleChatCommand = async (userInput: string) => {
+    setIsChatProcessing(true);
+    try {
+      const appActions = {
+        handleDelete: handleDelete,
+        handleEdit: handleEdit,
+        setBillbackData: setBillbackData,
+        addRow: addRow,
+        handleClearData: handleClearData,
+        setHasUnsavedChanges: setHasUnsavedChanges,
+        calculateTotals: calculateTotals,
+      };
+
+      const appState = {
+        billbackData,
+        employees,
+        billingAccounts,
+        propertyGroups,
+        billingProperties,
+        hasUnsavedChanges,
+        isValid
+      };
+
+      console.log("Current billbackData:", billbackData); // Debug log
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-0125",
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI assistant with direct access to the billback application's functions.
+            The billbackData array contains objects with these properties: rowId, employee (name string), employeeId, etc.
+            
+            Example of a row: ${JSON.stringify(billbackData[0])}
+            
+            Return a function that will be executed. For example:
+            (state, actions) => {
+              const rowsToDelete = state.billbackData.filter(row => row.employee === "Daniel Fransen");
+              console.log("Found rows:", rowsToDelete.length);
+              rowsToDelete.forEach(row => actions.handleDelete(null, row.rowId));
+            }`
+          },
+          {
+            role: "user",
+            content: userInput
+          }
+        ]
+      });
+
+      const functionString = completion.choices[0].message.content;
+      console.log("Generated function:", functionString); // Debug log
+
+      // Convert the string to a function and execute it
+      const func = new Function('return ' + functionString)();  // Changed this line
+      await func(appState, appActions);  // And this line
+
+      toast({
+        title: "Action Completed",
+        description: "The requested changes have been made",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process command",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsChatProcessing(false);
+      setChatInput('');
+    }
+  };
+
+  const handleTimeroSync = async () => {
+    setIsTimeroSyncing(true);
+    setShowTimeroModal(true);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      handleDataProcessed(mockTimeroData);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync with Timero",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsTimeroSyncing(false);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setShowTimeroModal(false);
+    }
+  };
+
+  const handleCalendarImport = async () => {
+    setIsCalendarImporting(true);
+    setShowCalendarModal(true);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      handleDataProcessed(mockCalendarData);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import calendar entries",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsCalendarImporting(false);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setShowCalendarModal(false);
+    }
+  };
+
+  const TimeroSyncModal = () => (
+    <Modal 
+      isOpen={showTimeroModal} 
+      onClose={() => setShowTimeroModal(false)}
+      isCentered
+    >
+      <ModalOverlay 
+        bg="blackAlpha.200"
+        backdropFilter="blur(8px)"
+      />
+      <ModalContent 
+        bg="white"
+        boxShadow="xl"
+        borderRadius="xl"
+        p={8}
+        maxW="sm"
+      >
+        <ModalBody>
+          <VStack spacing={6}>
+            <Text 
+              fontSize="xl" 
+              fontWeight="semibold"
+              letterSpacing="tight"
+              color="gray.700"
+            >
+              {isTimeroSyncing ? "Syncing with Timero" : "Sync Complete"}
+            </Text>
+            
+            {isTimeroSyncing ? (
+              <Spinner 
+                size="lg" 
+                color="blue.500" 
+                thickness="3px"
+                speed="0.8s"
+              />
+            ) : (
+              <Text 
+                color="green.500" 
+                fontWeight="medium"
+                fontSize="md"
+              >
+                ✨ Successfully synced 3 entries
+              </Text>
+            )}
+          </VStack>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+
+  const CalendarSyncModal = () => (
+    <Modal 
+      isOpen={showCalendarModal} 
+      onClose={() => setShowCalendarModal(false)}
+      isCentered
+    >
+      <ModalOverlay 
+        bg="blackAlpha.200"
+        backdropFilter="blur(8px)"
+      />
+      <ModalContent 
+        bg="white"
+        boxShadow="xl"
+        borderRadius="xl"
+        p={8}
+        maxW="sm"
+      >
+        <ModalBody>
+          <VStack spacing={6}>
+            <Text 
+              fontSize="xl" 
+              fontWeight="semibold"
+              letterSpacing="tight"
+              color="gray.700"
+            >
+              {isCalendarImporting ? "Importing Calendar" : "Import Complete"}
+            </Text>
+            
+            {isCalendarImporting ? (
+              <Spinner 
+                size="lg" 
+                color="orange.500"
+                thickness="3px"
+                speed="0.8s"
+              />
+            ) : (
+              <Text 
+                color="green.500" 
+                fontWeight="medium"
+                fontSize="md"
+              >
+                ✨ Successfully imported 4 entries
+              </Text>
+            )}
+          </VStack>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+
+  // Add this before the return statement, after the other useEffect hooks
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && !event.shiftKey && activeTab === 'corrections' &&
+          (validationErrors.employees.size > 0 ||
+           validationErrors.properties.size > 0 ||
+           validationErrors.billingAccounts.size > 0)) {
+        document.getElementById('apply-corrections-button')?.click();
+      }
+    };
+
+    window.addEventListener('keypress', handleKeyPress);
+    return () => {
+      window.removeEventListener('keypress', handleKeyPress);
+    };
+  }, [activeTab, validationErrors]);
+
   return (
     <Box 
       h="100vh" 
@@ -884,7 +1268,7 @@ const BillBack = () => {
         borderColor="gray.200" 
         p={4}
         h="7vh"
-        alignItems="center"
+        alignItems="center" 
         pb="1vh"
         justifyContent="space-between"
       >
@@ -901,15 +1285,7 @@ const BillBack = () => {
         py={2}
         bg="gray.50"
       >
-        <Flex gap={4} align="center" width="300px">
-          <IconButton
-            aria-label="Add row"
-            icon={<AddIcon />}
-            size="xs"
-            colorScheme="green"
-            onClick={addRow}
-          />
-
+        <Flex gap={2} align="center">
           <CSVUpload
             style={{ 
               width: '180px',
@@ -930,7 +1306,6 @@ const BillBack = () => {
             selectedFile={selectedFile}
             setSelectedFile={setSelectedFile}
           />
-
         </Flex>
 
         <Flex gap={6} fontSize="sm" color="gray.600" align="center">
@@ -947,43 +1322,50 @@ const BillBack = () => {
           </Text>
         </Flex>
 
-        <Box width="300px" textAlign="right">
-          <Flex gap={2} justify="flex-end">
-            <Button
-              size="sm"
-              variant="outline"
-              colorScheme="blue"
-              onClick={handleExport}
-              isDisabled={billbackData.length === 0}
-            >
-              Export CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              colorScheme="green"
-              bg="white"
-              onClick={() => handleSaveProgress(true)}
-              isLoading={isLoading}
-              isDisabled={!hasUnsavedChanges}
-            >
-              Save Progress
-            </Button>
-            <Button
-              size="sm"
-              color="white"
-              background="green.600"
-              onClick={handleSubmit}
-              isLoading={isUploading}
-              isDisabled={!isValid}
-              _hover={{
-                bg: "green.500"
-              }}
-            >
-              Invoice Jobs
-            </Button>
-          </Flex>
-        </Box>
+        <Flex gap={2}>
+          <Button
+            size="sm"
+            colorScheme="blue"
+            variant="outline"
+            onClick={handleExport}
+            isDisabled={billbackData.length === 0}
+            bg="white"
+            _hover={{
+              transform: 'translateY(-1px)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            Export CSV
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="green"
+            variant="outline"
+            bg="white"
+            onClick={() => handleSaveProgress(true)}
+            isLoading={isLoading}
+            isDisabled={!hasUnsavedChanges}
+            _hover={{
+              transform: 'translateY(-1px)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            Save Progress
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="green"
+            onClick={handleSubmit}
+            isLoading={isUploading}
+            isDisabled={!isValid}
+            _hover={{
+              transform: 'translateY(-1px)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            Invoice Jobs
+          </Button>
+        </Flex>
       </Flex>
 
       {/* Divider */}
@@ -993,118 +1375,166 @@ const BillBack = () => {
       <Flex 
         px={4} 
         py={2} 
-        gap={4} 
         borderBottom="1px" 
         borderColor="gray.200" 
         bg="gray.100"
-        align="center"
+        align="center" 
       >
-        <Text
-          color="gray.600"
-          fontSize="sm"
-          fontWeight="medium"
+        <Button
+          leftIcon={<AddIcon />}
+          size="sm"
+          colorScheme="green"
+          variant="outline"
+          onClick={addRow}
+          bg="white"
+          _hover={{
+            transform: 'translateY(-1px)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+          }}
         >
-          Filters:
-        </Text>
-        <Flex align="center" gap={2}>
-          <Select
-            placeholder="All Employees"
-            size="sm"
-            width="200px"
-            onChange={(e) => handleFilterChange('employee', e.target.value)}
-            value={employeeFilter}
-            bg="white"
-          >
-            {employees?.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.name}</option>
-            ))}
-          </Select>
-          {employeeFilter && (
-            <CloseIcon 
-              color="red.500"
-              w={3}
-              h={3}
-              cursor="pointer"
-              _hover={{ color: "red.600" }}
-              onClick={() => handleFilterChange('employee', '')}
-            />
-          )}
+          Add Row
+        </Button>
+
+        <Divider orientation="vertical" mx={4} height="24px" borderColor="gray.300" />
+
+        <Flex gap={2} align="center">
+          <Flex align="center" gap={2}>
+            <Select
+              placeholder="All Employees"
+              size="sm"
+              width="200px"
+              onChange={(e) => handleFilterChange('employee', e.target.value)}
+              value={employeeFilter}
+              bg="white"
+            >
+              {employees?.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+            </Select>
+            {employeeFilter && (
+              <CloseIcon 
+                color="red.500"
+                w={3}
+                h={3}
+                cursor="pointer"
+                _hover={{ color: "red.600" }}
+                onClick={() => handleFilterChange('employee', '')}
+              />
+            )}
+          </Flex>
+
+          <Flex align="center" gap={2}>
+            <Select
+              placeholder="All Properties"
+              size="sm"
+              width="200px"
+              onChange={(e) => handleFilterChange('property', e.target.value)}
+              value={propertyFilter}
+              bg="white"
+            >
+              {billingProperties?.map(prop => (
+                <option key={prop.id} value={prop.id}>{prop.name}</option>
+              ))}
+            </Select>
+            {propertyFilter && (
+              <CloseIcon 
+                color="red.500"
+                w={3}
+                h={3}
+                cursor="pointer"
+                _hover={{ color: "red.600" }}
+                onClick={() => handleFilterChange('property', '')}
+              />
+            )}
+          </Flex>
+
+          <Flex align="center" gap={2}>
+            <Select
+              placeholder="All Entities"
+              size="sm"
+              width="200px"
+              onChange={(e) => handleFilterChange('entity', e.target.value)}
+              value={entityFilter}
+              bg="white"
+            >
+              {entities?.map(entity => (
+                <option key={entity.id} value={entity.id}>{entity.name}</option>
+              ))}
+            </Select>
+            {entityFilter && (
+              <CloseIcon 
+                color="red.500"
+                w={3}
+                h={3}
+                cursor="pointer"
+                _hover={{ color: "red.600" }}
+                onClick={() => handleFilterChange('entity', '')}
+              />
+            )}
+          </Flex>
+
+          <Flex align="center" gap={2}>
+            <Select
+              placeholder="All Categories"
+              size="sm"
+              width="200px"
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              value={categoryFilter}
+              bg="white"
+            >
+              {billingAccounts?.map(account => (
+                <option key={account.id} value={account.id}>{account.name}</option>
+              ))}
+            </Select>
+            {categoryFilter && (
+              <CloseIcon 
+                color="red.500"
+                w={3}
+                h={3}
+                cursor="pointer"
+                _hover={{ color: "red.600" }}
+                onClick={() => handleFilterChange('category', '')}
+              />
+            )}
+          </Flex>
         </Flex>
 
-        <Flex align="center" gap={2}>
-          <Select
-            placeholder="All Properties"
-            size="sm"
-            width="200px"
-            onChange={(e) => handleFilterChange('property', e.target.value)}
-            value={propertyFilter}
-            bg="white"
+        {/* Corrections Link */}
+        {showCorrectionsIndicator && (
+          <Text
+            color="red.500"
+            fontWeight="semibold"
+            cursor="pointer"
+            textDecoration="underline"
+            onClick={() => setActiveTab('corrections')}
+            display="flex"
+            alignItems="center"
+            fontSize="sm"
+            _hover={{ 
+              color: "red.600",
+              transform: "translateY(-1px)"
+            }}
+            ml="auto"
+            transition="all 0.2s"
           >
-            {billingProperties?.map(prop => (
-              <option key={prop.id} value={prop.id}>{prop.name}</option>
-            ))}
-          </Select>
-          {propertyFilter && (
-            <CloseIcon 
-              color="red.500"
-              w={3}
-              h={3}
-              cursor="pointer"
-              _hover={{ color: "red.600" }}
-              onClick={() => handleFilterChange('property', '')}
-            />
-          )}
-        </Flex>
-
-        <Flex align="center" gap={2}>
-          <Select
-            placeholder="All Entities"
-            size="sm"
-            width="200px"
-            onChange={(e) => handleFilterChange('entity', e.target.value)}
-            value={entityFilter}
-            bg="white"
-          >
-            {entities?.map(entity => (
-              <option key={entity.id} value={entity.id}>{entity.name}</option>
-            ))}
-          </Select>
-          {entityFilter && (
-            <CloseIcon 
-              color="red.500"
-              w={3}
-              h={3}
-              cursor="pointer"
-              _hover={{ color: "red.600" }}
-              onClick={() => handleFilterChange('entity', '')}
-            />
-          )}
-        </Flex>
-
-        <Flex align="center" gap={2}>
-          <Select
-            placeholder="All Categories"
-            size="sm"
-            width="200px"
-            onChange={(e) => handleFilterChange('category', e.target.value)}
-            value={categoryFilter}
-            bg="white"
-          >
-            {billingAccounts?.map(account => (
-              <option key={account.id} value={account.id}>{account.name}</option>
-            ))}
-          </Select>
-          {categoryFilter && (
-            <CloseIcon 
-              color="red.500"
-              w={3}
-              h={3}
-              cursor="pointer"
-              _hover={{ color: "red.600" }}
-              onClick={() => handleFilterChange('category', '')}
-            />
-          )}
-        </Flex>
+            Corrections Required!
+            <Box
+              ml={2}
+              bg="red.500"
+              color="white"
+              borderRadius="full"
+              w="5"
+              h="5"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              fontSize="xs"
+              fontWeight="bold"
+            >
+              !
+            </Box>
+          </Text>
+        )}
       </Flex>
 
       {/* Add loading overlay */}
@@ -1152,7 +1582,682 @@ const BillBack = () => {
           />
         )}
       </Box>
+
+      {/* Corrections Modal */}
+      <Modal 
+        isOpen={activeTab === 'corrections'} 
+        onClose={() => setActiveTab('entries')}
+        size="2xl"
+        scrollBehavior="inside"
+      >
+        <ModalOverlay 
+          bg="blackAlpha.300"
+          backdropFilter="blur(10px)"
+        />
+        <ModalContent 
+          maxW="1000px"
+          mx={4}
+          maxH="85vh"
+        >
+          {/* Modal Header */}
+          <Flex 
+            p={6} 
+            borderBottom="1px" 
+            borderColor="gray.200"
+            justify="space-between"
+            align="center"
+            bg="white"
+            position="sticky"
+            top={0}
+            zIndex={1}
+          >
+            <Heading size="md">Data Corrections Required</Heading>
+            <IconButton
+              icon={<CloseIcon />}
+              aria-label="Close modal"
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('entries')}
+            />
+          </Flex>
+
+          {/* Modal Body */}
+          <ModalBody p={6} pb={24}>  {/* Added bottom padding to prevent content from being hidden by footer */}
+            <VStack spacing={8} align="stretch">
+              {/* Summary Stats */}
+              <Flex 
+                justify="space-between" 
+                bg="white" 
+                p={4} 
+                borderRadius="lg" 
+                boxShadow="sm"
+                borderWidth="1px"
+                borderColor="gray.100"
+              >
+                <Box>
+                  <Text fontSize="sm" color="gray.500" mb={1}>Employee Corrections</Text>
+                  <Text fontSize="2xl" fontWeight="bold" color={validationErrors.employees.size > 0 ? "red.500" : "green.500"}>
+                    {validationErrors.employees.size}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="sm" color="gray.500" mb={1}>Property Corrections</Text>
+                  <Text fontSize="2xl" fontWeight="bold" color={validationErrors.properties.size > 0 ? "red.500" : "green.500"}>
+                    {validationErrors.properties.size}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="sm" color="gray.500" mb={1}>Category Corrections</Text>
+                  <Text fontSize="2xl" fontWeight="bold" color={validationErrors.billingAccounts.size > 0 ? "red.500" : "green.500"}>
+                    {validationErrors.billingAccounts.size}
+                  </Text>
+                </Box>
+              </Flex>
+
+              {/* Correction Sections */}
+              <VStack spacing={6} align="stretch">
+                {/* Employee Corrections */}
+                {validationErrors.employees.size > 0 && (
+                  <Box 
+                    bg="white" 
+                    borderRadius="lg" 
+                    boxShadow="sm"
+                    borderWidth="1px"
+                    borderColor="gray.100"
+                    overflow="hidden"
+                  >
+                    <Flex 
+                      bg="blue.50" 
+                      p={4} 
+                      borderBottomWidth="1px" 
+                      borderColor="gray.100"
+                      align="center"
+                    >
+                      <Box flex="1">
+                        <Heading size="sm" color="blue.700">Employee Corrections</Heading>
+                        <Text fontSize="sm" color="blue.600" mt={1}>
+                          Match unrecognized employees to existing records
+                        </Text>
+                      </Box>
+                      <Text 
+                        fontSize="sm" 
+                        color="blue.600"
+                        bg="blue.100"
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                      >
+                        {validationErrors.employees.size} items
+                      </Text>
+                    </Flex>
+                    <VStack spacing={0} align="stretch" divider={<Box borderBottomWidth="1px" borderColor="gray.100" />}>
+                      {Array.from(validationErrors.employees).map(invalidEmployee => (
+                        <Flex 
+                          key={invalidEmployee} 
+                          p={4} 
+                          justify="space-between" 
+                          align="center"
+                          _hover={{ bg: "gray.50" }}
+                          transition="background 0.2s"
+                        >
+                          <Box>
+                            <Text fontWeight="medium" color="gray.700">{invalidEmployee}</Text>
+                            <Text fontSize="sm" color="gray.500">Unrecognized employee</Text>
+                          </Box>
+                          <Select
+                            placeholder="Select employee"
+                            width="300px"
+                            size="sm"
+                            value={selectedCorrections.employees[invalidEmployee] || ''}
+                            onChange={(e) => {
+                              setSelectedCorrections(prev => ({
+                                ...prev,
+                                employees: {
+                                  ...prev.employees,
+                                  [invalidEmployee]: e.target.value
+                                }
+                              }));
+                            }}
+                            bg="white"
+                            borderColor={selectedCorrections.employees[invalidEmployee] ? "green.200" : "gray.200"}
+                            _hover={{ borderColor: "blue.300" }}
+                          >
+                            {employees.map(emp => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </Flex>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Property Corrections */}
+                {validationErrors.properties.size > 0 && (
+                  <Box 
+                    bg="white" 
+                    borderRadius="lg" 
+                    boxShadow="sm"
+                    borderWidth="1px"
+                    borderColor="gray.100"
+                    overflow="hidden"
+                  >
+                    <Flex 
+                      bg="purple.50" 
+                      p={4} 
+                      borderBottomWidth="1px" 
+                      borderColor="gray.100"
+                      align="center"
+                    >
+                      <Box flex="1">
+                        <Heading size="sm" color="purple.700">Property Corrections</Heading>
+                        <Text fontSize="sm" color="purple.600" mt={1}>
+                          Match unrecognized properties to existing properties or groups
+                        </Text>
+                      </Box>
+                      <Text 
+                        fontSize="sm" 
+                        color="purple.600"
+                        bg="purple.100"
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                      >
+                        {validationErrors.properties.size} items
+                      </Text>
+                    </Flex>
+                    <VStack spacing={0} align="stretch" divider={<Box borderBottomWidth="1px" borderColor="gray.100" />}>
+                      {Array.from(validationErrors.properties).map(invalidProperty => (
+                        <Flex 
+                          key={invalidProperty} 
+                          p={4} 
+                          justify="space-between" 
+                          align="center"
+                          _hover={{ bg: "gray.50" }}
+                          transition="background 0.2s"
+                        >
+                          <Box>
+                            <Text fontWeight="medium" color="gray.700">{invalidProperty}</Text>
+                            <Text fontSize="sm" color="gray.500">Unrecognized property</Text>
+                          </Box>
+                          <Select
+                            placeholder="Select property"
+                            width="300px"
+                            size="sm"
+                            value={selectedCorrections.properties[invalidProperty] || ''}
+                            onChange={(e) => {
+                              setSelectedCorrections(prev => ({
+                                ...prev,
+                                properties: {
+                                  ...prev.properties,
+                                  [invalidProperty]: e.target.value
+                                }
+                              }));
+                            }}
+                            bg="white"
+                            borderColor={selectedCorrections.properties[invalidProperty] ? "green.200" : "gray.200"}
+                            _hover={{ borderColor: "purple.300" }}
+                          >
+                            <option value="">Select property...</option>
+                            <optgroup label="Property Groups">
+                              {propertyGroups.map(group => (
+                                <option key={`group-${group.id}`} value={`group-${group.id}`}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Individual Properties">
+                              {billingProperties.map(prop => (
+                                <option key={prop.id} value={prop.id}>
+                                  {prop.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </Select>
+                        </Flex>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Billing Account Corrections */}
+                {validationErrors.billingAccounts.size > 0 && (
+                  <Box 
+                    bg="white" 
+                    borderRadius="lg" 
+                    boxShadow="sm"
+                    borderWidth="1px"
+                    borderColor="gray.100"
+                    overflow="hidden"
+                  >
+                    <Flex 
+                      bg="orange.50" 
+                      p={4} 
+                      borderBottomWidth="1px" 
+                      borderColor="gray.100"
+                      align="center"
+                    >
+                      <Box flex="1">
+                        <Heading size="sm" color="orange.700">Billing Category Corrections</Heading>
+                        <Text fontSize="sm" color="orange.600" mt={1}>
+                          Match unrecognized billing categories to existing categories
+                        </Text>
+                      </Box>
+                      <Text 
+                        fontSize="sm" 
+                        color="orange.600"
+                        bg="orange.100"
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                      >
+                        {validationErrors.billingAccounts.size} items
+                      </Text>
+                    </Flex>
+                    <VStack spacing={0} align="stretch" divider={<Box borderBottomWidth="1px" borderColor="gray.100" />}>
+                      {Array.from(validationErrors.billingAccounts).map(invalidAccount => (
+                        <Flex 
+                          key={invalidAccount} 
+                          p={4} 
+                          justify="space-between" 
+                          align="center"
+                          _hover={{ bg: "gray.50" }}
+                          transition="background 0.2s"
+                        >
+                          <Box>
+                            <Text fontWeight="medium" color="gray.700">{invalidAccount}</Text>
+                            <Text fontSize="sm" color="gray.500">Unrecognized category</Text>
+                          </Box>
+                          <Select
+                            placeholder="Select category"
+                            width="300px"
+                            size="sm"
+                            value={selectedCorrections.billingAccounts[invalidAccount] || ''}
+                            onChange={(e) => {
+                              setSelectedCorrections(prev => ({
+                                ...prev,
+                                billingAccounts: {
+                                  ...prev.billingAccounts,
+                                  [invalidAccount]: e.target.value
+                                }
+                              }));
+                            }}
+                            bg="white"
+                            borderColor={selectedCorrections.billingAccounts[invalidAccount] ? "green.200" : "gray.200"}
+                            _hover={{ borderColor: "orange.300" }}
+                          >
+                            {billingAccounts.map(account => (
+                              <option key={account.id} value={account.id}>
+                                {account.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </Flex>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </VStack>
+          </ModalBody>
+
+          {/* Modal Footer */}
+          <ModalFooter
+            position="absolute"
+            bottom={0}
+            right={0}
+            p={6}
+            bg="white"
+            borderTop="1px"
+            borderColor="gray.100"
+            width="full"
+          >
+            <Button
+              colorScheme="green"
+              size="md"
+              onClick={() => {
+                // Apply corrections to all matching rows
+                setBillbackData(prevData => {
+                  return prevData.map(row => {
+                    const newRow = { ...row };
+                    
+                    // Apply employee corrections
+                    if (row.originalEmployee && selectedCorrections.employees[row.originalEmployee]) {
+                      const correctedEmployee = employees.find(
+                        emp => emp.id === selectedCorrections.employees[row.originalEmployee]
+                      );
+                      if (correctedEmployee) {
+                        newRow.employeeId = correctedEmployee.id;
+                        newRow.employee = correctedEmployee.name;
+                        newRow.rate = correctedEmployee.rate;
+                      }
+                    }
+
+                    // Apply property corrections
+                    if (row.originalProperty && selectedCorrections.properties[row.originalProperty]) {
+                      const selectedId = selectedCorrections.properties[row.originalProperty];
+                      const isGroup = selectedId.startsWith('group-');
+                      
+                      if (isGroup) {
+                        const groupId = selectedId.replace('group-', '');
+                        const propertyGroup = propertyGroups.find(group => group.id === groupId);
+                        if (propertyGroup) {
+                          newRow.propertyId = selectedId;
+                          newRow.property = propertyGroup.name;
+                          newRow.entityId = '';
+                          newRow.entity = '';
+                        }
+                      } else {
+                        const property = billingProperties.find(prop => prop.id === selectedId);
+                        if (property) {
+                          newRow.propertyId = property.id;
+                          newRow.property = property.name;
+                          newRow.entityId = property.entityid;
+                          newRow.entity = property.entityName;
+                        }
+                      }
+                    }
+
+                    // Apply billing account corrections
+                    if (row.originalCategory && selectedCorrections.billingAccounts[row.originalCategory]) {
+                      const correctedAccount = billingAccounts.find(
+                        acc => acc.id === selectedCorrections.billingAccounts[row.originalCategory]
+                      );
+                      if (correctedAccount) {
+                        newRow.billingAccountId = correctedAccount.id;
+                        newRow.category = correctedAccount.name;
+                        newRow.billingRate = correctedAccount.rate;
+                      }
+                    }
+
+                    // Recalculate totals
+                    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+                      newRow.hours || 0,
+                      newRow.rate || 0,
+                      newRow.billingRate || 0,
+                      newRow.billedmiles || 0
+                    );
+                    
+                    newRow.total = laborTotal;
+                    newRow.billingTotal = billingTotal;
+                    newRow.mileageTotal = mileageTotal;
+                    newRow.jobTotal = jobTotal;
+
+                    // Update error state
+                    newRow.isError = (
+                      !newRow.employeeId ||
+                      !newRow.propertyId ||
+                      !newRow.billingAccountId
+                    );
+
+                    return newRow;
+                  });
+                });
+
+                // Clear corrections
+                setValidationErrors({
+                  employees: new Set(),
+                  properties: new Set(),
+                  billingAccounts: new Set()
+                });
+                setSelectedCorrections({
+                  employees: {},
+                  properties: {},
+                  billingAccounts: {}
+                });
+                setShowCorrectionsIndicator(false);
+                setActiveTab('entries');
+
+                // Show success toast
+                toast({
+                  title: "Corrections Applied",
+                  description: "All corrections have been applied successfully",
+                  status: "success",
+                  duration: 3000,
+                  isClosable: true,
+                });
+              }}
+              ml="auto"
+              px={6}
+              py={4}
+              height="auto"
+              fontSize="sm"
+              fontWeight="medium"
+              bg="green.400"
+              color="white"
+              rightIcon={<CheckIcon boxSize={4} />}
+              _hover={{
+                bg: "green.500",
+                transform: "translateY(-2px)",
+                boxShadow: "lg"
+              }}
+              _active={{
+                bg: "green.600",
+                transform: "translateY(0)",
+                boxShadow: "md"
+              }}
+              transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+            >
+              Apply Corrections
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {isChatExpanded ? (
+        <Box
+          position="fixed"
+          bottom="4"
+          right="4"
+          width="400px"
+          bg="gray.50"
+          borderRadius="md"
+          boxShadow="sm"
+          p="4"
+          zIndex="1000"
+          border="2px solid"
+          borderColor="green.200"
+          transition="all 0.2s"
+        >
+          <Flex 
+            align="center" 
+            mb="4" 
+            justify="space-between" 
+            cursor="pointer"
+            onClick={() => setIsChatExpanded(false)}
+          >
+            <Text 
+              color="gray.700" 
+              fontWeight="semibold" 
+              fontSize="sm"
+            >
+              SwordFish Assist
+            </Text>
+            <IconButton
+              aria-label="Collapse chat"
+              icon={<ChevronRightIcon />}
+              size="sm"
+              variant="ghost"
+              color="gray.500"
+            />
+          </Flex>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleChatCommand(chatInput);
+          }}>
+            <Flex direction="column">
+              <Textarea
+                placeholder="Type a command... (Press Shift + Enter to submit)"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                bg="white"
+                color="gray.800"
+                _placeholder={{ color: 'gray.400' }}
+                mb="2"
+                borderColor="gray.200"
+                _hover={{ borderColor: 'gray.300' }}
+                _focus={{ 
+                  borderColor: 'green.300', 
+                  boxShadow: '0 0 0 1px var(--chakra-colors-green-300)'
+                }}
+                rows={4}
+                resize="none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    handleChatCommand(chatInput);
+                  }
+                }}
+              />
+              <Button
+                rightIcon={isChatProcessing ? <Spinner size="sm" /> : <ArrowForwardIcon />}
+                bg="white"
+                color="gray.700"
+                border="1px solid"
+                borderColor="gray.200"
+                _hover={{ bg: 'gray.50' }}
+                type="submit"
+                isLoading={isChatProcessing}
+                alignSelf="flex-end"
+              >
+                Send
+              </Button>
+            </Flex>
+          </form>
+        </Box>
+      ) : (
+        <Box
+          position="fixed"
+          bottom="20"
+          right="0"
+          zIndex="1000"
+          cursor="pointer"
+          onClick={() => setIsChatExpanded(true)}
+        >
+          <Flex
+            bg="gray.50"
+            border="2px solid"
+            borderRight="none"
+            borderColor="green.200"
+            borderLeftRadius="md"
+            py="3"
+            px="2"
+            align="center"
+            transform="translateX(120px)"
+            _hover={{ transform: "translateX(0)" }}
+            transition="all 0.2s"
+            width="150px"
+          >
+            <ChevronLeftIcon color="gray.600" boxSize="5" />
+            <Text
+              color="gray.700"
+              fontWeight="semibold"
+              fontSize="sm"
+              ml="3"
+              whiteSpace="nowrap"
+            >
+              SwordFish Assist
+            </Text>
+          </Flex>
+        </Box>
+      )}
+      {/* Commented out for future implementation
+      <TimeroSyncModal />
+      <CalendarSyncModal />
+      */}
     </Box>
   );
 };
 export default BillBack;
+
+const mockTimeroData = [
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-22",
+    property: "Lincoln Unit 1460-2",
+    category: "1 R&M - General Labor",
+    clockedInAt: "2024-09-22T08:00:00",
+    clockedOutAt: "2024-09-22T08:31:00",
+    hours: "0.52",
+    mileage: "0.51",
+    notes: "met pro router guy",
+    format: "timero"
+  },
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-22",
+    property: "1009 Colorado Ave Unit B",
+    category: "1 R&M - HVAC & Plumbing",
+    clockedInAt: "2024-09-22T09:00:00",
+    clockedOutAt: "2024-09-22T10:22:00",
+    hours: "1.37",
+    mileage: "8.68",
+    notes: "Installed new garbage disposal",
+    format: "timero"
+  },
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-26",
+    property: "3135 Perkins Unit A",
+    category: "2 CapEx - Unit Turns",
+    clockedInAt: "2024-09-26T13:00:00",
+    clockedOutAt: "2024-09-26T15:35:00",
+    hours: "2.58",
+    mileage: "6.78",
+    notes: "Repaired fallen fence",
+    format: "timero"
+  }
+];
+
+const mockCalendarData = [
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-26",
+    property: "3135 Perkins Unit A",
+    category: "2 CapEx - Unit Turns",
+    clockedInAt: null,
+    clockedOutAt: null,
+    hours: "5.87",
+    mileage: "13.12",
+    notes: "touchup paint, replaced things, elms out front and back with tordon",
+    format: "progress"
+  },
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-24",
+    property: "Courtyard - Whole Building",
+    category: "1 R&M - General Labor",
+    clockedInAt: null,
+    clockedOutAt: null,
+    hours: "1.23",
+    mileage: "3.52",
+    notes: "learned how to use camera system",
+    format: "progress"
+  },
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-24",
+    property: "3135 Perkins Unit A",
+    category: "2 CapEx - Unit Turns",
+    clockedInAt: null,
+    clockedOutAt: null,
+    hours: "6.78",
+    mileage: "25.64",
+    notes: "home depot run and started turn",
+    format: "progress"
+  },
+  {
+    employee: "Jonathan Balding",
+    date: "2024-09-29",
+    property: "*WSPM Internal",
+    category: "WSPM Internal",
+    clockedInAt: null,
+    clockedOutAt: null,
+    hours: "1.18",
+    mileage: "0",
+    notes: "weekly meeting",
+    format: "progress"
+  }
+];

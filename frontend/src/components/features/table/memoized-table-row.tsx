@@ -17,7 +17,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
       }
     }
     return accounts;
-  }, [item.propertyId, propertyGroups, accounts]);
+  }, [item.propertyId, propertyGroups, accounts, accounts.length]);
 
   // Memoize handlers
   const handleFieldEdit = useCallback((e, field) => {
@@ -204,10 +204,16 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                 <Input 
                   backgroundColor='white'
                   width="100%"
-                  minWidth="60px"
+                  minWidth={column === 'job_date' ? '120px' : undefined}
                   type={column === 'hours' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                   value={item[column] === 0 ? '' : item[column]}
-                  onChange={(e) => handleFieldEdit(e, column)}
+                  onChange={(e) => {
+                    if (column === 'job_date') {
+                      handleFieldEdit({ target: { value: e.target.value } }, column);
+                    } else {
+                      handleFieldEdit(e, column);
+                    }
+                  }}
                   size="sm"
                   onWheel={(e) => e.target.blur()}
                   _hover={{ border: 'none' }}
@@ -229,7 +235,12 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
     </Tr>
   );
 }, (prevProps, nextProps) => {
-  return JSON.stringify(prevProps.item) === JSON.stringify(nextProps.item);
+  // Add deep comparison for accounts array
+  const accountsEqual = prevProps.accounts.length === nextProps.accounts.length &&
+    prevProps.accounts.every((acc, idx) => acc.id === nextProps.accounts[idx].id);
+    
+  return JSON.stringify(prevProps.item) === JSON.stringify(nextProps.item) &&
+    accountsEqual;
 });
 
 export default MemoizedTableRow;

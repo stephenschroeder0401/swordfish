@@ -138,7 +138,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
       .filter((row) => Object.values(row).some((value) => {
         return value && typeof value === 'string' ? value.trim() !== '' : Boolean(value);
       }))
-      .map((row) => {
+      .map(row => {
         if (format === 'timero') {
           console.log('Processing row:', row);  // Debug log
           
@@ -146,51 +146,30 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
           const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
           const category = categoryParts.join('/');
           
-          // Parse the date/time with more flexible format
+          // Parse the date/time strings directly without manipulation
           const parseDateTime = (dateTimeStr: string) => {
-            console.log('Parsing datetime:', dateTimeStr);  // Debug log
-            if (!dateTimeStr) return null;  // Handle undefined/null
+            if (!dateTimeStr) return null;
             
-            try {
-              // Check if format is MM-DD-YYYY HH:MM AM/PM
-              if (dateTimeStr.includes('-')) {
-                const [datePart, timePart, ampm] = dateTimeStr.split(' ');
-                const [month, day, year] = datePart.split('-');
-                const [hours, minutes] = timePart.split(':');
-                
-                let hour = parseInt(hours);
-                if (ampm === 'PM' && hour !== 12) hour += 12;
-                if (ampm === 'AM' && hour === 12) hour = 0;
-                
-                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.toString().padStart(2, '0')}:${minutes}:00`);
-              }
-              // Handle M/D/YYYY HH:MM format
-              else {
-                const [datePart, timePart] = dateTimeStr.split(' ');
-                const [month, day, year] = datePart.split('/');
-                const [hours, minutes] = timePart.split(':');
-                
-                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes}:00`);
-              }
-            } catch (error) {
-              console.error('Date parsing error:', error);
-              throw error;
-            }
+            // Split the date and time parts
+            const [datePart, timePart] = dateTimeStr.split(' ');
+            const [month, day, year] = datePart.split('/');
+            const [hours, minutes] = timePart.split(':');
+            
+            // Return the date string in YYYY-MM-DD format
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
           };
           
-          const clockedInAt = parseDateTime(row['Clocked In At']);
-          const clockedOutAt = parseDateTime(row['Clocked Out At']);
-          const duration = clockedInAt && clockedOutAt ? 
-            (Number(clockedOutAt) - Number(clockedInAt)) / (1000 * 60 * 60) : 0;
+          // Get the date from either clocked in or out time
+          const date = parseDateTime(row['Clocked In At'] || row['Clocked Out At']);
           
           return {
             employee: row['Employee Name']?.trim() || '',
-            date: clockedInAt ? clockedInAt.toISOString().split('T')[0] : '',
+            date: date || '',  // Use the parsed date string directly
             property: property?.trim() || '',
             category: category?.trim() || '',
-            clockedInAt: clockedInAt ? clockedInAt.toISOString() : null,
-            clockedOutAt: clockedOutAt ? clockedOutAt.toISOString() : null,
-            hours: duration.toFixed(2),
+            clockedInAt: row['Clocked In At'] || null,
+            clockedOutAt: row['Clocked Out At'] || null,
+            hours: row['Regular Hours']?.split(':')[0] || '0',
             mileage: row['Mileage'] || 0,
             notes: row['Notes'] || '',
             format: 'timero' as const
@@ -199,7 +178,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
           // Direct mapping for Progress format
           return {
             employee: row['Employee']?.trim() || '',
-            date: row['Date']?.trim() || '',
+            date: row['Date']?.trim() || '',  // Keep the date exactly as it comes in, no manipulation
             property: row['Property']?.trim() || '',
             category: row['Category']?.trim() || '',
             clockedInAt: null,
@@ -215,21 +194,9 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
           const minutes = Number(row['Minutes']) || 0;
           const hours = (minutes / 60).toFixed(2);
           
-          // Format the date
-          const formatDate = (dateStr: string) => {
-            if (!dateStr) return '';
-            try {
-              const [month, day, year] = dateStr.split('/');
-              return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-            } catch (error) {
-              console.error('Date parsing error:', error);
-              return '';
-            }
-          };
-          
           return {
             employee: row['Employee Name']?.trim() || '',
-            date: formatDate(row['Date']?.trim() || ''),
+            date: row['Date']?.trim() || '',  // Keep the date exactly as it comes in
             property: row['Property']?.trim() || '',
             category: row['Category']?.trim() || '',
             clockedInAt: null,

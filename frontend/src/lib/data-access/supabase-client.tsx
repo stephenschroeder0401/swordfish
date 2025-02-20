@@ -50,7 +50,7 @@ export const saveJobs = async (entries, billingPeriod, propertyGroups) => {
           billed_hours: (parseFloat(entry.hours) * (prop.percentage / 100)).toFixed(2),
           hourly_rate: entry.rate,
           hourly_total: (parseFloat(entry.total) * (prop.percentage / 100)).toFixed(2),
-          total: (parseFloat(entry.jobTotal) * (prop.percentage / 100)).toFixed(2)
+          total: (parseFloat(entry.billingTotal) * (prop.percentage / 100)).toFixed(2)
         }));
       }
       console.warn(`Property group ${groupId} not found or has no properties`);
@@ -73,7 +73,7 @@ export const saveJobs = async (entries, billingPeriod, propertyGroups) => {
       billed_hours: parseFloat(entry.hours),
       hourly_rate: entry.rate,
       hourly_total: entry.total,
-      total: entry.jobTotal
+      total: entry.billingTotal
     }];
   });
 

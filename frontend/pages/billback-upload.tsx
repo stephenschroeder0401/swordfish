@@ -140,7 +140,8 @@ const BillBack = () => {
     return {
       entryCount: billbackData.length,
       totalHours: billbackData.reduce((sum, item) => sum + (parseFloat(item.hours) || 0), 0),
-      totalBilled: billbackData.reduce((sum, item) => sum + (parseFloat(item.billingTotal || item.total) || 0), 0)
+      // Change this line to use jobTotal instead of billingTotal
+      totalBilled: billbackData.reduce((sum, item) => sum + (parseFloat(item.jobTotal) || 0), 0),
     };
   }, [billbackData]);
 

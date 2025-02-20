@@ -60,7 +60,7 @@ import { FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import CSVUpload from "@/components/ui/file-upload/upload";
 import Papa from 'papaparse';
-import OpenAI from 'openai';
+// import OpenAI from 'openai';  // Comment out OpenAI import
 
 // Add a new type for clarity
 type FileFormat = 'timero' | 'manual' | 'progress';
@@ -1005,91 +1005,90 @@ const BillBack = () => {
     document.body.removeChild(link);
   };
 
-  // Initialize OpenAI client
-  const openai = new OpenAI({
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    dangerouslyAllowBrowser: true
-  });
+  // Comment out OpenAI client initialization
+  // const openai = new OpenAI({
+  //   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  //   dangerouslyAllowBrowser: true
+  // });
 
-  // Add this function to handle AI interactions
-  const handleChatCommand = async (userInput: string) => {
-    setIsChatProcessing(true);
-    try {
-      const appActions = {
-        handleDelete: handleDelete,
-        handleEdit: handleEdit,
-        setBillbackData: setBillbackData,
-        addRow: addRow,
-        handleClearData: handleClearData,
-        setHasUnsavedChanges: setHasUnsavedChanges,
-        calculateTotals: calculateTotals,
-      };
+  // Comment out handleChatCommand function
+  // const handleChatCommand = async (userInput: string) => {
+  //   setIsChatProcessing(true);
+  //   try {
+  //     const appActions = {
+  //       handleDelete: handleDelete,
+  //       handleEdit: handleEdit,
+  //       setBillbackData: setBillbackData,
+  //       addRow: addRow,
+  //       handleClearData: handleClearData,
+  //       setHasUnsavedChanges: setHasUnsavedChanges,
+  //       calculateTotals: calculateTotals,
+  //     };
 
-      const appState = {
-        billbackData,
-        employees,
-        billingAccounts,
-        propertyGroups,
-        billingProperties,
-        hasUnsavedChanges,
-        isValid
-      };
+  //     const appState = {
+  //       billbackData,
+  //       employees,
+  //       billingAccounts,
+  //       propertyGroups,
+  //       billingProperties,
+  //       hasUnsavedChanges,
+  //       isValid
+  //     };
 
-      console.log("Current billbackData:", billbackData); // Debug log
+  //     console.log("Current billbackData:", billbackData);
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo-0125",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant with direct access to the billback application's functions.
-            The billbackData array contains objects with these properties: rowId, employee (name string), employeeId, etc.
+  //     const completion = await openai.chat.completions.create({
+  //       model: "gpt-3.5-turbo-0125",
+  //       messages: [
+  //         {
+  //           role: "system",
+  //           content: `You are an AI assistant with direct access to the billback application's functions.
+  //           The billbackData array contains objects with these properties: rowId, employee (name string), employeeId, etc.
             
-            Example of a row: ${JSON.stringify(billbackData[0])}
+  //           Example of a row: ${JSON.stringify(billbackData[0])}
             
-            Return a function that will be executed. For example:
-            (state, actions) => {
-              const rowsToDelete = state.billbackData.filter(row => row.employee === "Daniel Fransen");
-              console.log("Found rows:", rowsToDelete.length);
-              rowsToDelete.forEach(row => actions.handleDelete(null, row.rowId));
-            }`
-          },
-          {
-            role: "user",
-            content: userInput
-          }
-        ]
-      });
+  //           Return a function that will be executed. For example:
+  //           (state, actions) => {
+  //             const rowsToDelete = state.billbackData.filter(row => row.employee === "Daniel Fransen");
+  //             console.log("Found rows:", rowsToDelete.length);
+  //             rowsToDelete.forEach(row => actions.handleDelete(null, row.rowId));
+  //           }`
+  //         },
+  //         {
+  //           role: "user",
+  //           content: userInput
+  //         }
+  //       ]
+  //     });
 
-      const functionString = completion.choices[0].message.content;
-      console.log("Generated function:", functionString); // Debug log
+  //     const functionString = completion.choices[0].message.content;
+  //     console.log("Generated function:", functionString);
 
-      // Convert the string to a function and execute it
-      const func = new Function('return ' + functionString)();  // Changed this line
-      await func(appState, appActions);  // And this line
+  //     const func = new Function('return ' + functionString)();
+  //     await func(appState, appActions);
 
-      toast({
-        title: "Action Completed",
-        description: "The requested changes have been made",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+  //     toast({
+  //       title: "Action Completed",
+  //       description: "The requested changes have been made",
+  //       status: "success",
+  //       duration: 3000,
+  //       isClosable: true,
+  //     });
 
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process command",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsChatProcessing(false);
-      setChatInput('');
-    }
-  };
+  //   } catch (error) {
+  //     console.error('Error:', error);
+  //     toast({
+  //       title: "Error",
+  //       description: error.message || "Failed to process command",
+  //       status: "error",
+  //       duration: 3000,
+  //       isClosable: true,
+  //     });
+  //   } finally {
+  //     setIsChatProcessing(false);
+  //     setChatInput('');
+  //   }
+  // };
 
   const handleTimeroSync = async () => {
     setIsTimeroSyncing(true);

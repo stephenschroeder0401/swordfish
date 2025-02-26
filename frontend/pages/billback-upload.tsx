@@ -122,7 +122,7 @@ const BillBack = () => {
   const [syncStage, setSyncStage] = useState('');
   
   // New state for corrections
-  const [activeTab, setActiveTab] = useState('entries');
+  const [activeTab, setActiveTab] = useState(0);
   const [validationErrors, setValidationErrors] = useState({
     employees: new Set<string>(),
     properties: new Set<string>(),
@@ -134,16 +134,27 @@ const BillBack = () => {
     billingAccounts: {}
   });
   const [showCorrectionsIndicator, setShowCorrectionsIndicator] = useState(false);
+  const [isCorrectionsModalOpen, setIsCorrectionsModalOpen] = useState(false);
 
   // Near your other state declarations
   const { entryCount, totalHours, totalBilled } = useMemo(() => {
+    // First, filter to get only billable items (same logic as in billableData calculation)
+    const billableItems = billbackData.filter(item => {
+      // Skip removed items
+      if (item.removed) return false;
+      // Skip items with errors
+      if (item.isError) return false;
+      // Only include billable categories
+      const category = billingAccounts.find(acc => acc.id === item.billingAccountId);
+      return category?.isbilledback;
+    });
+    
     return {
-      entryCount: billbackData.length,
-      totalHours: billbackData.reduce((sum, item) => sum + (parseFloat(item.hours) || 0), 0),
-      // Change this line to use jobTotal instead of billingTotal
-      totalBilled: billbackData.reduce((sum, item) => sum + (parseFloat(item.jobTotal) || 0), 0),
+      entryCount: billableItems.length,
+      totalHours: billableItems.reduce((sum, item) => sum + (parseFloat(item.hours) || 0), 0),
+      totalBilled: billableItems.reduce((sum, item) => sum + (parseFloat(item.jobTotal) || 0), 0),
     };
-  }, [billbackData]);
+  }, [billbackData, billingAccounts]);
 
   // Update ref whenever billbackData changes
   useEffect(() => {
@@ -277,9 +288,40 @@ const BillBack = () => {
   }, []);
 
   const handleClearData = () => {
-    setBillbackData([]);
-    setSelectedFile(null);
+    setBillbackData(prevData => {
+      return prevData.map(item => {
+        if (
+          // If on billable tab, only mark billable items as removed
+          (activeTab === 0 && billingAccounts.find(acc => acc.id === item.billingAccountId)?.isbilledback && !item.isError && !item.removed) ||
+          // If on unbillable tab, only mark unbillable items as removed
+          (activeTab === 1 && !billingAccounts.find(acc => acc.id === item.billingAccountId)?.isbilledback && !item.isError && !item.removed) ||
+          // If on corrections tab, only mark items with errors as removed
+          (activeTab === 2 && item.isError && !item.removed) ||
+          // If on removed tab, only affect already removed items
+          (activeTab === 3 && item.removed)
+        ) {
+          return { ...item, removed: true };
+        }
+        return item;
+      });
+    });
+    
     setHasUnsavedChanges(true);
+  };
+
+  // Function to completely remove all data
+  const handleClearAllData = () => {
+    if (window.confirm('Are you sure you want to delete all data? This action cannot be undone.')) {
+      setBillbackData([]);
+      setHasUnsavedChanges(true);
+      toast({
+        title: "All data cleared",
+        description: "All time entries have been deleted",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleDataProcessed = (newData) => {
@@ -413,7 +455,7 @@ const BillBack = () => {
         true;
 
     return {
-        rowId: uuidv4(),
+        rowId: job.rowId || uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
         job_date: formattedDate,
@@ -440,7 +482,8 @@ const BillBack = () => {
         isManual: false,
         originalEmployee: job.employee,
         originalProperty: job.property,
-        originalCategory: job.category
+        originalCategory: job.category,
+        removed: job.removed || false // Preserve the removed property
     };
   };
 
@@ -522,7 +565,7 @@ const BillBack = () => {
         true;
 
     return {
-        rowId: uuidv4(),
+        rowId: job.rowId || uuidv4(),
         employeeId: employee?.id,
         employee: employee?.name || job.employee,
         job_date: formattedDate,
@@ -548,20 +591,35 @@ const BillBack = () => {
         isManual: true,
         originalEmployee: job.employee,
         originalProperty: job.property,
-        originalCategory: job.category
+        originalCategory: job.category,
+        removed: job.removed || false // Preserve the removed property
     };
   };
 
   const handleDelete = useCallback((e, key) => {
     setBillbackData(prevData => {
-      const newData = prevData.filter(item => item.rowId !== key);
-      console.log(`Deleted row ${key}. New count: ${newData.length}`);
+      // First check if the item is already in the Removed tab
+      const itemToDelete = prevData.find(item => item.rowId === key);
+      
+      // If the item is already marked as removed, completely remove it from the array
+      if (itemToDelete && itemToDelete.removed) {
+        const filteredData = prevData.filter(item => item.rowId !== key);
+        console.log(`Permanently deleted row ${key}. New count: ${filteredData.length}`);
+        return filteredData;
+      } 
+      
+      // Otherwise just mark it as removed
+      const newData = prevData.map(item => {
+        if (item.rowId === key) {
+          return { ...item, removed: true };
+        }
+        return item;
+      });
+      console.log(`Marked row ${key} as removed. New count: ${newData.length}`);
       return newData;
     });
     setHasUnsavedChanges(true);
   }, []);
-  
-
 
   const handleEdit = useCallback((e, rowId, field) => {
     setBillbackData(prevData => {
@@ -698,25 +756,7 @@ const BillBack = () => {
       label: "", 
       canSort: false,
       sticky: true,
-      width: "35px",
-      renderHeader: () => (
-        <Tooltip label="Clear all entries">
-          <IconButton
-            aria-label="Clear all entries"
-            icon={<CloseIcon />}
-            size="xs"
-            colorScheme="red"
-            onClick={handleClearData}
-            variant="ghost"
-            pl="5px"
-            ml="2px"
-            _hover={{ 
-              bg: 'red.50',
-              color: 'red.600'
-            }}
-          />
-        </Tooltip>
-      )
+      width: "35px"
     },
     { column: "employee", label: "Employee", canSort: false },
     { column: "job_date", label: "Date", canSort: false },
@@ -779,8 +819,19 @@ const BillBack = () => {
         // First save progress
         await handleSaveProgress(false); // Pass false to not show the toast for intermediate save
 
+        // Filter out removed items and items with empty required IDs
+        const jobsToSave = billbackData.filter(item => {
+          // Skip removed items
+          if (item.removed) return false;
+          
+          // Skip items with missing required IDs
+          if (!item.employeeId || !item.propertyId || !item.billingAccountId) return false;
+          
+          return true;
+        });
+
         // Then save jobs
-        await saveJobs(billbackData, billingPeriod, propertyGroups);
+        await saveJobs(jobsToSave, billingPeriod, propertyGroups);
         toast({
           title: "Jobs saved successfully",
             status: "success",
@@ -857,32 +908,33 @@ const BillBack = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave]);
 
-  // Memoize filtered data
-  const filteredData = useMemo(() => {
-    return billbackData.filter(row => {
-      // Employee filter
-      if (employeeFilter && row.employeeId !== employeeFilter) {
-        return false;
-      }
-
-      // Property filter
-      if (propertyFilter && row.propertyId !== propertyFilter) {
-        return false;
-      }
-
-      // Entity filter
-      if (entityFilter && row.entityId !== entityFilter) {
-        return false;
-      }
-
-      // Category filter
-      if (categoryFilter && row.billingAccountId !== categoryFilter) {
-        return false;
-      }
-
-      return true;
+  // Memoized filtered data
+  const { billableData, unbillableData, correctablesData, removedData } = useMemo(() => {
+    const filteredData = billbackData.filter(row => {
+      const matchesEmployee = !employeeFilter || row.employeeId === employeeFilter;
+      const matchesProperty = !propertyFilter || row.propertyId === propertyFilter;
+      const matchesEntity = !entityFilter || row.entityId === entityFilter;
+      const matchesCategory = !categoryFilter || row.billingAccountId === categoryFilter;
+      return matchesEmployee && matchesProperty && matchesEntity && matchesCategory;
     });
-  }, [billbackData, employeeFilter, propertyFilter, entityFilter, categoryFilter]);
+
+    const activeRows = filteredData.filter(row => !row.removed);
+    const errorRows = activeRows.filter(row => row.isError);
+    const nonErrorRows = activeRows.filter(row => !row.isError);
+
+    return {
+      billableData: nonErrorRows.filter(row => {
+        const category = billingAccounts.find(acc => acc.id === row.billingAccountId);
+        return category?.isbilledback;
+      }),
+      unbillableData: nonErrorRows.filter(row => {
+        const category = billingAccounts.find(acc => acc.id === row.billingAccountId);
+        return !category?.isbilledback;
+      }),
+      correctablesData: errorRows,
+      removedData: filteredData.filter(row => row.removed)
+    };
+  }, [billbackData, employeeFilter, propertyFilter, entityFilter, categoryFilter, billingAccounts]);
 
   // Memoize table configuration
   const memoizedTableConfig = useMemo(() => tableConfig, []);
@@ -922,7 +974,7 @@ const BillBack = () => {
     console.log('Calculating totals for', billbackData.length, 'rows');
     const result = billbackData.reduce((acc, item) => {
       const hours = parseFloat(item.hours) || 0;
-      const total = parseFloat(item.billingTotal || item.total) || 0;
+      const total = parseFloat(item.billingTotal) || 0;
       console.log('Adding hours:', hours, 'total:', total);
       return {
         hours: acc.hours + hours,
@@ -1239,7 +1291,7 @@ const BillBack = () => {
   // Add this before the return statement, after the other useEffect hooks
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Enter' && !event.shiftKey && activeTab === 'corrections' &&
+      if (event.key === 'Enter' && !event.shiftKey && activeTab === 2 &&
           (validationErrors.employees.size > 0 ||
            validationErrors.properties.size > 0 ||
            validationErrors.billingAccounts.size > 0)) {
@@ -1357,13 +1409,13 @@ const BillBack = () => {
             colorScheme="green"
             onClick={handleSubmit}
             isLoading={isUploading}
-            isDisabled={!isValid}
+            isDisabled={correctablesData.length > 0}
             _hover={{
               transform: 'translateY(-1px)',
               boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
             }}
           >
-            Invoice Jobs
+            {correctablesData.length > 0 ? `${correctablesData.length} Errors to Fix` : 'Invoice Jobs'}
           </Button>
         </Flex>
       </Flex>
@@ -1379,162 +1431,185 @@ const BillBack = () => {
         borderColor="gray.200" 
         bg="gray.100"
         align="center" 
+        justify="space-between"
       >
-        <Button
-          leftIcon={<AddIcon />}
-          size="sm"
-          colorScheme="green"
-          variant="outline"
-          onClick={addRow}
-          bg="white"
-          _hover={{
-            transform: 'translateY(-1px)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          }}
-        >
-          Add Row
-        </Button>
+        <Flex align="center">
+          <Button
+            leftIcon={<AddIcon />}
+            size="sm"
+            colorScheme="green"
+            variant="outline"
+            onClick={addRow}
+            bg="white"
+            _hover={{
+              transform: 'translateY(-1px)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            Add Row
+          </Button>
 
-        <Divider orientation="vertical" mx={4} height="24px" borderColor="gray.300" />
+          <Divider orientation="vertical" mx={4} height="24px" borderColor="gray.300" />
 
-        <Flex gap={2} align="center">
-          <Flex align="center" gap={2}>
-            <Select
-              placeholder="All Employees"
-              size="sm"
-              width="200px"
-              onChange={(e) => handleFilterChange('employee', e.target.value)}
-              value={employeeFilter}
-              bg="white"
-            >
-              {employees?.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </Select>
-            {employeeFilter && (
-              <CloseIcon 
-                color="red.500"
-                w={3}
-                h={3}
-                cursor="pointer"
-                _hover={{ color: "red.600" }}
-                onClick={() => handleFilterChange('employee', '')}
-              />
-            )}
-          </Flex>
+          <Flex gap={2} align="center">
+            <Flex align="center" gap={2}>
+              <Select
+                placeholder="All Employees"
+                size="sm"
+                width="200px"
+                onChange={(e) => handleFilterChange('employee', e.target.value)}
+                value={employeeFilter}
+                bg="white"
+              >
+                {employees?.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </Select>
+              {employeeFilter && (
+                <CloseIcon 
+                  color="red.500"
+                  w={3}
+                  h={3}
+                  cursor="pointer"
+                  _hover={{ color: "red.600" }}
+                  onClick={() => handleFilterChange('employee', '')}
+                />
+              )}
+            </Flex>
 
-          <Flex align="center" gap={2}>
-            <Select
-              placeholder="All Properties"
-              size="sm"
-              width="200px"
-              onChange={(e) => handleFilterChange('property', e.target.value)}
-              value={propertyFilter}
-              bg="white"
-            >
-              {billingProperties?.map(prop => (
-                <option key={prop.id} value={prop.id}>{prop.name}</option>
-              ))}
-            </Select>
-            {propertyFilter && (
-              <CloseIcon 
-                color="red.500"
-                w={3}
-                h={3}
-                cursor="pointer"
-                _hover={{ color: "red.600" }}
-                onClick={() => handleFilterChange('property', '')}
-              />
-            )}
-          </Flex>
+            <Flex align="center" gap={2}>
+              <Select
+                placeholder="All Properties"
+                size="sm"
+                width="200px"
+                onChange={(e) => handleFilterChange('property', e.target.value)}
+                value={propertyFilter}
+                bg="white"
+              >
+                {billingProperties?.map(prop => (
+                  <option key={prop.id} value={prop.id}>{prop.name}</option>
+                ))}
+              </Select>
+              {propertyFilter && (
+                <CloseIcon 
+                  color="red.500"
+                  w={3}
+                  h={3}
+                  cursor="pointer"
+                  _hover={{ color: "red.600" }}
+                  onClick={() => handleFilterChange('property', '')}
+                />
+              )}
+            </Flex>
 
-          <Flex align="center" gap={2}>
-            <Select
-              placeholder="All Entities"
-              size="sm"
-              width="200px"
-              onChange={(e) => handleFilterChange('entity', e.target.value)}
-              value={entityFilter}
-              bg="white"
-            >
-              {entities?.map(entity => (
-                <option key={entity.id} value={entity.id}>{entity.name}</option>
-              ))}
-            </Select>
-            {entityFilter && (
-              <CloseIcon 
-                color="red.500"
-                w={3}
-                h={3}
-                cursor="pointer"
-                _hover={{ color: "red.600" }}
-                onClick={() => handleFilterChange('entity', '')}
-              />
-            )}
-          </Flex>
+            <Flex align="center" gap={2}>
+              <Select
+                placeholder="All Entities"
+                size="sm"
+                width="200px"
+                onChange={(e) => handleFilterChange('entity', e.target.value)}
+                value={entityFilter}
+                bg="white"
+              >
+                {entities?.map(entity => (
+                  <option key={entity.id} value={entity.id}>{entity.name}</option>
+                ))}
+              </Select>
+              {entityFilter && (
+                <CloseIcon 
+                  color="red.500"
+                  w={3}
+                  h={3}
+                  cursor="pointer"
+                  _hover={{ color: "red.600" }}
+                  onClick={() => handleFilterChange('entity', '')}
+                />
+              )}
+            </Flex>
 
-          <Flex align="center" gap={2}>
-            <Select
-              placeholder="All Categories"
-              size="sm"
-              width="200px"
-              onChange={(e) => handleFilterChange('category', e.target.value)}
-              value={categoryFilter}
-              bg="white"
-            >
-              {billingAccounts?.map(account => (
-                <option key={account.id} value={account.id}>{account.name}</option>
-              ))}
-            </Select>
-            {categoryFilter && (
-              <CloseIcon 
-                color="red.500"
-                w={3}
-                h={3}
-                cursor="pointer"
-                _hover={{ color: "red.600" }}
-                onClick={() => handleFilterChange('category', '')}
-              />
-            )}
+            <Flex align="center" gap={2}>
+              <Select
+                placeholder="All Categories"
+                size="sm"
+                width="200px"
+                onChange={(e) => handleFilterChange('category', e.target.value)}
+                value={categoryFilter}
+                bg="white"
+              >
+                {billingAccounts?.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}</option>
+                ))}
+              </Select>
+              {categoryFilter && (
+                <CloseIcon 
+                  color="red.500"
+                  w={3}
+                  h={3}
+                  cursor="pointer"
+                  _hover={{ color: "red.600" }}
+                  onClick={() => handleFilterChange('category', '')}
+                />
+              )}
+            </Flex>
           </Flex>
         </Flex>
 
-        {/* Corrections Link */}
-        {showCorrectionsIndicator && (
-          <Text
-            color="red.500"
-            fontWeight="semibold"
-            cursor="pointer"
-            textDecoration="underline"
-            onClick={() => setActiveTab('corrections')}
-            display="flex"
-            alignItems="center"
-            fontSize="sm"
-            _hover={{ 
-              color: "red.600",
-              transform: "translateY(-1px)"
+        <Flex align="center" gap={3}>
+          {/* Clear All button moved to the right side */}
+          <Button
+            leftIcon={<CloseIcon />}
+            size="xs"
+            colorScheme="red"
+            variant="outline"
+            onClick={handleClearAllData}
+            bg="white"
+            _hover={{
+              transform: 'translateY(-1px)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
             }}
-            ml="auto"
-            transition="all 0.2s"
           >
-            Corrections Required!
-            <Box
-              ml={2}
-              bg="red.500"
-              color="white"
-              borderRadius="full"
-              w="5"
-              h="5"
+            Clear All
+          </Button>
+
+          {/* Corrections Link */}
+          {showCorrectionsIndicator && (
+            <Text
+              color="red.500"
+              fontWeight="semibold"
+              cursor="pointer"
+              textDecoration="underline"
+              onClick={() => {
+                setActiveTab(2);
+                setIsCorrectionsModalOpen(true);
+              }}
               display="flex"
               alignItems="center"
-              justifyContent="center"
-              fontSize="xs"
-              fontWeight="bold"
+              fontSize="sm"
+              _hover={{ 
+                color: "red.600",
+                transform: "translateY(-1px)"
+              }}
+              transition="all 0.2s"
             >
-              !
-            </Box>
-          </Text>
-        )}
+              Corrections Required!
+              <Box
+                ml={2}
+                bg="red.500"
+                color="white"
+                borderRadius="full"
+                w="5"
+                h="5"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                fontSize="xs"
+                fontWeight="bold"
+              >
+                !
+              </Box>
+            </Text>
+          )}
+        </Flex>
       </Flex>
 
       {/* Add loading overlay */}
@@ -1568,25 +1643,124 @@ const BillBack = () => {
             <Spinner size="xl" />
           </Center>
         ) : (
-          <BillbackDisplay
-            data={filteredData}
-            tableConfig={memoizedTableConfig}
-            handleEdit={handleEdit}
-            accounts={billingAccounts}
-            properties={billingProperties}
-            employees={employees}
-            handleDelete={handleDelete}
-            entities={entities}
-            propertyGroups={propertyGroups}
-            openClearDialog={openClearDialog}
-          />
+          <Tabs 
+            variant="line"
+            display="flex"
+            flexDirection="column"
+            h="100%"
+            index={activeTab}
+            onChange={(index) => {
+              setActiveTab(index);
+              // Close corrections modal if it was open
+              if (isCorrectionsModalOpen) {
+                setIsCorrectionsModalOpen(false);
+              }
+            }}
+            sx={{
+              '.chakra-tabs__tab': {
+                py: 1,
+                fontSize: 'sm',
+                fontWeight: 'semibold',
+                _selected: {
+                  fontWeight: 'bold',
+                  color: 'green.700',
+                  borderColor: 'green.700'
+                },
+                _hover: {
+                  color: 'green.600'
+                }
+              }
+            }}
+          >
+            <TabList height="5vh">
+              <Tab>
+                Billable Time ({billableData.length})
+              </Tab>
+              <Tab>
+                Unbillable Time ({unbillableData.length})
+              </Tab>
+              <Tab 
+                color="orange.500" 
+                _selected={{ color: 'orange.700', borderColor: 'orange.700' }}
+                _hover={{ color: 'orange.600' }}
+              >
+                Needs Correction ({correctablesData.length})
+              </Tab>
+              <Tab 
+                color="red.400" 
+                _selected={{ color: 'red.600', borderColor: 'red.600' }}
+                _hover={{ color: 'red.500' }}
+              >
+                Removed ({removedData.length})
+              </Tab>
+            </TabList>
+
+            <TabPanels flex="1" overflow="hidden">
+              <TabPanel p={0}>
+                <BillbackDisplay
+                  data={billableData}
+                  tableConfig={memoizedTableConfig}
+                  handleEdit={handleEdit}
+                  accounts={billingAccounts.filter(acc => acc.isbilledback)}
+                  properties={billingProperties}
+                  employees={employees}
+                  handleDelete={handleDelete}
+                  entities={entities}
+                  propertyGroups={propertyGroups}
+                  openClearDialog={openClearDialog}
+                />
+              </TabPanel>
+              <TabPanel p={0}>
+                <BillbackDisplay
+                  data={unbillableData}
+                  tableConfig={memoizedTableConfig}
+                  handleEdit={handleEdit}
+                  accounts={billingAccounts.filter(acc => !acc.isbilledback)}
+                  properties={billingProperties}
+                  employees={employees}
+                  handleDelete={handleDelete}
+                  entities={entities}
+                  propertyGroups={propertyGroups}
+                  openClearDialog={openClearDialog}
+                />
+              </TabPanel>
+              <TabPanel p={0}>
+                <BillbackDisplay
+                  data={correctablesData}
+                  tableConfig={memoizedTableConfig}
+                  handleEdit={handleEdit}
+                  accounts={billingAccounts}
+                  properties={billingProperties}
+                  employees={employees}
+                  handleDelete={handleDelete}
+                  entities={entities}
+                  propertyGroups={propertyGroups}
+                  openClearDialog={openClearDialog}
+                />
+              </TabPanel>
+              <TabPanel p={0}>
+                <BillbackDisplay
+                  data={removedData}
+                  tableConfig={memoizedTableConfig}
+                  handleEdit={handleEdit}
+                  accounts={billingAccounts}
+                  properties={billingProperties}
+                  employees={employees}
+                  handleDelete={handleDelete}
+                  entities={entities}
+                  propertyGroups={propertyGroups}
+                  openClearDialog={openClearDialog}
+                />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         )}
       </Box>
 
       {/* Corrections Modal */}
       <Modal 
-        isOpen={activeTab === 'corrections'} 
-        onClose={() => setActiveTab('entries')}
+        isOpen={isCorrectionsModalOpen} 
+        onClose={() => setIsCorrectionsModalOpen(false)}
         size="2xl"
         scrollBehavior="inside"
       >
@@ -1617,7 +1791,7 @@ const BillBack = () => {
               aria-label="Close modal"
               variant="ghost"
               size="sm"
-              onClick={() => setActiveTab('entries')}
+              onClick={() => setIsCorrectionsModalOpen(false)}
             />
           </Flex>
 
@@ -2008,7 +2182,7 @@ const BillBack = () => {
                   billingAccounts: {}
                 });
                 setShowCorrectionsIndicator(false);
-                setActiveTab('entries');
+                setActiveTab(0);
 
                 // Show success toast
                 toast({
@@ -2018,6 +2192,7 @@ const BillBack = () => {
                   duration: 3000,
                   isClosable: true,
                 });
+                setIsCorrectionsModalOpen(false);
               }}
               ml="auto"
               px={6}

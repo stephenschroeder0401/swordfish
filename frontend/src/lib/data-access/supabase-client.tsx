@@ -28,30 +28,44 @@ export const saveJobs = async (entries, billingPeriod, propertyGroups) => {
 
   // Expand entries that use property groups
   const expandedEntries = entries.flatMap(entry => {
+    // Skip entries with missing required IDs
+    if (!entry.employeeId || !entry.billingAccountId || !entry.propertyId) {
+      console.warn('Skipping entry with missing required IDs:', entry);
+      return [];
+    }
+    
     // Check if this entry uses a property group
     if (entry.propertyId?.startsWith('group-')) {
       const groupId = entry.propertyId.replace('group-', '');
       const group = propertyGroups.find(g => g.id === groupId);
       
-      if (group && group.properties) {
+      if (group && group.properties && group.properties.length > 0) {
         // Create an entry for each property in the group
-        return group.properties.map(prop => ({
-          employee_id: entry.employeeId,
-          entity_id: entry.entityId || null,
-          property_id: prop.id,
-          billing_account_id: entry.billingAccountId,
-          billing_period_id: billingPeriod,
-          job_date: validateDate(entry.job_date),
-          start_time: validateDate(entry.startTime),
-          end_time: validateDate(entry.endTime),
-          billed_miles: entry.billedmiles,
-          milage_rate: entry.mileageRate,
-          milage_total: (parseFloat(entry.mileageTotal) * (prop.percentage / 100)).toFixed(2),
-          billed_hours: (parseFloat(entry.hours) * (prop.percentage / 100)).toFixed(2),
-          hourly_rate: entry.rate,
-          hourly_total: (parseFloat(entry.total) * (prop.percentage / 100)).toFixed(2),
-          total: (parseFloat(entry.billingTotal) * (prop.percentage / 100)).toFixed(2)
-        }));
+        return group.properties.map(prop => {
+          // Skip properties with missing IDs
+          if (!prop.id) {
+            console.warn('Skipping property with missing ID in group:', groupId);
+            return null;
+          }
+          
+          return {
+            employee_id: entry.employeeId,
+            entity_id: entry.entityId || null,
+            property_id: prop.id,
+            billing_account_id: entry.billingAccountId,
+            billing_period_id: billingPeriod,
+            job_date: validateDate(entry.job_date),
+            start_time: validateDate(entry.startTime),
+            end_time: validateDate(entry.endTime),
+            billed_miles: entry.billedmiles,
+            milage_rate: entry.mileageRate,
+            milage_total: (parseFloat(entry.mileageTotal) * (prop.percentage / 100)).toFixed(2),
+            billed_hours: (parseFloat(entry.hours) * (prop.percentage / 100)).toFixed(2),
+            hourly_rate: entry.rate,
+            hourly_total: (parseFloat(entry.total) * (prop.percentage / 100)).toFixed(2),
+            total: (parseFloat(entry.billingTotal) * (prop.percentage / 100)).toFixed(2)
+          };
+        }).filter(item => item !== null); // Filter out null entries
       }
       console.warn(`Property group ${groupId} not found or has no properties`);
       return [];

@@ -35,6 +35,7 @@ import {
   ModalFooter,
   Divider,
   ModalHeader,
+  ModalCloseButton,
 } from "@chakra-ui/react";
 import { 
   AddIcon, 
@@ -87,6 +88,163 @@ const detectFileFormat = (firstRow: any): FileFormat => {
   }
   
   throw new Error('Unrecognized file format');
+};
+
+// Move this outside and above the BillBack component
+interface AddRowModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (rowData: any) => void;
+  employees: any[];
+  billingProperties: any[];  // Changed from properties to billingProperties
+  billingAccounts: any[];
+  calculateTotals: (hours: number, laborRate: number, billingRate: number, mileage: number) => any;
+}
+
+const AddRowModal: React.FC<AddRowModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  employees,
+  billingProperties,  // Changed from properties to billingProperties
+  billingAccounts,
+  calculateTotals,
+}) => {
+  const [formData, setFormData] = useState({
+    employeeId: '',
+    propertyId: '',
+    billingAccountId: '',
+    date: new Date().toISOString().split('T')[0],
+    hours: '',
+    mileage: '',
+    notes: '',
+    entity: '',
+    entityId: ''
+  });
+
+  const handleFieldChange = (field: string, value: string) => {
+    if (field === 'propertyId') {
+      const property = billingProperties.find(prop => prop.id === value);
+      setFormData(prev => ({
+        ...prev,
+        [field]: value,
+        property: property?.name || '',
+        entityId: property?.entityid || '',
+        entity: property?.entityName || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Add New Row</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          <SimpleGrid columns={2} spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>Employee</FormLabel>
+              <Select
+                value={formData.employeeId}
+                onChange={(e) => handleFieldChange('employeeId', e.target.value)}
+              >
+                <option value="">Select Employee</option>
+                {employees?.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Date</FormLabel>
+              <Input
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleFieldChange('date', e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Property</FormLabel>
+              <Select
+                value={formData.propertyId}
+                onChange={(e) => handleFieldChange('propertyId', e.target.value)}
+              >
+                <option value="">Select Property</option>
+                {billingProperties?.map(prop => (  // Changed from properties to billingProperties
+                  <option key={prop.id} value={prop.id}>{prop.name}</option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Category</FormLabel>
+              <Select
+                value={formData.billingAccountId}
+                onChange={(e) => handleFieldChange('billingAccountId', e.target.value)}
+              >
+                <option value="">Select Category</option>
+                {billingAccounts?.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}</option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Hours</FormLabel>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.hours}
+                onChange={(e) => handleFieldChange('hours', e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Mileage</FormLabel>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.mileage}
+                onChange={(e) => handleFieldChange('mileage', e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl gridColumn="span 2">
+              <FormLabel>Notes</FormLabel>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => handleFieldChange('notes', e.target.value)}
+              />
+            </FormControl>
+          </SimpleGrid>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button
+            colorScheme="green"
+            mr={3}
+            onClick={() => onSubmit(formData)}
+            isDisabled={
+              !formData.employeeId ||
+              !formData.propertyId ||
+              !formData.billingAccountId ||
+              !formData.hours
+            }
+          >
+            Add Row
+          </Button>
+          <Button onClick={onClose}>Cancel</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
 };
 
 const BillBack = () => {
@@ -257,36 +415,35 @@ const BillBack = () => {
     }
 }, [billingPeriod, billingAccounts, billingProperties, employees, propertyGroups]);
 
-  const addRow = useCallback(() => {
+  // Add new state for the modal
+  const [isAddRowModalOpen, setIsAddRowModalOpen] = useState(false);
+
+  const addRow = () => {
+    setIsAddRowModalOpen(true);
+  };
+
+  const handleAddRowSubmit = (rowData) => {
+    const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+      rowData.hours || 0,
+      employees.find(emp => emp.id === rowData.employeeId)?.rate || 0,
+      billingAccounts.find(acc => acc.id === rowData.billingAccountId)?.rate || 0,
+      rowData.billedmiles || 0
+    );
+
     const newRow = {
-      rowId: uuidv4(),
-      employeeId: "",
-      employee: "",
-      job_date: new Date().toLocaleDateString('en-US'),  // Use local date string format
-      propertyId: "",
-      property: "",
-      entityId: "",
-      entity: "",
-      billingAccountId: "",
-      category: "",
-      startTime: "",
-      endTime: "",
-      hours: "",
-      rate: "",
-      billingRate: "",
-      total: "",
-      billedmiles: "",
-      mileageTotal: "",
-      jobTotal: "",
-      notes: "",
-      isError: true,
-      isManual: true
+      ...rowData,
+      total: laborTotal,
+      billingTotal,
+      mileageTotal,
+      jobTotal,
+      format: 'manual' as FileFormat,
+      isError: false
     };
-    
-    setBillbackData(prev => [newRow, ...prev]);
+
+    setBillbackData(prevData => [...prevData, newRow]);
+    setIsAddRowModalOpen(false);
     setHasUnsavedChanges(true);
-    setIsValid(false);
-  }, []);
+  };
 
   const handleClearData = () => {
     setBillbackData(prevData => {
@@ -2479,6 +2636,15 @@ const BillBack = () => {
       <TimeroSyncModal />
       <CalendarSyncModal />
       */}
+      <AddRowModal
+        isOpen={isAddRowModalOpen}
+        onClose={() => setIsAddRowModalOpen(false)}
+        onSubmit={handleAddRowSubmit}
+        employees={employees}
+        billingProperties={billingProperties}  // Changed from properties to billingProperties
+        billingAccounts={billingAccounts}
+        calculateTotals={calculateTotals}
+      />
     </Box>
   );
 };

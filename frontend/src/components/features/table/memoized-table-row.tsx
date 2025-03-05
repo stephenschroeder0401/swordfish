@@ -46,6 +46,29 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
     handleDelete(e, rowKey);
   }, [rowKey, handleDelete]);
 
+  // Format date for display
+  const formatDateForDisplay = useCallback((dateString) => {
+    if (!dateString) return '';
+    
+    // Try to parse the date string
+    try {
+      // Check if it's already in YYYY-MM-DD format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      
+      // Try to parse as a date
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // Return original if invalid
+      
+      // Format as YYYY-MM-DD for the input field
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString; // Return original on error
+    }
+  }, []);
+
   return (
     <Tr style={{ backgroundColor: item.isError ? '#ffebee' : 'inherit' }}>
       {tableConfig.map(({ column, canEdit }) => (
@@ -206,7 +229,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                   width="100%"
                   minWidth={column === 'job_date' ? '120px' : undefined}
                   type={column === 'hours' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
-                  value={item[column] === 0 ? '' : item[column]}
+                  value={column === 'job_date' ? formatDateForDisplay(item[column]) : (item[column] === 0 ? '' : item[column])}
                   onChange={(e) => {
                     if (column === 'job_date') {
                       handleFieldEdit({ target: { value: e.target.value } }, column);
@@ -227,7 +250,7 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
               overflow="visible"
               whiteSpace="normal"
             >
-              {item[column]}
+              {column === 'job_date' ? formatDateForDisplay(item[column]) : item[column]}
             </Text>
           )}
         </Td>

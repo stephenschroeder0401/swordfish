@@ -294,6 +294,7 @@ const BillBack = () => {
   });
   const [showCorrectionsIndicator, setShowCorrectionsIndicator] = useState(false);
   const [isCorrectionsModalOpen, setIsCorrectionsModalOpen] = useState(false);
+  const [isApplyingCorrections, setIsApplyingCorrections] = useState(false);
 
   // Near your other state declarations
   const { entryCount, totalHours, totalBilled } = useMemo(() => {
@@ -305,13 +306,17 @@ const BillBack = () => {
       if (item.isError) return false;
       // Only include billable categories
       const category = billingAccounts.find(acc => acc.id === item.billingAccountId);
-      return category?.isbilledback;
+      return category?.isbilledback === true; // Explicitly check for true
     });
     
     return {
       entryCount: billableItems.length,
       totalHours: billableItems.reduce((sum, item) => sum + (parseFloat(item.hours) || 0), 0),
-      totalBilled: billableItems.reduce((sum, item) => sum + (parseFloat(item.jobTotal) || 0), 0),
+      // Include the job total (which includes both billing total and mileage)
+      totalBilled: billableItems.reduce((sum, item) => {
+        // Use jobTotal which includes both billing total and mileage
+        return sum + (parseFloat(item.jobTotal) || 0);
+      }, 0),
     };
   }, [billbackData, billingAccounts]);
 
@@ -321,15 +326,20 @@ const BillBack = () => {
   }, [billbackData]);
 
   const calculateTotals = (hours, laborRate, billingRate, mileage) => {
+    // Ensure hours is a number, defaulting to 0 if undefined, null, or NaN
+    const numericHours = hours === undefined || hours === null || hours === '' ? 0 : Number(hours) || 0;
+    
     // Labor total always uses labor rate
-    const laborTotal = (hours * laborRate).toFixed(2);
+    const laborTotal = (numericHours * laborRate).toFixed(2);
     
     // Billing total uses billing rate if available, otherwise uses labor total
     const billingTotal = billingRate ? 
-      (hours * billingRate).toFixed(2) : 
+      (numericHours * billingRate).toFixed(2) : 
       laborTotal;
     
-    const mileageTotal = (mileage * mileageRate).toFixed(2);
+    // Ensure mileage is a number, defaulting to 0 if undefined, null, or NaN
+    const numericMileage = mileage === undefined || mileage === null || mileage === '' ? 0 : Number(mileage) || 0;
+    const mileageTotal = (numericMileage * mileageRate).toFixed(2);
     
     // Job total is billing total + mileage
     const jobTotal = (parseFloat(billingTotal) + parseFloat(mileageTotal)).toFixed(2);
@@ -339,7 +349,16 @@ const BillBack = () => {
 
   useEffect(() => {
     const checkIsValid = () => {
-      const allValid = billbackData.every(row => !row.isError);
+      // Consider a row valid if:
+      // 1. It has no isError flag
+      // 2. It has all required fields (employee, property, billing account)
+      // 3. Hours can be 0 or any valid number (not required to be > 0)
+      const allValid = billbackData.every(row => 
+        !row.isError && 
+        row.employeeId && 
+        row.propertyId && 
+        row.billingAccountId
+      );
       setIsValid(allValid);
     };
 
@@ -386,10 +405,27 @@ const BillBack = () => {
                     
                     // Format the date properly when processing existing data
                     const processedData = uploadData.map(job => {
-                        // Pass through the job data exactly as it is
+                        // Format the date if needed
+                        let jobDate = job.date || job.job_date || '';
+                        
+                        // If the date is not empty and not already in YYYY-MM-DD format, try to format it
+                        if (jobDate && !/^\d{4}-\d{2}-\d{2}$/.test(jobDate)) {
+                            try {
+                                const date = new Date(jobDate);
+                                if (!isNaN(date.getTime())) {
+                                    jobDate = date.toISOString().split('T')[0];
+                                }
+                            } catch (e) {
+                                console.error("Error formatting date during data load:", e);
+                                // Keep the original date if there's an error
+                            }
+                        }
+                        
+                        // Pass through the job data with formatted date
                         const formattedJob = {
                             ...job,
-                            job_date: job.date || job.job_date || ''  // Use date exactly as it is
+                            date: jobDate,
+                            job_date: jobDate
                         };
                         
                         if (job.isManual) {
@@ -424,10 +460,10 @@ const BillBack = () => {
 
   const handleAddRowSubmit = (rowData) => {
     const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-      rowData.hours || 0,
+      rowData.hours === '' ? 0 : rowData.hours || 0,
       employees.find(emp => emp.id === rowData.employeeId)?.rate || 0,
       billingAccounts.find(acc => acc.id === rowData.billingAccountId)?.rate || 0,
-      rowData.billedmiles || 0
+      rowData.billedmiles === '' ? 0 : rowData.billedmiles || 0
     );
 
     const newRow = {
@@ -495,6 +531,19 @@ const BillBack = () => {
       const billingJobs = newData.map((job) => {
         if (!job) return null;
 
+        // Ensure job has a properly formatted date before processing
+        if (job.date && !/^\d{4}-\d{2}-\d{2}$/.test(job.date)) {
+          try {
+            const date = new Date(job.date);
+            if (!isNaN(date.getTime())) {
+              job.date = date.toISOString().split('T')[0];
+            }
+          } catch (e) {
+            console.error("Error formatting date in handleDataProcessed:", e);
+            // Keep the original date if there's an error
+          }
+        }
+
         // Process based on format
         const processedJob = fileFormat === 'timero' ? 
           processTimeroJob(job) : 
@@ -505,6 +554,7 @@ const BillBack = () => {
           !processedJob.employeeId ||           // Must have employee
           !processedJob.propertyId ||           // Must have property
           !processedJob.billingAccountId        // Must have category
+          // Note: Zero hours is valid, so we don't check for !processedJob.hours
         );
 
         return processedJob;
@@ -529,8 +579,21 @@ const BillBack = () => {
 
   // Split processing logic
   const processTimeroJob = (job) => {
-    // Use the date exactly as it comes in, no formatting or manipulation
-    const formattedDate = job.date || job.job_date || '';
+    // Format the date properly to ensure it's in YYYY-MM-DD format
+    let formattedDate = job.date || job.job_date || '';
+    
+    // If the date is not empty and not already in YYYY-MM-DD format, try to format it
+    if (formattedDate && !/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+      try {
+        const date = new Date(formattedDate);
+        if (!isNaN(date.getTime())) {
+          formattedDate = date.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        console.error("Error formatting date:", e);
+        // Keep the original date if there's an error
+      }
+    }
 
     // First check if the property name matches a property group
     const propertyGroup = propertyGroups.find(group => 
@@ -538,7 +601,8 @@ const BillBack = () => {
     );
     
     const billingAccount = billingAccounts.find((account) => 
-        account.name.toLowerCase() === job.category.toLowerCase()
+        account.name.toLowerCase() === job.category.toLowerCase() && 
+        (account.is_deleted === false || account.is_deleted === null)
     );
     
     // Only look for individual property if no matching group found
@@ -600,7 +664,7 @@ const BillBack = () => {
     })();
 
     const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-        job.hours, 
+        job.hours === '' ? 0 : job.hours || 0, 
         rate, 
         billingRate, 
         mileage
@@ -621,9 +685,9 @@ const BillBack = () => {
         !employee?.id || // Missing employee
         (!propertyGroup && !billingProperty) || // Missing property
         !billingAccount?.id || // Missing billing account
-        (propertyGroup && !isValidBillingAccount) || // Invalid billing account for property group
-        !job.hours || // Missing hours
-        isNaN(Number(job.hours)) // Invalid hours format
+        (propertyGroup && !isValidBillingAccount) // Invalid billing account for property group
+        // Removed !job.hours check - zero hours is valid
+        // Removed isNaN(Number(job.hours)) check - we handle this elsewhere
     );
 
     return {
@@ -661,17 +725,35 @@ const BillBack = () => {
 
   const processManualJob = (job) => {
     console.log("processing manual job ", job);
-    // Use the date exactly as it comes in, no formatting or manipulation
-    const formattedDate = job.date || job.job_date || '';
+    // Format the date properly to ensure it's in YYYY-MM-DD format
+    let formattedDate = job.date || job.job_date || '';
+    
+    // If the date is not empty and not already in YYYY-MM-DD format, try to format it
+    if (formattedDate && !/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+      try {
+        const date = new Date(formattedDate);
+        if (!isNaN(date.getTime())) {
+          formattedDate = date.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        console.error("Error formatting date:", e);
+        // Keep the original date if there's an error
+      }
+    }
 
-    const hours = Number(job.hours) || 0;
+    const hours = (() => {
+      if (!job.hours && job.hours !== 0) return 0;
+      const parsedHours = Number(job.hours);
+      return isNaN(parsedHours) ? 0 : parsedHours;
+    })();
     
     const propertyGroup = propertyGroups.find(group => 
         group.name.toLowerCase() === job.property.toLowerCase()
     );
     
     const billingAccount = billingAccounts.find((account) => 
-        account.name.toLowerCase() === job.category.toLowerCase()
+        account.name.toLowerCase() === job.category.toLowerCase() && 
+        (account.is_deleted === false || account.is_deleted === null)
     );
     
     const billingProperty = !propertyGroup ? billingProperties.find((property) => 
@@ -745,9 +827,9 @@ const BillBack = () => {
         !employee?.id || // Missing employee
         (!propertyGroup && !billingProperty) || // Missing property
         !billingAccount?.id || // Missing billing account
-        (propertyGroup && !isValidBillingAccount) || // Invalid billing account for property group
-        !hours || // Missing hours
-        isNaN(Number(hours)) // Invalid hours format
+        (propertyGroup && !isValidBillingAccount) // Invalid billing account for property group
+        // Removed !hours check - zero hours is valid
+        // Removed isNaN(Number(hours)) check - we handle this elsewhere
     );
 
     return {
@@ -824,10 +906,10 @@ const BillBack = () => {
         if (selectedEmployee?.rate) {
           updatedRow.rate = selectedEmployee.rate;
           const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-            updatedRow.hours || 0,
+            updatedRow.hours === '' ? 0 : updatedRow.hours || 0,
             selectedEmployee.rate,
             updatedRow.billingRate || 0,
-            updatedRow.billedmiles || 0
+            updatedRow.billedmiles === '' ? 0 : updatedRow.billedmiles || 0
           );
           updatedRow.total = laborTotal;
           updatedRow.billingTotal = billingTotal;
@@ -851,21 +933,21 @@ const BillBack = () => {
         updatedRow.mileageTotal = mileageTotal;
         updatedRow.jobTotal = jobTotal;
       } else if (field === 'hours' || field === 'billedmiles') {
+        // Convert blank or invalid values to 0 for calculations, but preserve empty string in the UI
         const numericValue = e.target.value === '' ? 0 : Number(e.target.value) || 0;
         updatedRow[field] = e.target.value === '' ? '' : numericValue;
         
-        if (e.target.value !== '') {
-          const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-            field === 'hours' ? numericValue : updatedRow.hours || 0,
-            updatedRow.rate || 0,
-            updatedRow.billingRate || 0,
-            field === 'billedmiles' ? numericValue : updatedRow.billedmiles || 0
-          );
-          updatedRow.total = laborTotal;
-          updatedRow.billingTotal = billingTotal;
-          updatedRow.mileageTotal = mileageTotal;
-          updatedRow.jobTotal = jobTotal;
-        }
+        // Always recalculate totals, even when value is empty (which will use 0)
+        const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+          field === 'hours' ? numericValue : (updatedRow.hours === '' ? 0 : updatedRow.hours || 0),
+          updatedRow.rate || 0,
+          updatedRow.billingRate || 0,
+          field === 'billedmiles' ? numericValue : (updatedRow.billedmiles === '' ? 0 : updatedRow.billedmiles || 0)
+        );
+        updatedRow.total = laborTotal;
+        updatedRow.billingTotal = billingTotal;
+        updatedRow.mileageTotal = mileageTotal;
+        updatedRow.jobTotal = jobTotal;
       } else if (field === 'property') {
         const selectedPropertyId = e.target.value;
         const isPropertyGroup = selectedPropertyId.startsWith('group-');
@@ -889,10 +971,10 @@ const BillBack = () => {
               updatedRow.billingRate = 0;
               // Recalculate totals without billing rate
               const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-                updatedRow.hours || 0,
+                updatedRow.hours === '' ? 0 : updatedRow.hours || 0,
                 updatedRow.rate || 0,
                 0,
-                updatedRow.billedmiles || 0
+                updatedRow.billedmiles === '' ? 0 : updatedRow.billedmiles || 0
               );
               updatedRow.total = laborTotal;
               updatedRow.billingTotal = billingTotal;
@@ -908,7 +990,30 @@ const BillBack = () => {
           updatedRow.entity = billingProperty?.entityName || '';
         }
       } else {
-        updatedRow[field] = e.target.value;
+        // Special handling for hours field
+        if (field === 'hours') {
+          // Convert blank or invalid hours to 0 for calculations, but preserve empty string in the UI
+          const hoursValue = e.target.value;
+          if (hoursValue === '' || isNaN(Number(hoursValue))) {
+            updatedRow.hours = hoursValue === '' ? '' : 0;
+          } else {
+            updatedRow.hours = Number(hoursValue);
+          }
+          
+          // Recalculate totals when hours change
+          const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
+            hoursValue === '' ? 0 : updatedRow.hours || 0,
+            updatedRow.rate || 0,
+            updatedRow.billingRate || 0,
+            updatedRow.billedmiles === '' ? 0 : updatedRow.billedmiles || 0
+          );
+          updatedRow.total = laborTotal;
+          updatedRow.billingTotal = billingTotal;
+          updatedRow.mileageTotal = mileageTotal;
+          updatedRow.jobTotal = jobTotal;
+        } else {
+          updatedRow[field] = e.target.value;
+        }
       }
 
       // After all field updates, check if the row is still in error
@@ -925,6 +1030,7 @@ const BillBack = () => {
         (!propertyGroup && !billingProperty) || // Must have valid property or group
         !updatedRow.billingAccountId ||         // Must have category
         !updatedRow.employeeId                  // Must have employee
+        // Note: hours can be 0 or empty, so we don't check for it here
       );
 
       newData[index] = updatedRow;
@@ -1111,11 +1217,11 @@ const BillBack = () => {
     return {
       billableData: nonErrorRows.filter(row => {
         const category = billingAccounts.find(acc => acc.id === row.billingAccountId);
-        return category?.isbilledback;
+        return category?.isbilledback === true; // Explicitly check for true
       }),
       unbillableData: nonErrorRows.filter(row => {
         const category = billingAccounts.find(acc => acc.id === row.billingAccountId);
-        return !category?.isbilledback;
+        return category?.isbilledback !== true; // Explicitly check not true
       }),
       correctablesData: errorRows,
       removedData: filteredData.filter(row => row.removed)
@@ -2321,7 +2427,9 @@ const BillBack = () => {
             <Button
               colorScheme="green"
               size="md"
+              isLoading={isApplyingCorrections}
               onClick={() => {
+                setIsApplyingCorrections(true);
                 console.log("Current validation errors:", {
                     employees: Array.from(validationErrors.employees),
                     properties: Array.from(validationErrors.properties),
@@ -2390,10 +2498,10 @@ const BillBack = () => {
                         if (wasUpdated) {
                             // Recalculate totals only if updates were made
                             const { laborTotal, billingTotal, mileageTotal, jobTotal } = calculateTotals(
-                                newRow.hours || 0,
+                                newRow.hours === '' ? 0 : newRow.hours || 0,
                                 newRow.rate || 0,
                                 newRow.billingRate || 0,
-                                newRow.billedmiles || 0
+                                newRow.billedmiles === '' ? 0 : newRow.billedmiles || 0
                             );
                             
                             newRow.total = laborTotal;
@@ -2416,15 +2524,18 @@ const BillBack = () => {
                                 !newRow.employeeId || // Missing employee
                                 (!propertyGroup && !billingProperty) || // Missing property
                                 !newRow.billingAccountId || // Missing billing account
-                                (propertyGroup && !isValidBillingAccount) || // Invalid billing account for property group
-                                !newRow.hours || // Missing hours
-                                isNaN(Number(newRow.hours)) // Invalid hours format
+                                (propertyGroup && !isValidBillingAccount) // Invalid billing account for property group
+                                // Removed !newRow.hours check - zero hours is valid
+                                // Removed isNaN(Number(newRow.hours)) check - we handle this elsewhere
                             );
                         }
 
                         return newRow;
                     });
                 });
+
+                // Set hasUnsavedChanges to true since we've modified the data
+                setHasUnsavedChanges(true);
 
                 // Recheck for remaining errors after applying corrections
                 setTimeout(() => {
@@ -2468,25 +2579,26 @@ const BillBack = () => {
 
                         return prevData;
                     });
-                }, 0);
+                    
+                    // Clear corrections and update UI
+                    setSelectedCorrections({
+                        employees: {},
+                        properties: {},
+                        billingAccounts: {}
+                    });
+                    setActiveTab(0);
 
-                // Clear corrections and update UI
-                setSelectedCorrections({
-                    employees: {},
-                    properties: {},
-                    billingAccounts: {}
-                });
-                setActiveTab(0);
-
-                // Show success toast
-                toast({
-                    title: "Corrections Applied",
-                    description: "All corrections have been applied successfully",
-                    status: "success",
-                    duration: 3000,
-                    isClosable: true,
-                });
-                setIsCorrectionsModalOpen(false);
+                    // Show success toast
+                    toast({
+                        title: "Corrections Applied",
+                        description: "All corrections have been applied successfully",
+                        status: "success",
+                        duration: 3000,
+                        isClosable: true,
+                    });
+                    setIsCorrectionsModalOpen(false);
+                    setIsApplyingCorrections(false);
+                }, 500); // Added a slight delay to ensure UI updates and loading state is visible
             }}
             ml="auto"
             px={6}

@@ -1,0 +1,10 @@
+Error executing query: Command failed: docker exec -i supabase_db_database psql -U postgres -t -c 'WITH data AS (SELECT jsonb_array_elements(upload_data) AS row_data FROM billback_upload WHERE id = '\''0b28aafe-ee9f-4445-97cb-b7ce05a361d4'\'') SELECT row_data FROM data WHERE row_data->>'\''property'\'' LIKE '\''%SREC%'\'' AND row_data->>'\''category'\'' LIKE '\''%Non-Billable%'\'' AND (row_data->>'\''isError'\'')::boolean = true LIMIT 10;'
+ERROR:  function jsonb_array_elements(json) does not exist
+LINE 1: WITH data AS (SELECT jsonb_array_elements(upload_data) AS ro...
+                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR:  function jsonb_array_elements(json) does not exist
+LINE 1: WITH data AS (SELECT jsonb_array_elements(upload_data) AS ro...
+                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

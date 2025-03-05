@@ -154,6 +154,8 @@ const InvoicesDashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      console.log("Current billingPeriod value:", billingPeriod);
+      
       if (!billingPeriod) {
         setHourlyLineItems([]);
         setMonthlyLineItems([]);
@@ -163,7 +165,11 @@ const InvoicesDashboard = () => {
       try {
         // Fetch hourly jobs
         const jobs = await fetchJobsAsBillingJob(billingPeriod);
+
+        console.log("Jobs: ", jobs);
+        
         const billingProperties = await fetchAllPropertiesNoPagination();
+        
         const billbackCategories = await fetchAllBillingAccountsIncludingDeleted();
         
         // Fetch monthly billing items
@@ -171,31 +177,42 @@ const InvoicesDashboard = () => {
 
         // Process hourly items
         const hourlyItems = jobs.flatMap((job) => {
-          const account = billbackCategories.find((account) => account.id == job.billing_account_id);
-          const billbackCategory = billbackCategories.find((category) => category.id == job.billing_account_id);
+          const account = billbackCategories.find((account) => 
+            account.id == job.billing_account_id && 
+            (account.is_deleted === false || account.is_deleted === null)
+          );
+          const billbackCategory = billbackCategories.find((category) => 
+            category.id == job.billing_account_id && 
+            (category.is_deleted === false || category.is_deleted === null)
+          );
           const property = billingProperties.find((property) => property.id == job.property_id);
 
+          // Skip jobs with missing required data
+          if (!account || !property) {
+            return [];
+          }
+
           const billDescription = includeGLDescription 
-            ? (billbackName ? `${billbackName}: ${account?.description}` : account?.description)
+            ? (billbackName ? `${billbackName}: ${account?.description || 'Unknown'}` : account?.description || 'Unknown')
             : '';
 
           const baseLineItem = {
-            billPropertyCode: property?.code,
-            billUnitName: property?.unit,
-            entity: property ? property.entityName : '',
+            billPropertyCode: property?.code || 'Unknown',
+            billUnitName: property?.unit || '',
+            entity: property ? property.entityName || 'Unknown' : 'Unknown',
             payeeName: payeeName,
-            billAccountCode: billbackCategory?.glcode,
+            billAccountCode: billbackCategory?.glcode || 'Unknown',
             billDate: billDate,
             dueDate: billDate,
             billReference: billbackName,
             billRemarks: billbackName,
             memoForCheck: billbackName,
-            billingAccountCategory: account ? account.name : ""
+            billingAccountCategory: account ? account.name || 'Unknown' : 'Unknown'
           };
 
           const items = [];
 
-          if (Number(job.total)) {
+          if (job.total && Number(job.total) !== 0) {
             items.push({
               ...baseLineItem,
               amount: Number(job.total),
@@ -203,16 +220,24 @@ const InvoicesDashboard = () => {
             });
           }
 
-          if (Number(job.milage_total)) {
+          if (job.milage_total && Number(job.milage_total) !== 0) {
             items.push({
               ...baseLineItem,
               amount: Number(job.milage_total),
-              billDescription: billbackName ? `${billbackName}: Mileage: ${account?.description}` : `Mileage: ${account?.description}`,
+              billDescription: billbackName ? `${billbackName}: Mileage: ${account?.description || 'Unknown'}` : `Mileage: ${account?.description || 'Unknown'}`,
             });
           }
 
           return items;
         });
+
+        // Log the number of hourly items before grouping
+        console.log(`Generated ${hourlyItems.length} hourly line items before grouping`);
+        
+        // Count unique billing accounts in hourly items
+        const uniqueAccountsBeforeGrouping = new Set(hourlyItems.map(item => item.billAccountCode));
+        console.log(`Found ${uniqueAccountsBeforeGrouping.size} unique billing accounts before grouping: `, 
+          Array.from(uniqueAccountsBeforeGrouping));
 
         // Process monthly items
         const monthlyLineItemsObj = monthlyItems.flatMap(item => 
@@ -247,8 +272,13 @@ const InvoicesDashboard = () => {
 
         // In your useEffect where we process the data
         const hourlyItemsObj = hourlyItems.reduce((acc, curr) => {
+          // Ensure all key components are defined
+          const propertyCode = curr.billPropertyCode || 'Unknown';
+          const accountCode = curr.billAccountCode || 'Unknown';
+          const description = curr.billDescription || '';
+          
           // Create a key combining property, bill account, and description
-          const key = `${curr.billPropertyCode}-${curr.billAccountCode}-${curr.billDescription}`;
+          const key = `${propertyCode}-${accountCode}-${description}`;
           
           if (!acc[key]) {
             // First time seeing this combo
@@ -262,7 +292,17 @@ const InvoicesDashboard = () => {
         }, {});
 
         // Convert back to array before setting state
-        setHourlyLineItems(Object.values(hourlyItemsObj));
+        const hourlyItemsArray = Object.values(hourlyItemsObj);
+        
+        // Log the number of hourly items after grouping
+        console.log(`Generated ${hourlyItemsArray.length} hourly line items after grouping`);
+        
+        // Count unique billing accounts in hourly items after grouping
+        const uniqueAccountsAfterGrouping = new Set(hourlyItemsArray.map(item => item.billAccountCode));
+        console.log(`Found ${uniqueAccountsAfterGrouping.size} unique billing accounts after grouping: `, 
+          Array.from(uniqueAccountsAfterGrouping));
+        
+        setHourlyLineItems(hourlyItemsArray);
 
         // Set separate states
         setMonthlyLineItems(Object.values(monthlyLineItemsObj));
@@ -427,8 +467,8 @@ const InvoicesDashboard = () => {
           }}
         >
           <TabList height="5vh" bg="white" position="sticky" top={0} zIndex={1}>
-            <Tab py={1} fontSize="lg">Hourly Costs</Tab>
-            <Tab py={1} fontSize="lg">Monthly Allocated Costs</Tab>
+            <Tab py={1} fontSize="lg">Hourly Billed Items</Tab>
+            <Tab py={1} fontSize="lg">Monthly Billed Items</Tab>
             <Tab py={1} fontSize="lg">Export</Tab>
           </TabList>
 

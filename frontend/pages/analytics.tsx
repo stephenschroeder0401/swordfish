@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Heading, Flex, Text, Box, HStack, Button, Select, Card, CardHeader, CardBody } from "@chakra-ui/react";
 import { fetchBillbackUpload } from '../src/lib/data-access/supabase-client';
-import {fetchAllEmployees} from '../src/lib/data-access';
+import {fetchAllEmployees, fetchAllBillingAccountsIncludingDeleted} from '../src/lib/data-access';
 import { useBillingPeriod } from '@/contexts/BillingPeriodContext';
 import dynamic from 'next/dynamic';
 import { ChartData, ChartOptions } from 'chart.js';
@@ -22,7 +22,10 @@ interface BillbackEntry {
   category: string;
   property: string;
   employee: string;
-  notes?: string;  // Add this line
+  notes?: string;
+  laborRate?: number;
+  rate?: number;      // Employee rate
+  billingRate?: number; // Billing rate
 }
 
 interface JobChartData extends ChartData<'pie'> {
@@ -44,10 +47,18 @@ interface Employee {
   name: string;
 }
 
+interface BillingAccount {
+  id: string;
+  name: string;
+  isbilledback: boolean;
+}
+
 const Analytics: React.FC = () => {
   const [billbackData, setBillbackData] = useState<BillbackEntry[]>([]);
   const [overallTotalHours, setOverallTotalHours] = useState(0);
   const [overallTotalRevenue, setOverallTotalRevenue] = useState(0);
+  const [unbillableHours, setUnbillableHours] = useState(0);
+  const [slippage, setSlippage] = useState(0);
   const [employeeTotalHours, setEmployeeTotalHours] = useState(0);
   const [employeeTotalRevenue, setEmployeeTotalRevenue] = useState(0);
   const [entityChartData, setEntityChartData] = useState<ChartData<'pie'> | null>(null);
@@ -69,6 +80,7 @@ const Analytics: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [selectedJobNotes, setSelectedJobNotes] = useState<string | null>(null);
   const [employeeAllocations, setEmployeeAllocations] = useState<TimeAllocation[]>([]);
+  const [billingAccounts, setBillingAccounts] = useState<BillingAccount[]>([]);
 
   // Replace with a refined, modern color palette
   const sophisticatedColors = [
@@ -103,41 +115,81 @@ const Analytics: React.FC = () => {
     try {
       console.log("GETTING NEW DATA for billing period ", billingPeriod);  
       
-      const [billbackData, employeesData] = await Promise.all([
+      const [billbackData, employeesData, billingAccountsData] = await Promise.all([
         fetchBillbackUpload(billingPeriod),
-        fetchAllEmployees()
+        fetchAllEmployees(),
+        fetchAllBillingAccountsIncludingDeleted()
       ]);
+
+      // Store billing accounts for filtering
+      setBillingAccounts(billingAccountsData);
 
       if (billbackData && billbackData.upload_data) {
         console.log("here is the data: ", billbackData.upload_data);
         const uploadData = billbackData.upload_data;
-        setBillbackData(uploadData);
         
-        // Calculate overall totals
-        calculateTotals(uploadData, true);
+        // Filter for billable and unbillable time
+        const billableData = uploadData.filter(entry => {
+          const account = billingAccountsData.find(acc => acc.id === entry.billingAccountId);
+          return account?.isbilledback === true;
+        });
         
-        // Get unique employees from the new data
-        const newUniqueEmployees = Array.from(new Set(uploadData.map(entry => entry.employee))) as string[];
+        const unbillableData = uploadData.filter(entry => {
+          const account = billingAccountsData.find(acc => acc.id === entry.billingAccountId);
+          return account?.isbilledback !== true;
+        });
+        
+        console.log("Filtered billable data:", billableData);
+        console.log("Filtered unbillable data:", unbillableData);
+        setBillbackData(billableData);
+        
+        // Calculate overall totals with billable data only
+        calculateTotals(billableData, true);
+        
+        // Calculate unbillable hours and slippage
+        const totalUnbillableHours = unbillableData.reduce((sum, entry) => {
+          const entryHours = Number(entry.hours) || 0;
+          return sum + (isNaN(entryHours) ? 0 : entryHours);
+        }, 0);
+        
+        // Calculate slippage using the employee rate (not labor rate)
+        const totalSlippage = unbillableData.reduce((sum, entry) => {
+          const entryHours = Number(entry.hours) || 0;
+          // Use rate (employee rate) for slippage calculation
+          // This represents what we would have made if the category was billable
+          const employeeRate = Number(entry.rate) || 0;
+          console.log(`Slippage calculation for entry: hours=${entryHours}, rate=${employeeRate}, slippage=${entryHours * employeeRate}`);
+          return sum + (isNaN(entryHours) || isNaN(employeeRate) ? 0 : entryHours * employeeRate);
+        }, 0);
+        
+        console.log(`Total slippage calculated: ${totalSlippage}`);
+        setUnbillableHours(Number(totalUnbillableHours.toFixed(2)));
+        setSlippage(Number(totalSlippage.toFixed(2)));
+        
+        // Get unique employees from the billable data
+        const newUniqueEmployees = Array.from(new Set(billableData.map(entry => entry.employee))) as string[];
         setEmployees(newUniqueEmployees);
         
         // Store all employees with their IDs and log them
         console.log("Setting employees with IDs:", employeesData);
         setEmployeesWithIds(employeesData);
 
-        // If there's a selected employee, filter data for that employee
+        // If there's a selected employee, filter billable data for that employee
         if (selectedEmployee) {
-          const filteredData = uploadData.filter(entry => entry.employee === selectedEmployee);
+          const filteredData = billableData.filter(entry => entry.employee === selectedEmployee);
           calculateTotals(filteredData, false);
-          prepareEmployeeCategoryData(selectedEmployee, uploadData);
+          prepareEmployeeCategoryData(selectedEmployee, billableData);
         }
 
-        // Update main charts
-        prepareEntityChartData(uploadData);
-        prepareCategoryChartData(uploadData);
+        // Update main charts with billable data
+        prepareEntityChartData(billableData);
+        prepareCategoryChartData(billableData);
       } else {
         setBillbackData([]);
         setOverallTotalHours(0);
         setOverallTotalRevenue(0);
+        setUnbillableHours(0);
+        setSlippage(0);
         setEmployees([]);
         setEmployeesWithIds([]);
         setSelectedEmployee('');
@@ -147,6 +199,8 @@ const Analytics: React.FC = () => {
       setBillbackData([]);
       setOverallTotalHours(0);
       setOverallTotalRevenue(0);
+      setUnbillableHours(0);
+      setSlippage(0);
       setEmployees([]);
       setEmployeesWithIds([]);
       setSelectedEmployee('');
@@ -648,8 +702,8 @@ const Analytics: React.FC = () => {
     <Container maxW='5000px' py={2} height="auto" minHeight="100vh" bg="gray.900">
       <Flex direction="column" alignItems="stretch" height="100%">
 
-        <Flex mb={4}>
-          <HStack spacing={4} align="stretch" w={'23vw'} minWidth={'300px'} mr={4}>
+        <Flex mb={4} direction="column">
+          <HStack spacing={4} align="stretch" w={'100%'} minWidth={'300px'} mr={4}>
             <Box p={4} shadow="lg" borderRadius="md" flex={1} bg="gray.800">
               <Heading fontSize="lg" color="white">Billed Hours</Heading>
               <Text fontSize="2xl" fontWeight="bold" color="white">
@@ -662,8 +716,19 @@ const Analytics: React.FC = () => {
                 ${isNaN(overallTotalRevenue) ? '0.00' : overallTotalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
               </Text>
             </Box>
+            <Box p={4} shadow="lg" borderRadius="md" flex={1} bg="gray.800">
+              <Heading fontSize="lg" color="white">Unbillable Hours</Heading>
+              <Text fontSize="2xl" fontWeight="bold" color="white">
+                {isNaN(unbillableHours) ? '0' : unbillableHours.toFixed(2)}
+              </Text>
+            </Box>
+            <Box p={4} shadow="lg" borderRadius="md" flex={1} bg="gray.800">
+              <Heading fontSize="lg" color="white">Unbilled Revenue</Heading>
+              <Text color="red.400" fontSize="2xl" fontWeight="bold">
+                ${isNaN(slippage) ? '0.00' : slippage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </Text>
+            </Box>
           </HStack>
-          <Box flex={1} /> {/* This empty box pushes the charts to the right */}
         </Flex>
         <Flex justify="space-between" mb={4} flexWrap="wrap">
           <Box p={5} shadow="lg" borderRadius="md" width="48%" bg="gray.800">

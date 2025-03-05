@@ -115,15 +115,43 @@ export const saveJobs = async (entries, billingPeriod, propertyGroups) => {
   return insertData;
 };
 
-export const fetchJobsAsBillingJob = async (billingPeriod: string, clientId: string): Promise<BillingJob[]> => {
-  console.log('📊 Executing: fetchJobsAsBillingJob', { billingPeriod, clientId });
-  const { data, error } = await supabase
-    .from('billing_job')
-    .select("*")
-    .eq('billing_period_id', billingPeriod);
+export const fetchJobsAsBillingJob = async (billingPeriod: string, clientId?: string): Promise<BillingJob[]> => {
+  // Supabase has a default limit of 1,000 records per query
+  // We'll use pagination to fetch all records
+  
+  let allData: BillingJob[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const start = page * pageSize;
+    const end = start + pageSize - 1;
+    
+    const { data, error, count } = await supabase
+      .from('billing_job')
+      .select("*", { count: 'exact' })
+      .eq('billing_period_id', billingPeriod)
+      .range(start, end);
 
-  if (error) throw error;
-  return data as BillingJob[];
+    if (error) {
+      console.error("Error fetching billing jobs:", error);
+      throw error;
+    }
+    
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      page++;
+      
+      // Check if we've fetched all records
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+  
+  console.log(`Fetched a total of ${allData.length} billing jobs for period ${billingPeriod}`);
+  return allData as BillingJob[];
 };
 
 export const saveEmployeeAllocations = async (allocations: Record<string, Array<{billing_account: string, percentage: string}>>) => {

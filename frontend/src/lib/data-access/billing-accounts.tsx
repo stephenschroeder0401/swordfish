@@ -141,7 +141,13 @@ export const fetchAllBillingAccountsIncludingDeleted = async (
 
     if (error) throw error;
 
-    return data || [];
+    // Process the data to ensure is_deleted is properly handled
+    const processedData = data?.map(account => ({
+      ...account,
+      is_deleted: account.is_deleted === null ? false : account.is_deleted
+    })) || [];
+
+    return processedData;
   } catch (error) {
     console.error("Error fetching billing accounts:", error);
     throw error;

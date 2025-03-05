@@ -1,0 +1,67 @@
+# Cursor AI Assistant Instructions
+
+## Project Overview
+This is the Swordfish2 project. It includes a web application with a frontend and backend, using Supabase for database storage.
+
+### Main Functionality
+The core purpose of this application is to allow users to source their time via uploads, integrations, or manual additions, and map that time to configured data for customers. The app is designed to make it easy for users to fix their data, make edits, and then generate invoice line items from that data.
+
+### Time Management Workflow
+1. **Timesheet Tab (Work in Progress)**
+   - Users can upload time data or add it manually
+   - Users can edit and modify the work in progress
+   - When a user saves progress, it's stored in `billback_upload` as a JSON object
+   - When a user navigates to this page, the system checks for existing WIP for that billing period
+   - Data is reloaded and filtering/categorizations are reapplied in case underlying config has changed
+
+2. **Invoice Generation**
+   - When a user submits Invoice jobs, the data is converted into `billing_job` rows
+   - These are official line items that will be billed to the customer
+   - These items are uneditable and should be correct
+   - Users can review billing items in the Invoices tab
+   - Invoices tab should load all billing_jobs for the selected billing period
+   - 
+   - Users can export to AppFolio format
+   - The Invoices tab sources both hourly billable time from the time management tab and other billing items configured in the admin panel
+
+## Database Access
+This project has database access capabilities through two main scripts:
+
+1. `query-db.js` - A simple script for running individual SQL queries
+2. `db-helper.js` - A comprehensive tool with various database operations
+
+### Example Commands
+
+```bash
+# Basic query
+node query-db.js "SELECT * FROM public.users LIMIT 5"
+
+# List all tables
+node db-helper.js list-tables
+
+# Describe a table's structure
+node db-helper.js describe-table billback_upload
+
+# Get sample data
+node db-helper.js sample-data billing_period
+
+# Execute a custom query
+node db-helper.js query "SELECT id, client_id FROM billback_upload LIMIT 3;"
+```
+
+### Key Tables
+- `billback_upload` - Stores uploaded billback data as JSON (work in progress)
+- `billing_period` - Defines billing periods
+- `billing_job` - Contains official invoice line items (finalized, uneditable)
+- `property` - Property information
+- `entity` - Entity information for billing
+- `billing_account` - Account information for billing
+
+For more detailed information, refer to `db-access-guide.md`.
+
+## Important Notes
+- All database commands interact with the local Supabase database running in Docker
+- The database is accessed through the `supabase_db_database` container
+- When helping with database-related tasks, suggest using these scripts rather than direct SQL commands
+- The `billback_upload.upload_data` JSON field contains the work-in-progress time entries
+- The `billing_job` table contains the finalized, uneditable invoice line items 

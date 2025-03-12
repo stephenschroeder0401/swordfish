@@ -227,8 +227,8 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                 <Input 
                   backgroundColor='white'
                   width="100%"
-                  minWidth={column === 'job_date' ? '120px' : undefined}
-                  type={column === 'hours' || column === 'mileage' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
+                  minWidth={column === 'job_date' ? '120px' : '60px'}
+                  type={column === 'hours' || column === 'billedmiles' ? 'number' : (column === 'job_date' ? 'date' : 'text')}
                   value={column === 'job_date' ? formatDateForDisplay(item[column]) : (item[column] === 0 ? '' : item[column])}
                   onChange={(e) => {
                     if (column === 'job_date') {
@@ -238,10 +238,14 @@ const MemoizedTableRow = React.memo(({ rowKey, item, handleEdit, handleDelete, t
                     }
                   }}
                   size="sm"
-                  onWheel={(e) => e.target.blur()}
-                  _hover={{ border: 'none' }}
-                  _focus={{ border: 'none', boxShadow: 'none' }}
-                  border="none"
+                  _hover={{ borderColor: '#3182CE' }}
+                  _focus={{ borderColor: '#3182CE', boxShadow: '0 0 0 1px #3182CE' }}
+                  border="1px solid #CBD5E0"
+                  onWheel={(e) => {
+                    // Prevent scroll wheel from changing number input values for all inputs
+                    e.preventDefault();
+                    e.target.blur();
+                  }}
                 />
               )
             )

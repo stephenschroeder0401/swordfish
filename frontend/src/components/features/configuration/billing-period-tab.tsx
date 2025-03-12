@@ -197,44 +197,46 @@ const BillingPeriodsTab = () => {
             <Spinner size="xl" />
           </Center>
         ) : (
-          <Table variant="simple" size="sm">
-            <Thead position="sticky" top={0} bg="white" zIndex={1}>
-              <Tr>
-                <Th width="50px" px={2.5} py={4}></Th>
-                {getVisibleColumns().map(column => (
-                  <Th key={column} px={2.5} py={4}>
-                    {getColumnDisplayName(column)}
-                  </Th>
-                ))}
-              </Tr>
-            </Thead>
-            <Tbody>
-              {tableData.map((row, index) => (
-                <Tr key={row.id || index}>
-                  <Td px={2.5}>
-                    <IconButton
-                      aria-label="Delete row"
-                      icon={<MinusIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() => handleDeleteRow(index)}
-                      variant="ghost"
-                    />
-                  </Td>
+          <Box pb="100px">
+            <Table variant="simple" size="sm">
+              <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                <Tr>
+                  <Th width="50px" px={2.5} py={4}></Th>
                   {getVisibleColumns().map(column => (
-                    <Td key={column} px={2.5}>
-                      <Input
-                        size="sm"
-                        type="date"
-                        value={row[column] || ''}
-                        onChange={(e) => handleInputChange(e, index, column)}
-                      />
-                    </Td>
+                    <Th key={column} px={2.5} py={4}>
+                      {getColumnDisplayName(column)}
+                    </Th>
                   ))}
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+              <Tbody>
+                {tableData.map((row, index) => (
+                  <Tr key={row.id || index}>
+                    <Td px={2.5}>
+                      <IconButton
+                        aria-label="Delete row"
+                        icon={<MinusIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => handleDeleteRow(index)}
+                        variant="ghost"
+                      />
+                    </Td>
+                    {getVisibleColumns().map(column => (
+                      <Td key={column} px={2.5}>
+                        <Input
+                          size="sm"
+                          type="date"
+                          value={row[column] || ''}
+                          onChange={(e) => handleInputChange(e, index, column)}
+                        />
+                      </Td>
+                    ))}
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
         )}
       </Box>
     </Box>

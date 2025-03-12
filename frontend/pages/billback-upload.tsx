@@ -597,21 +597,21 @@ const BillBack = () => {
 
     // First check if the property name matches a property group
     const propertyGroup = propertyGroups.find(group => 
-        group.name.toLowerCase() === job.property.toLowerCase()
+        group.name?.toLowerCase() === job.property?.toLowerCase()
     );
     
     const billingAccount = billingAccounts.find((account) => 
-        account.name.toLowerCase() === job.category.toLowerCase() && 
+        account.name?.toLowerCase() === job.category?.toLowerCase() && 
         (account.is_deleted === false || account.is_deleted === null)
     );
     
     // Only look for individual property if no matching group found
     const billingProperty = !propertyGroup ? billingProperties.find((property) => 
-        property.name.toLowerCase() === job.property.toLowerCase()
+        property.name?.toLowerCase() === job.property?.toLowerCase()
     ) : null;
     
     const employee = employees.find((employee) => 
-        employee.name.toLowerCase() === job.employee.toLowerCase()
+        employee.name?.toLowerCase() === job.employee?.toLowerCase()
     );
 
     // Track validation errors - Update to handle all cases
@@ -748,20 +748,20 @@ const BillBack = () => {
     })();
     
     const propertyGroup = propertyGroups.find(group => 
-        group.name.toLowerCase() === job.property.toLowerCase()
+        group.name?.toLowerCase() === job.property?.toLowerCase()
     );
     
     const billingAccount = billingAccounts.find((account) => 
-        account.name.toLowerCase() === job.category.toLowerCase() && 
+        account.name?.toLowerCase() === job.category?.toLowerCase() && 
         (account.is_deleted === false || account.is_deleted === null)
     );
     
     const billingProperty = !propertyGroup ? billingProperties.find((property) => 
-        property.name.toLowerCase() === job.property.toLowerCase()
+        property.name?.toLowerCase() === job.property?.toLowerCase()
     ) : null;
     
     const employee = employees.find((employee) => 
-        employee.name.toLowerCase() === job.employee.toLowerCase()
+        employee.name?.toLowerCase() === job.employee?.toLowerCase()
     );
 
     // Track validation errors - Update to handle all cases
@@ -1697,7 +1697,7 @@ const BillBack = () => {
           </Text>
           <Text color="gray.300">|</Text>
           <Text>
-            <Text as="span" fontWeight="bold">{Math.round(totalHours)}</Text> billed hours
+            <Text as="span" fontWeight="bold">{totalHours.toFixed(2)}</Text> billed hours
           </Text>
           <Text color="gray.300">|</Text>
           <Text>

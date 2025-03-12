@@ -143,8 +143,45 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
           console.log('Processing row:', row);  // Debug log
           
           // Handle Timero format
-          const [property, ...categoryParts] = row['Job Name'] ? row['Job Name'].split('/') : ['', ''];
-          const category = categoryParts.join('/');
+          let property = '';
+          let category = '';
+          
+          if (row['Job Name']) {
+            // Check if the Job Name contains a slash
+            const jobName = row['Job Name'];
+            
+            // Find the position of the first slash that's not part of a fraction like "1/2"
+            let slashIndex = -1;
+            const fractionRegex = /\d+\/\d+/g;
+            const fractions = [...jobName.matchAll(fractionRegex)];
+            
+            // Find the first slash that's not part of a fraction
+            for (let i = 0; i < jobName.length; i++) {
+              if (jobName[i] === '/') {
+                // Check if this slash is part of any fraction
+                const isPartOfFraction = fractions.some(match => {
+                  const start = match.index || 0;
+                  const end = start + match[0].length - 1;
+                  return i >= start && i <= end;
+                });
+                
+                if (!isPartOfFraction) {
+                  slashIndex = i;
+                  break;
+                }
+              }
+            }
+            
+            // If we found a valid slash, split the string there
+            if (slashIndex !== -1) {
+              property = jobName.substring(0, slashIndex).trim();
+              category = jobName.substring(slashIndex + 1).trim();
+            } else {
+              // No valid slash found, treat the whole string as property
+              property = jobName.trim();
+              category = '';
+            }
+          }
           
           // Parse the date/time strings directly without manipulation
           const parseDateTime = (dateTimeStr: string) => {
@@ -169,7 +206,19 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onDataProcessed, setLoading, sele
             category: category?.trim() || '',
             clockedInAt: row['Clocked In At'] || null,
             clockedOutAt: row['Clocked Out At'] || null,
-            hours: row['Regular Hours']?.split(':')[0] || '0',
+            hours: (() => {
+              // Parse hours and minutes properly
+              if (!row['Regular Hours']) return '0';
+              
+              const timeParts = row['Regular Hours'].split(':');
+              if (timeParts.length >= 2) {
+                const hours = parseInt(timeParts[0]) || 0;
+                const minutes = parseInt(timeParts[1]) || 0;
+                // Convert to decimal hours with precision to the minute
+                return (hours + (minutes / 60)).toFixed(2);
+              }
+              return timeParts[0] || '0';
+            })(),
             mileage: row['Mileage'] || 0,
             notes: row['Notes'] || '',
             format: 'timero' as const
